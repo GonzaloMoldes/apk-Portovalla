@@ -40,6 +40,20 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   se puede cambiar antes de enviar. Se abre la app de correo o WhatsApp con el mensaje ya
   escrito y solo hay que pulsar *Enviar*. Las visitas tipo *Visita Patrimonio* no generan
   mensaje.
+- **Presupuesto de vallas**: al marcar *PIDE PRESUPUESTO* aparece la tarjeta
+  *Presupuesto*:
+  - *Elegir vallas* abre el catálogo con foto, código `OOH-XXX`, dirección, municipio,
+    medida y categoría (con buscador, filtro por zona y botón *Ver en mapa*);
+  - ¿periodo de la campaña? Mensual, Trimestral, Semestral, Anual o *Elegir fechas*
+    (con un periodo fijo, la fecha de fin se calcula sola desde la de inicio);
+  - ¿tipo de material? Papel, Lona ligera, Lona pesada o Vinilo;
+  - precio del periodo y del material **por valla** (sin IVA). Total = (periodo +
+    material) × nº de vallas; si *PVP total* está vacío se rellena con ese total.
+
+  En el Excel se añade la hoja **PRESUPUESTOS** con una fila por valla: visita, código,
+  dirección, municipio, medida, categoría, latitud, longitud, enlace *Ver mapa*, periodo,
+  fechas, material, precios y la **foto** de la valla. En los mensajes se pueden usar
+  `{vallas}` (lista de vallas) y `{presupuesto}` (resumen).
 - **Botones** *Abrir Excel* y *Compartir* (enviarlo por correo, Drive, WhatsApp…).
 - **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos
   (variables `{contacto}`, `{empresa}`, `{poblacion}`, `{fecha}`, `{comercial}`,
@@ -76,6 +90,18 @@ En local (con Android Studio o el SDK de Android instalado):
 
 La APK se firma con `app/visitas.keystore` (incluida a propósito para que todas las
 versiones tengan la misma firma y se puedan instalar encima).
+
+## Catálogo de vallas
+
+Las vallas salen de los PDF del catálogo (una valla por página). Para añadir o actualizar:
+
+```bash
+pip install pypdf          # y poppler-utils (pdftotext, pdftoppm)
+python3 tools/extraer_vallas.py "A CORUÑA.pdf" "LUGO.pdf" "PUEBLOS A CORUÑA.pdf"
+```
+
+Genera `app/src/main/assets/vallas.js` y las fotos en `app/src/main/assets/vallas/`.
+La zona se toma del nombre del PDF y las coordenadas del enlace *Ver Street View*.
 
 ## Estructura
 

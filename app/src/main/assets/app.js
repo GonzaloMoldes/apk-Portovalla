@@ -203,6 +203,8 @@ function fillTemplate(tpl, lead) {
     miEmpresa: settings.miEmpresa || '',
     miTelefono: settings.miTelefono || '',
     miEmail: settings.miEmail || '',
+    vallas: budgetVallasText(lead.presupuesto),
+    presupuesto: budgetSummary(lead.presupuesto),
   };
   return String(tpl || '')
     .replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
@@ -243,6 +245,7 @@ function currentView() {
 window.handleBack = function () {
   if (!$('#send-modal').hidden) { closeSend(); return true; }
   if (!$('#ocr-modal').hidden) { $('#ocr-modal').hidden = true; return true; }
+  if (currentView() === 'vallas') { closePicker(); return true; }
   if (currentView() !== 'list') { show('list'); renderList(); return true; }
   return false;
 };
@@ -300,6 +303,8 @@ function renderList() {
       `<span class="badge">${esc(fmtDate(l.fecha))}</span>`,
       l.porcentaje ? `<span class="badge">${esc(l.porcentaje)}%</span>` : '',
       l.volver === 'Si' ? '<span class="badge volver">Volver</span>' : '',
+      l.presupuesto && l.presupuesto.vallas && l.presupuesto.vallas.length
+        ? `<span class="badge budget-b">Presupuesto · ${l.presupuesto.vallas.length} valla${l.presupuesto.vallas.length > 1 ? 's' : ''}${budgetTotal(l.presupuesto) ? ' · ' + fmtMoney(budgetTotal(l.presupuesto)) : ''}</span>` : '',
       l.envio ? `<span class="badge ok">✓ ${esc(l.envio)}</span>`
         : (ch.length && l.tipo !== 'Visita Patrimonio' ? '<span class="badge pend">Sin seguimiento</span>' : ''),
     ].join('');
@@ -405,6 +410,7 @@ function openForm(id) {
   $$('#situacion-chips .chip').forEach(c => c.classList.toggle('active', sit.sel.includes(c.dataset.value)));
   form.elements.nota.value = sit.nota;
   syncFillChips();
+  loadBudget(lead.presupuesto);
 
   $('#form-title').textContent = id ? 'Editar visita' : 'Nueva visita';
   $('#btn-delete').hidden = !id;
@@ -419,6 +425,9 @@ function readForm() {
   for (const f of FIELDS) data[f] = (form.elements[f].value || '').trim();
   data.situacion = composeSituacion();
   data.correo = data.correo.toLowerCase();
+  data.presupuesto = budgetForSave();
+  const total = budgetTotal();
+  if (data.presupuesto && total > 0 && !data.pvpTotal) data.pvpTotal = String(total).replace('.', ',');
   return data;
 }
 
@@ -444,8 +453,10 @@ function saveForm(thenSend) {
   if (editingId) {
     lead = leads.find(l => l.id === editingId);
     Object.assign(lead, data, { modificado: now });
+    if (!data.presupuesto) delete lead.presupuesto;
   } else {
     lead = Object.assign({ id: uid(), creado: now, modificado: now, envio: '' }, data);
+    if (!lead.presupuesto) delete lead.presupuesto;
     leads.push(lead);
   }
   persist();
@@ -540,6 +551,189 @@ function doSend() {
   persist();
   closeSend();
   renderList();
+}
+
+/* ------------------------------------------------------------- presupuesto de vallas */
+
+const VALLAS_DB = Array.isArray(window.VALLAS) ? window.VALLAS : [];
+const PERIOD_MONTHS = { Mensual: 1, Trimestral: 3, Semestral: 6, Anual: 12 };
+let budget = null;          // presupuesto que se está editando en el formulario
+let pickerSel = null;       // Set de códigos marcados en el selector
+let pickerZona = 'Todas';
+
+function emptyBudget() {
+  return { codes: [], snap: {}, periodo: '', desde: '', hasta: '', material: '', precioPeriodo: '', precioMaterial: '' };
+}
+
+function vallaByCode(code) {
+  return VALLAS_DB.find(v => v.codigo === code) || (budget && budget.snap[code]) || null;
+}
+
+function parseMoney(s) {
+  let v = String(s == null ? '' : s).replace(/[€\s]/g, '');
+  if (!v) return 0;
+  if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+  const n = Number(v);
+  return isFinite(n) ? n : 0;
+}
+
+function fmtMoney(n) {
+  return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+/** Total = (precio periodo + precio material) × nº de vallas. */
+function budgetTotal(b) {
+  b = b || budget;
+  if (!b) return 0;
+  const n = b.codes ? b.codes.length : (b.vallas || []).length;
+  return Math.round((parseMoney(b.precioPeriodo) + parseMoney(b.precioMaterial)) * n * 100) / 100;
+}
+
+function addMonthsISO(iso, months) {
+  const d = parseISO(iso);
+  if (!d) return '';
+  const e = new Date(d.getFullYear(), d.getMonth() + months, d.getDate() - 1);
+  return `${e.getFullYear()}-${pad(e.getMonth() + 1)}-${pad(e.getDate())}`;
+}
+
+function loadBudget(p) {
+  budget = emptyBudget();
+  if (p) {
+    for (const k of ['periodo', 'desde', 'hasta', 'material', 'precioPeriodo', 'precioMaterial']) budget[k] = p[k] || '';
+    for (const v of p.vallas || []) { budget.codes.push(v.codigo); budget.snap[v.codigo] = v; }
+  }
+  renderBudget();
+}
+
+function budgetVisible() {
+  const pide = $$('#situacion-chips .chip.active').some(c => /presupuesto/i.test(c.dataset.value));
+  return pide || (budget && budget.codes.length > 0);
+}
+
+function renderBudget() {
+  const card = $('#presupuesto-card');
+  card.hidden = !budgetVisible();
+  if (card.hidden || !budget) return;
+  $('#vallas-sel').innerHTML = budget.codes.length ? budget.codes.map(code => {
+    const v = vallaByCode(code) || { codigo: code, direccion: '' };
+    return `<div class="vsel">
+      ${v.foto ? `<img src="${esc(v.foto)}" alt="">` : ''}
+      <div class="vsel-info"><b>${esc(v.codigo)}</b><span>${esc(v.direccion)}${v.municipio ? ' · ' + esc(v.municipio) : ''}</span></div>
+      ${v.lat ? `<button type="button" class="act" data-map="${esc(code)}">📍</button>` : ''}
+      <button type="button" class="vsel-x" data-unvalla="${esc(code)}" aria-label="Quitar">✕</button>
+    </div>`;
+  }).join('') : '<p class="hint">Todavía no has elegido ninguna valla.</p>';
+
+  $$('[data-budget]').forEach(g => $$('.chip', g).forEach(c =>
+    c.classList.toggle('active', budget[g.dataset.budget] === c.dataset.value)));
+  const fechas = $('#periodo-fechas');
+  fechas.hidden = !budget.periodo;
+  const form = $('#lead-form');
+  form.elements.b_desde.value = budget.desde;
+  form.elements.b_hasta.value = budget.hasta;
+  form.elements.b_hasta.readOnly = budget.periodo !== 'Fechas';
+  form.elements.b_precioPeriodo.value = budget.precioPeriodo;
+  form.elements.b_precioMaterial.value = budget.precioMaterial;
+  renderBudgetTotal();
+}
+
+function renderBudgetTotal() {
+  const n = budget.codes.length;
+  const t = budgetTotal();
+  $('#presupuesto-total').textContent = n
+    ? `${n} valla${n > 1 ? 's' : ''}${t ? ` · Total: ${fmtMoney(t)} sin IVA` : ''}`
+    : '';
+}
+
+function budgetForSave() {
+  if (!budget || !budgetVisible()) return null;
+  const b = budget;
+  if (!b.codes.length && !b.periodo && !b.material && !b.precioPeriodo && !b.precioMaterial) return null;
+  return {
+    vallas: b.codes.map(code => {
+      const v = vallaByCode(code) || { codigo: code };
+      return { codigo: v.codigo, direccion: v.direccion || '', municipio: v.municipio || '', provincia: v.provincia || '',
+        zona: v.zona || '', medida: v.medida || '', categoria: v.categoria || '',
+        lat: v.lat == null ? '' : v.lat, lng: v.lng == null ? '' : v.lng, foto: v.foto || '' };
+    }),
+    periodo: b.periodo, desde: b.desde, hasta: b.hasta, material: b.material,
+    precioPeriodo: b.precioPeriodo, precioMaterial: b.precioMaterial,
+    total: String(Math.round((parseMoney(b.precioPeriodo) + parseMoney(b.precioMaterial)) * 100) / 100),
+  };
+}
+
+function budgetVallasText(p) {
+  if (!p || !p.vallas || !p.vallas.length) return '';
+  return p.vallas.map(v => `- ${v.codigo}: ${v.direccion}${v.municipio ? ` (${v.municipio})` : ''}`).join('\n');
+}
+
+function budgetSummary(p) {
+  if (!p) return '';
+  const periodo = p.periodo === 'Fechas' ? `del ${fmtDate(p.desde)} al ${fmtDate(p.hasta)}` : (p.periodo || '').toLowerCase();
+  const parts = [
+    p.vallas && p.vallas.length ? `${p.vallas.length} valla${p.vallas.length > 1 ? 's' : ''}` : '',
+    periodo ? `campaña ${periodo}` : '',
+    p.material ? `material: ${p.material.toLowerCase()}` : '',
+    budgetTotal(p) ? `total ${fmtMoney(budgetTotal(p))} sin IVA` : '',
+  ].filter(Boolean);
+  return parts.join(', ');
+}
+
+function setBudgetField(key, value) {
+  budget[key] = value;
+  if ((key === 'periodo' || key === 'desde') && PERIOD_MONTHS[budget.periodo]) {
+    if (!budget.desde) budget.desde = todayISO();
+    budget.hasta = addMonthsISO(budget.desde, PERIOD_MONTHS[budget.periodo]);
+  }
+  renderBudget();
+}
+
+/* --- selector de vallas --- */
+
+function openPicker() {
+  pickerSel = new Set(budget.codes);
+  const zonas = [...new Set(VALLAS_DB.map(v => v.zona).filter(Boolean))];
+  $('#vallas-zonas').innerHTML = ['Todas', ...zonas].map(z =>
+    `<button type="button" class="chip${z === pickerZona ? ' active' : ''}" data-zona="${esc(z)}">${esc(z === 'Todas' ? 'Todas' : z)}</button>`).join('');
+  $('#vallas-search').value = '';
+  renderPicker();
+  show('vallas');
+}
+
+function renderPicker() {
+  const q = $('#vallas-search').value.trim().toLowerCase();
+  const items = VALLAS_DB.filter(v =>
+    (pickerZona === 'Todas' || v.zona === pickerZona) &&
+    (!q || q.split(/\s+/).every(w =>
+      [v.codigo, v.direccion, v.municipio, v.zona, v.medida].join(' ').toLowerCase().includes(w))));
+  $('#vallas-stats').textContent = `${items.length} vallas · ${pickerSel.size} seleccionada${pickerSel.size === 1 ? '' : 's'}`;
+  $('#vallas-done').textContent = `Listo (${pickerSel.size})`;
+  $('#vallas-grid').innerHTML = items.length ? items.map(v => `
+    <article class="valla${pickerSel.has(v.codigo) ? ' sel' : ''}" data-valla="${esc(v.codigo)}">
+      <img src="${esc(v.foto)}" alt="" loading="lazy">
+      <div class="valla-body">
+        <div class="valla-code">${esc(v.codigo)}</div>
+        <div class="valla-dir">${esc(v.direccion)}</div>
+        <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
+        ${v.lat ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
+      </div>
+    </article>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';
+}
+
+function closePicker() {
+  // Se respeta el orden del catálogo
+  budget.codes = VALLAS_DB.map(v => v.codigo).filter(c => pickerSel.has(c))
+    .concat([...pickerSel].filter(c => !VALLAS_DB.some(v => v.codigo === c)));
+  show('form');
+  renderBudget();
+  setTimeout(() => $('#presupuesto-card').scrollIntoView({ block: 'start' }), 30);
+}
+
+function openMapFor(code) {
+  const v = vallaByCode(code);
+  if (!v || v.lat == null || v.lat === '') return;
+  if (NATIVE) window.Android.openMap(String(v.lat), String(v.lng), `${v.codigo} ${v.direccion}`);
+  else window.open(`https://www.google.com/maps?q=${v.lat},${v.lng}`);
 }
 
 /* ------------------------------------------------------------- tarjeta de visita (OCR) */
@@ -678,7 +872,7 @@ function resetTemplates() {
 /* ------------------------------------------------------------- eventos */
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('button, article.lead');
+  const t = e.target.closest('button, article.lead, article.valla');
   if (!t) return;
 
   // Grupos de chips de selección única (tipo, volver, %)
@@ -697,6 +891,33 @@ document.addEventListener('click', e => {
   }
   if (t.closest('[data-multi]') && t.classList.contains('chip')) {
     t.classList.toggle('active');
+    renderBudget();
+    return;
+  }
+  if (t.dataset.map) { openMapFor(t.dataset.map); return; }
+  const bg = t.closest('[data-budget]');
+  if (bg && t.classList.contains('chip')) {
+    setBudgetField(bg.dataset.budget, budget[bg.dataset.budget] === t.dataset.value ? '' : t.dataset.value);
+    return;
+  }
+  if (t.dataset.unvalla) {
+    budget.codes = budget.codes.filter(c => c !== t.dataset.unvalla);
+    renderBudget();
+    return;
+  }
+  if (t.matches('article.valla')) {
+    const c = t.dataset.valla;
+    if (pickerSel.has(c)) pickerSel.delete(c); else pickerSel.add(c);
+    t.classList.toggle('sel', pickerSel.has(c));
+    $('#vallas-stats').textContent = $('#vallas-stats').textContent.replace(/\d+ seleccionadas?$/,
+      `${pickerSel.size} seleccionada${pickerSel.size === 1 ? '' : 's'}`);
+    $('#vallas-done').textContent = `Listo (${pickerSel.size})`;
+    return;
+  }
+  if (t.dataset.zona) {
+    pickerZona = t.dataset.zona;
+    $$('#vallas-zonas .chip').forEach(c => c.classList.toggle('active', c === t));
+    renderPicker();
     return;
   }
   const dateGroup = t.closest('[data-date]');
@@ -737,6 +958,8 @@ document.addEventListener('click', e => {
   const exportArgs = () => [JSON.stringify(leads), settings.fichero || 'Visitas_Leads'];
   switch (t.dataset.action) {
     case 'new': openForm(null); break;
+    case 'vallas-pick': openPicker(); break;
+    case 'vallas-done': closePicker(); break;
     case 'scan-camera': scanCard('camera'); break;
     case 'scan-gallery': scanCard('gallery'); break;
     case 'ocr-done': $('#ocr-modal').hidden = true; break;
@@ -763,7 +986,14 @@ document.addEventListener('click', e => {
 $('#send-modal').addEventListener('click', e => { if (e.target.id === 'send-modal') closeSend(); });
 $('#ocr-modal').addEventListener('click', e => { if (e.target.id === 'ocr-modal') e.target.hidden = true; });
 $('#search').addEventListener('input', renderList);
+$('#vallas-search').addEventListener('input', renderPicker);
 $('#lead-form').addEventListener('input', e => {
+  const k = e.target.name || '';
+  if (k.startsWith('b_') && budget) {
+    budget[k.slice(2)] = e.target.value.trim();
+    if (k === 'b_desde') setBudgetField('desde', e.target.value);
+    else renderBudgetTotal();
+  }
   if (e.target.name === 'poblacion' || e.target.name === 'provincia') syncFillChips();
 });
 

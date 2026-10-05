@@ -126,6 +126,41 @@
       </div>
     </div>
 
+    <div class="card budget" id="presupuesto-card" hidden>
+      <h2>Presupuesto</h2>
+
+      <label class="lbl">Vallas</label>
+      <div id="vallas-sel"></div>
+      <button type="button" class="btn" data-action="vallas-pick">＋ Elegir vallas</button>
+
+      <label class="lbl">¿Cuál es el periodo de la campaña?</label>
+      <div class="chips" data-budget="periodo">
+        <button type="button" class="chip" data-value="Mensual">Mensual</button>
+        <button type="button" class="chip" data-value="Trimestral">Trimestral</button>
+        <button type="button" class="chip" data-value="Semestral">Semestral</button>
+        <button type="button" class="chip" data-value="Anual">Anual</button>
+        <button type="button" class="chip" data-value="Fechas">📅 Elegir fechas</button>
+      </div>
+      <div class="grid" id="periodo-fechas" hidden>
+        <label>Desde<input type="date" name="b_desde"></label>
+        <label>Hasta<input type="date" name="b_hasta"></label>
+      </div>
+
+      <label class="lbl">¿Qué tipo de material?</label>
+      <div class="chips" data-budget="material">
+        <button type="button" class="chip" data-value="Papel">Papel</button>
+        <button type="button" class="chip" data-value="Lona ligera">Lona ligera</button>
+        <button type="button" class="chip" data-value="Lona pesada">Lona pesada</button>
+        <button type="button" class="chip" data-value="Vinilo">Vinilo</button>
+      </div>
+
+      <div class="grid">
+        <label>Precio del periodo por valla (€ sin IVA)<input type="text" name="b_precioPeriodo" inputmode="decimal"></label>
+        <label>Precio del material por valla (€ sin IVA)<input type="text" name="b_precioMaterial" inputmode="decimal"></label>
+      </div>
+      <p class="budget-total" id="presupuesto-total"></p>
+    </div>
+
     <details class="card">
       <summary>Precio, firma y trabajo</summary>
       <div class="grid">
@@ -147,6 +182,23 @@
       <button type="button" class="btn primary" data-action="save-send" id="btn-save-send">Guardar y enviar</button>
     </div>
   </form>
+</section>
+
+<!-- ======================= ELEGIR VALLAS ======================= -->
+<section id="view-vallas" class="view">
+  <header class="bar">
+    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <h1>Elegir vallas</h1>
+    <div class="bar-actions">
+      <button class="btn-bar" data-action="vallas-done" id="vallas-done">Listo</button>
+    </div>
+  </header>
+  <div class="toolbar">
+    <input id="vallas-search" type="search" placeholder="Buscar por código OOH, calle, municipio…" autocomplete="off">
+    <div class="chips" id="vallas-zonas"></div>
+    <p class="stats" id="vallas-stats"></p>
+  </div>
+  <main id="vallas-grid" class="vallas-grid"></main>
 </section>
 
 <!-- ======================= AJUSTES ======================= -->
@@ -173,7 +225,7 @@
     <div class="card">
       <h2>Envío tras la visita</h2>
       <label class="check"><input type="checkbox" name="autoEnviar"> Al guardar una visita nueva, preparar el mensaje automáticamente</label>
-      <p class="hint">Si la lead tiene correo se envía email; si solo tiene móvil, WhatsApp. Variables: <code>{contacto}</code> <code>{empresa}</code> <code>{poblacion}</code> <code>{fecha}</code> <code>{comercial}</code> <code>{miEmpresa}</code> <code>{miTelefono}</code> <code>{miEmail}</code></p>
+      <p class="hint">Si la lead tiene correo se envía email; si solo tiene móvil, WhatsApp. Variables: <code>{contacto}</code> <code>{empresa}</code> <code>{poblacion}</code> <code>{fecha}</code> <code>{comercial}</code> <code>{miEmpresa}</code> <code>{miTelefono}</code> <code>{miEmail}</code> <code>{vallas}</code> <code>{presupuesto}</code></p>
       <label>Prefijo de país para WhatsApp<input type="text" name="prefijo" inputmode="numeric"></label>
       <p class="hint">Hay 3 modelos de mensaje, cada uno con versión email y WhatsApp. Al enviar se propone uno según la visita y puedes cambiarlo.</p>
     </div>
@@ -253,6 +305,7 @@
 
 <div class="toast" id="toast" hidden></div>
 
+<script src="vallas.js"></script>
 <script src="ocr.js"></script>
 <script src="app.js"></script>
 </body>

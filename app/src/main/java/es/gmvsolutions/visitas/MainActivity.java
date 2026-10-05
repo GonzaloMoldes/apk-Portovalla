@@ -297,28 +297,67 @@ public class MainActivity extends Activity {
 
     // ---------------------------------------------------------------- excel
 
+    /** Campos simples (texto/número) de un objeto JSON. */
+    private static Map<String, String> flat(JSONObject o) {
+        Map<String, String> m = new HashMap<>();
+        Iterator<String> keys = o.keys();
+        while (keys.hasNext()) {
+            String k = keys.next();
+            Object v = o.opt(k);
+            if (v != null && v != JSONObject.NULL && !(v instanceof JSONObject) && !(v instanceof JSONArray)) {
+                m.put(k, String.valueOf(v));
+            }
+        }
+        return m;
+    }
+
     private static List<Map<String, String>> parseLeads(String json) throws Exception {
         JSONArray arr = new JSONArray(json);
         List<Map<String, String>> list = new ArrayList<>();
-        for (int i = 0; i < arr.length(); i++) {
-            JSONObject o = arr.getJSONObject(i);
-            Map<String, String> m = new HashMap<>();
-            Iterator<String> keys = o.keys();
-            while (keys.hasNext()) {
-                String k = keys.next();
-                Object v = o.opt(k);
-                if (v != null && v != JSONObject.NULL && !(v instanceof JSONObject) && !(v instanceof JSONArray)) {
-                    m.put(k, String.valueOf(v));
-                }
-            }
-            list.add(m);
-        }
+        for (int i = 0; i < arr.length(); i++) list.add(flat(arr.getJSONObject(i)));
         return list;
+    }
+
+    /** Una fila por valla presupuestada: datos de la visita + valla + campaña. */
+    private static List<Map<String, String>> parseBudgets(String json) throws Exception {
+        JSONArray arr = new JSONArray(json);
+        List<Map<String, String>> rows = new ArrayList<>();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject lead = arr.getJSONObject(i);
+            JSONObject p = lead.optJSONObject("presupuesto");
+            JSONArray vallas = p == null ? null : p.optJSONArray("vallas");
+            if (vallas == null) continue;
+            Map<String, String> base = flat(lead);
+            base.putAll(flat(p));
+            for (int k = 0; k < vallas.length(); k++) {
+                JSONObject v = vallas.optJSONObject(k);
+                if (v == null) continue;
+                Map<String, String> row = new HashMap<>(base);
+                row.putAll(flat(v));
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
+    /** Lee una foto incluida en la app (assets/vallas/…). */
+    private byte[] loadAsset(String path) {
+        try (InputStream in = getAssets().open(path)) {
+            java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+            byte[] b = new byte[16384];
+            int n;
+            while ((n = in.read(b)) > 0) buf.write(b, 0, n);
+            return buf.toByteArray();
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     /** Escribe el Excel en Descargas/VisitasLeads y devuelve su Uri. */
     private Uri writeExcel(String leadsJson, String fileName) throws Exception {
         List<Map<String, String>> leads = parseLeads(leadsJson);
+        List<Map<String, String>> budgets = parseBudgets(leadsJson);
+        XlsxWriter.PhotoSource photos = this::loadAsset;
         String name = fileName.endsWith(".xlsx") ? fileName : fileName + ".xlsx";
 
         if (Build.VERSION.SDK_INT >= 29) {
@@ -345,7 +384,7 @@ public class MainActivity extends Activity {
             try (ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "rwt");
                  FileOutputStream out = new FileOutputStream(pfd.getFileDescriptor())) {
                 out.getChannel().truncate(0);
-                XlsxWriter.write(leads, out);
+                XlsxWriter.write(leads, budgets, photos, out);
             }
             return uri;
         }
@@ -355,7 +394,7 @@ public class MainActivity extends Activity {
         if (!dir.exists() && !dir.mkdirs()) throw new IOException("No se pudo crear la carpeta " + dir);
         File f = new File(dir, name);
         try (OutputStream out = new FileOutputStream(f)) {
-            XlsxWriter.write(leads, out);
+            XlsxWriter.write(leads, budgets, photos, out);
         }
         final Uri[] result = new Uri[1];
         final CountDownLatch latch = new CountDownLatch(1);
@@ -444,6 +483,20 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void scanCard(String source) {
             runOnUiThread(() -> startScan(source));
+        }
+
+        /** Abre la ubicación en Google Maps (o la app de mapas instalada). */
+        @JavascriptInterface
+        public void openMap(String lat, String lng, String label) {
+            Uri geo = Uri.parse("geo:" + lat + "," + lng + "?q=" + lat + "," + lng + "(" + Uri.encode(label) + ")");
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, geo));
+                } catch (ActivityNotFoundException e) {
+                    launch(new Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://www.google.com/maps?q=" + lat + "," + lng)), "No se pudo abrir el mapa");
+                }
+            });
         }
 
         @JavascriptInterface
