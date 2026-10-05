@@ -108,9 +108,9 @@ Los datos se guardan dentro de la tablet (no se suben a ningún servidor).
 
 ## Instalarla en la tablet
 
-1. En la tablet, abre la página de **Releases** del repositorio:
-   <https://github.com/GonzaloMoldes/apk-Portovalla/releases>
-   y descarga el último `VisitasLeads-1.0.N.apk`.
+1. En la tablet, abre la **última versión**:
+   <https://github.com/GonzaloMoldes/apk-Portovalla/releases/latest>
+   y descarga el fichero `VisitasLeads-1.0.N.apk`.
 2. Ábrelo. Android pedirá permitir *Instalar apps desconocidas* para el navegador
    (o el gestor de archivos): actívalo y pulsa **Instalar**.
 3. Para actualizar, instala la APK nueva encima: se conservan las visitas.

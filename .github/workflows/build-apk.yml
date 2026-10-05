@@ -22,6 +22,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Etiqueta con el número relleno de ceros (vl-0011) para que GitHub ordene bien
+      # las versiones: como texto "1.0.9" iría por delante de "1.0.10".
+      - name: Número de versión
+        run: echo "BUILD=$(printf '%04d' "$GITHUB_RUN_NUMBER")" >> "$GITHUB_ENV"
+
       - name: Compilar APK
         run: |
           chmod +x gradlew
@@ -37,7 +42,7 @@ jobs:
       - name: Publicar descarga (Releases)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: visitas-leads-1.0.${{ github.run_number }}
+          tag_name: vl-${{ env.BUILD }}
           name: Visitas Leads 1.0.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           prerelease: ${{ github.ref != 'refs/heads/main' }}
