@@ -62,6 +62,22 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   dirección, municipio, medida, categoría, latitud, longitud, enlace *Ver mapa*, periodo,
   fechas, material, precios y la **foto** de la valla. En los mensajes se pueden usar
   `{vallas}` (lista de vallas) y `{presupuesto}` (resumen).
+- **Pestañas** arriba: **Visitas · Vallas · Trabajos**.
+- **Vallas (catálogo editable)**: buscar y filtrar por zona y municipio, tocar una valla para
+  **editarla** (dirección, zona, municipio, provincia, medida, categoría, coordenadas y
+  foto) o **＋ Nueva valla** para añadir una. Para la foto: *Hacer foto* o *Desde
+  galería*; para las coordenadas: *Usar mi ubicación* (GPS), escribirlas o pegar un enlace
+  de Google Maps. Las vallas del catálogo original se pueden eliminar o *Volver al
+  original*. Los cambios se guardan en la tablet y se usan en presupuestos y trabajos.
+- **Trabajos en vallas**: desbrozar, instalar lona, desinstalar lona, retirar lona, cambio
+  de lona, arreglo / reparación, revisión u otro (se pueden marcar varios), sobre una o
+  varias vallas, con fecha prevista, prioridad (urgente), persona o equipo asignado,
+  cliente/campaña, material, instrucciones, estado (pendiente, en curso, hecho), fecha
+  realizado y observaciones. Lista filtrable por estado y persona, con botón *✓ Hecho*.
+  **📤 Excel**: elige qué trabajos (pendientes o todos) y para quién, y se crea
+  `Descargas/VisitasLeads/Trabajos/Trabajos_<persona>_<fecha>.xlsx` con una fila por
+  valla (dirección, enlace al mapa, foto, instrucciones, estado con desplegable…) para
+  **compartirlo** por WhatsApp, email, etc. o abrirlo.
 - **Botones** *Abrir Excel* y *Compartir* (enviarlo por correo, Drive, WhatsApp…).
 - **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos
   (variables `{contacto}`, `{empresa}`, `{poblacion}`, `{fecha}`, `{comercial}`,

@@ -11,7 +11,7 @@
 <!-- ======================= LISTADO ======================= -->
 <section id="view-list" class="view active">
   <header class="bar">
-    <h1>Visitas</h1>
+    <nav class="tabs"><button class="tab active" data-tab="list">Visitas</button><button class="tab" data-tab="catalogo">Vallas</button><button class="tab" data-tab="trabajos">Trabajos</button></nav>
     <div class="bar-actions">
       <button class="btn-bar" data-action="excel-open" title="Abrir Excel">Abrir Excel</button>
       <button class="btn-bar" data-action="excel-share" title="Compartir Excel">Compartir</button>
@@ -202,6 +202,225 @@
   <main id="vallas-grid" class="vallas-grid"></main>
 </section>
 
+<!-- ======================= CATÁLOGO DE VALLAS ======================= -->
+<section id="view-catalogo" class="view">
+  <header class="bar">
+    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab active" data-tab="catalogo">Vallas</button><button class="tab" data-tab="trabajos">Trabajos</button></nav>
+    <div class="bar-actions">
+      <button class="btn-bar" data-g="valla-new">＋ Nueva valla</button>
+    </div>
+  </header>
+  <div class="toolbar">
+    <input id="cat-search" type="search" placeholder="Buscar por código OOH, calle, municipio…" autocomplete="off">
+    <div class="chips" id="cat-zonas"></div>
+    <div class="chips small" id="cat-munis"></div>
+    <p class="stats" id="cat-stats"></p>
+  </div>
+  <main id="cat-grid" class="vallas-grid"></main>
+</section>
+
+<!-- ======================= FICHA DE VALLA ======================= -->
+<section id="view-valla-form" class="view">
+  <header class="bar">
+    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <h1 id="valla-form-title">Nueva valla</h1>
+    <div class="bar-actions"></div>
+  </header>
+  <form id="valla-form" autocomplete="off" novalidate>
+    <div class="card">
+      <div class="valla-photo" id="vf-photo"></div>
+      <div class="scan-row">
+        <button type="button" class="btn scan" data-g="vf-photo-camera">📷 Hacer foto</button>
+        <button type="button" class="btn" data-g="vf-photo-gallery">🖼 Desde galería</button>
+        <button type="button" class="btn danger" data-g="vf-photo-remove" id="vf-photo-remove">Quitar foto</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <label>Código *<input type="text" name="codigo" placeholder="OOH-1234" autocapitalize="characters"></label>
+        <div>
+          <label class="lbl">Categoría</label>
+          <div class="chips" data-vf="categoria">
+            <button type="button" class="chip" data-value="A">A</button>
+            <button type="button" class="chip" data-value="B">B</button>
+            <button type="button" class="chip" data-value="C">C</button>
+            <button type="button" class="chip" data-value="D">D</button>
+          </div>
+          <input type="hidden" name="categoria">
+        </div>
+      </div>
+      <label>Dirección *<textarea name="direccion" rows="2" autocapitalize="characters"></textarea></label>
+      <label class="lbl">Zona</label>
+      <div class="chips small" data-vf-fill="zona" id="vf-zonas"></div>
+      <input type="text" name="zona" autocapitalize="characters">
+      <div class="grid">
+        <div>
+          <label>Municipio<input type="text" name="municipio" list="dl-munis"></label>
+          <div class="chips small" data-vf-fill="municipio" id="vf-munis"></div>
+          <datalist id="dl-munis"></datalist>
+        </div>
+        <div>
+          <label>Provincia<input type="text" name="provincia"></label>
+          <div class="chips small" data-vf-fill="provincia">
+            <button type="button" class="chip" data-value="Coruña">Coruña</button>
+            <button type="button" class="chip" data-value="Lugo">Lugo</button>
+            <button type="button" class="chip" data-value="Pontevedra">Pontevedra</button>
+            <button type="button" class="chip" data-value="Ourense">Ourense</button>
+          </div>
+        </div>
+      </div>
+      <label class="lbl">Medida</label>
+      <div class="chips small" data-vf-fill="medida">
+        <button type="button" class="chip" data-value="800x300">800x300</button>
+        <button type="button" class="chip" data-value="800x600">800x600</button>
+        <button type="button" class="chip" data-value="400x300">400x300</button>
+        <button type="button" class="chip" data-value="640x300">640x300</button>
+        <button type="button" class="chip" data-value="1200x500, Monoposte">1200x500 Monoposte</button>
+      </div>
+      <input type="text" name="medida">
+    </div>
+
+    <div class="card">
+      <label>Coordenadas (latitud, longitud) o enlace de Google Maps
+        <input type="text" name="coords" placeholder="43.332403, -8.399619" inputmode="text">
+      </label>
+      <div class="scan-row">
+        <button type="button" class="btn scan" data-g="vf-location" id="vf-location">📍 Usar mi ubicación</button>
+        <button type="button" class="btn" data-g="vf-map">🗺 Ver en mapa</button>
+      </div>
+      <p class="hint" id="vf-coords-hint"></p>
+    </div>
+
+    <p class="hint" id="vf-origin"></p>
+    <div class="form-actions">
+      <button type="button" class="btn danger" data-g="valla-delete" id="vf-delete">Eliminar</button>
+      <button type="button" class="btn" data-g="valla-restore" id="vf-restore">Volver al original</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-g="valla-save">Guardar valla</button>
+    </div>
+  </form>
+</section>
+
+<!-- ======================= TRABAJOS EN VALLAS ======================= -->
+<section id="view-trabajos" class="view">
+  <header class="bar">
+    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab" data-tab="catalogo">Vallas</button><button class="tab active" data-tab="trabajos">Trabajos</button></nav>
+    <div class="bar-actions">
+      <button class="btn-bar" data-g="tr-export">📤 Excel</button>
+      <button class="btn-bar" data-g="tr-new">＋ Nuevo</button>
+    </div>
+  </header>
+  <div class="toolbar">
+    <input id="tr-search" type="search" placeholder="Buscar valla, municipio, cliente, persona…" autocomplete="off">
+    <div class="chips" id="tr-estados">
+      <button class="chip active" data-tr-estado="abiertos">Pendientes</button>
+      <button class="chip" data-tr-estado="Hecho">Hechos</button>
+      <button class="chip" data-tr-estado="todos">Todos</button>
+    </div>
+    <div class="chips small" id="tr-personas"></div>
+    <p class="stats" id="tr-stats"></p>
+  </div>
+  <main id="tr-list"></main>
+  <button class="fab" data-g="tr-new" aria-label="Nuevo trabajo">＋ Nuevo trabajo</button>
+</section>
+
+<!-- ======================= FICHA DE TRABAJO ======================= -->
+<section id="view-trabajo-form" class="view">
+  <header class="bar">
+    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <h1 id="trabajo-form-title">Nuevo trabajo</h1>
+    <div class="bar-actions"></div>
+  </header>
+  <form id="trabajo-form" autocomplete="off" novalidate>
+    <div class="card">
+      <label class="lbl">¿Qué hay que hacer? <span class="hint-inline">(puedes marcar varios)</span></label>
+      <div class="chips multi" id="tf-tipos"></div>
+    </div>
+
+    <div class="card">
+      <label class="lbl">Vallas</label>
+      <div id="tf-vallas"></div>
+      <button type="button" class="btn" data-g="tf-pick">＋ Elegir vallas</button>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label>Fecha prevista<input type="date" name="fechaPrevista"></label>
+          <div class="chips small" data-tf-date="fechaPrevista">
+            <button type="button" class="chip" data-offset="0">Hoy</button>
+            <button type="button" class="chip" data-offset="1">Mañana</button>
+            <button type="button" class="chip" data-offset="7">En una semana</button>
+          </div>
+        </div>
+        <div>
+          <label class="lbl">Prioridad</label>
+          <div class="chips" data-tf="prioridad">
+            <button type="button" class="chip" data-value="Normal">Normal</button>
+            <button type="button" class="chip" data-value="Urgente">🔴 Urgente</button>
+          </div>
+        </div>
+      </div>
+      <label>Asignado a (persona o equipo)<input type="text" name="asignado" autocapitalize="words"></label>
+      <div class="chips small" data-tf-fill="asignado" id="tf-personas"></div>
+    </div>
+
+    <div class="card">
+      <label>Cliente / campaña (lona)<input type="text" name="campana" autocapitalize="characters"></label>
+      <label class="lbl">Material</label>
+      <div class="chips" data-tf="material">
+        <button type="button" class="chip" data-value="Papel">Papel</button>
+        <button type="button" class="chip" data-value="Lona ligera">Lona ligera</button>
+        <button type="button" class="chip" data-value="Lona pesada">Lona pesada</button>
+        <button type="button" class="chip" data-value="Vinilo">Vinilo</button>
+      </div>
+      <label>Instrucciones para quien hace el trabajo<textarea name="descripcion" rows="3"></textarea></label>
+    </div>
+
+    <div class="card">
+      <label class="lbl">Estado</label>
+      <div class="chips" data-tf="estado">
+        <button type="button" class="chip" data-value="Pendiente">Pendiente</button>
+        <button type="button" class="chip" data-value="En curso">En curso</button>
+        <button type="button" class="chip" data-value="Hecho">✓ Hecho</button>
+      </div>
+      <div class="grid">
+        <label>Fecha realizado<input type="date" name="fechaHecho"></label>
+        <label>Observaciones<input type="text" name="obs"></label>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn danger" data-g="tr-delete" id="tf-delete">Eliminar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-g="tr-save">Guardar trabajo</button>
+    </div>
+  </form>
+</section>
+
+<!-- ======================= COMPARTIR TRABAJOS ======================= -->
+<div class="modal" id="tr-export-modal" hidden>
+  <div class="sheet">
+    <h2>Excel de trabajos</h2>
+    <p class="hint">Una fila por valla, con dirección, mapa, foto, instrucciones y estado.</p>
+    <label class="lbl">¿Qué trabajos?</label>
+    <div class="chips" id="tx-estado">
+      <button type="button" class="chip active" data-tx-estado="abiertos">Pendientes y en curso</button>
+      <button type="button" class="chip" data-tx-estado="todos">Todos</button>
+    </div>
+    <label class="lbl">¿Para quién?</label>
+    <div class="chips" id="tx-personas"></div>
+    <p class="stats" id="tx-stats"></p>
+    <div class="form-actions">
+      <button type="button" class="btn" data-g="tx-cancel">Cancelar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-g="tx-open">Abrir</button>
+      <button type="button" class="btn primary" data-g="tx-share">📤 Compartir</button>
+    </div>
+  </div>
+</div>
+
 <!-- ======================= AJUSTES ======================= -->
 <section id="view-settings" class="view">
   <header class="bar">
@@ -319,5 +538,6 @@
 <script src="vallas.js"></script>
 <script src="ocr.js"></script>
 <script src="app.js"></script>
+<script src="gestion.js"></script>
 </body>
 </html>

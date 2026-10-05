@@ -598,10 +598,37 @@ function doSend() {
 
 /* ------------------------------------------------------------- presupuesto de vallas */
 
-const VALLAS_DB = Array.isArray(window.VALLAS) ? window.VALLAS : [];
+/* Catálogo = vallas incluidas en la app + cambios hechos en la tablet
+ * (vallas_user: { CODIGO: {...campos} | { _borrada: true } }). */
+const VALLAS_BASE = Array.isArray(window.VALLAS) ? window.VALLAS : [];
+let vallasUser = store.load('vallas_user') || {};
+let VALLAS_DB = buildCatalog();
+
+function buildCatalog() {
+  const out = [];
+  const seen = new Set();
+  for (const v of VALLAS_BASE) {
+    seen.add(v.codigo);
+    const u = vallasUser[v.codigo];
+    if (u && u._borrada) continue;
+    out.push(u ? Object.assign({}, v, u, { _editada: true }) : v);
+  }
+  for (const [code, u] of Object.entries(vallasUser)) {
+    if (!seen.has(code) && !u._borrada) out.push(Object.assign({ codigo: code }, u, { _nueva: true }));
+  }
+  return out.sort((a, b) => (a.zona || '').localeCompare(b.zona || '', 'es')
+    || (a.municipio || '').localeCompare(b.municipio || '', 'es')
+    || (a.direccion || '').localeCompare(b.direccion || '', 'es'));
+}
+
+function saveCatalog() {
+  store.save('vallas_user', vallasUser);
+  VALLAS_DB = buildCatalog();
+}
 const PERIOD_MONTHS = { Mensual: 1, Trimestral: 3, Semestral: 6, Anual: 12 };
 let budget = null;          // presupuesto que se está editando en el formulario
 let pickerSel = null;       // Set de códigos marcados en el selector
+let pickerCtx = null;       // { done(codes), back: vista a la que volver }
 let pickerZona = 'Todas';
 let pickerMuni = '';
 
@@ -827,8 +854,10 @@ function setBudgetField(key, value) {
 
 /* --- selector de vallas --- */
 
-function openPicker() {
-  pickerSel = new Set(budget.codes);
+/** Abre el selector de vallas; al terminar llama a done(codigos) y vuelve a la vista `back`. */
+function openPicker(codes, done, back) {
+  pickerSel = new Set(codes || []);
+  pickerCtx = { done: done || (() => {}), back: back || 'form' };
   const zonas = [...new Set(VALLAS_DB.map(v => v.zona).filter(Boolean))];
   $('#vallas-zonas').innerHTML = ['Todas', ...zonas].map(z =>
     `<button type="button" class="chip${z === pickerZona ? ' active' : ''}" data-zona="${esc(z)}">${esc(z === 'Todas' ? 'Todas' : z)}</button>`).join('');
@@ -871,11 +900,20 @@ function renderPicker() {
 
 function closePicker() {
   // Se respeta el orden del catálogo
-  budget.codes = VALLAS_DB.map(v => v.codigo).filter(c => pickerSel.has(c))
+  const codes = VALLAS_DB.map(v => v.codigo).filter(c => pickerSel.has(c))
     .concat([...pickerSel].filter(c => !VALLAS_DB.some(v => v.codigo === c)));
-  show('form');
-  renderBudget();
-  setTimeout(() => $('#presupuesto-card').scrollIntoView({ block: 'start' }), 30);
+  const ctx = pickerCtx || { done: () => {}, back: 'form' };
+  pickerCtx = null;
+  show(ctx.back);
+  ctx.done(codes);
+}
+
+function openBudgetPicker() {
+  openPicker(budget.codes, codes => {
+    budget.codes = codes;
+    renderBudget();
+    setTimeout(() => $('#presupuesto-card').scrollIntoView({ block: 'start' }), 30);
+  }, 'form');
 }
 
 function openMapFor(code) {
@@ -1114,7 +1152,7 @@ document.addEventListener('click', e => {
   const exportArgs = () => [JSON.stringify(leads), settings.fichero || 'Visitas_Leads'];
   switch (t.dataset.action) {
     case 'new': openForm(null); break;
-    case 'vallas-pick': openPicker(); break;
+    case 'vallas-pick': openBudgetPicker(); break;
     case 'vallas-done': closePicker(); break;
     case 'scan-camera': scanCard('camera'); break;
     case 'scan-gallery': scanCard('gallery'); break;

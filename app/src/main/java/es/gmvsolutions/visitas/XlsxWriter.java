@@ -40,6 +40,8 @@ public final class XlsxWriter {
 
     private static final class Col {
         final String header; final String key; final Kind kind; final double width;
+        String list;   // valores del desplegable (opcional), separados por comas
+        Col withList(String values) { this.list = values; return this; }
         Col(String header, String key, Kind kind, double width) {
             this.header = header; this.key = key; this.kind = kind; this.width = width;
         }
@@ -88,6 +90,7 @@ public final class XlsxWriter {
     private static final class Drawing {
         final StringBuilder anchors = new StringBuilder();
         final List<String> mediaNames = new ArrayList<>();   // rIdN → media
+        final List<String> mediaPaths = new ArrayList<>();   // ruta original de cada media
         int pics = 0;
     }
 
@@ -136,13 +139,29 @@ public final class XlsxWriter {
             if (first && budgets != null && !budgets.isEmpty()) {
                 // La hoja de presupuestos va justo detrás de TODAS
                 Drawing dr = new Drawing();
-                String xml = budgetSheet(budgets, photos, dr);
+                String xml = tableSheet(budgets, BCOLS, photos, dr);
                 sheets.add(new Sheet("PRESUPUESTOS", xml, "$A$1:$" + colName(BCOLS.length - 1)
                         + "$" + (budgets.size() + 1), dr.pics > 0 ? dr : null));
             }
             first = false;
         }
 
+        zipWorkbook(sheets, photos, out);
+    }
+
+    /** Libro con una sola tabla (p. ej. TRABAJOS) con fotos incrustadas. */
+    public static void writeTable(String kind, String sheetName, List<Map<String, String>> rows,
+                                  PhotoSource photos, OutputStream out) throws IOException {
+        Col[] cols = "trabajos".equals(kind) ? TCOLS : BCOLS;
+        Drawing dr = new Drawing();
+        String xml = tableSheet(rows, cols, photos, dr);
+        List<Sheet> sheets = new ArrayList<>();
+        sheets.add(new Sheet(sheetName, xml, "$A$1:$" + colName(cols.length - 1) + "$" + (rows.size() + 1),
+                dr.pics > 0 ? dr : null));
+        zipWorkbook(sheets, photos, out);
+    }
+
+    private static void zipWorkbook(List<Sheet> sheets, PhotoSource photos, OutputStream out) throws IOException {
         ZipOutputStream zip = new ZipOutputStream(out);
         int drawings = 0;
         for (Sheet sh : sheets) if (sh.drawing != null) drawings++;
@@ -158,7 +177,7 @@ public final class XlsxWriter {
         put(zip, "xl/styles.xml", STYLES);
         int i = 1;
         int d = 1;
-        Map<String, String> mediaWritten = new HashMap<>();
+        Map<String, String> media = new LinkedHashMap<>();   // nombre en el zip → ruta de la foto
         for (Sheet sh : sheets) {
             put(zip, "xl/worksheets/sheet" + i + ".xml", sh.xml);
             if (sh.drawing != null) {
@@ -175,6 +194,7 @@ public final class XlsxWriter {
                     dr.append("<Relationship Id=\"rId").append(k + 1)
                       .append("\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"../media/")
                       .append(sh.drawing.mediaNames.get(k)).append("\"/>");
+                    media.put(sh.drawing.mediaNames.get(k), sh.drawing.mediaPaths.get(k));
                 }
                 put(zip, "xl/drawings/_rels/drawing" + d + ".xml.rels", rels(dr.toString()));
                 d++;
@@ -183,14 +203,10 @@ public final class XlsxWriter {
         }
         // Fotos (una sola vez cada una)
         if (photos != null) {
-            for (Map<String, String> b : budgets) {
-                String path = nz(b.get("foto"));
-                String media = mediaName(path);
-                if (path.isEmpty() || mediaWritten.containsKey(media)) continue;
-                byte[] img = photos.load(path);
+            for (Map.Entry<String, String> e : media.entrySet()) {
+                byte[] img = photos.load(e.getValue());
                 if (img == null) continue;
-                mediaWritten.put(media, path);
-                zip.putNextEntry(new ZipEntry("xl/media/" + media));
+                zip.putNextEntry(new ZipEntry("xl/media/" + e.getKey()));
                 zip.write(img);
                 zip.closeEntry();
             }
@@ -373,8 +389,32 @@ public final class XlsxWriter {
     private static final double PHOTO_ROW_PT = 102;
     private static final long EMU_PX = 9525;
 
-    private static String budgetSheet(List<Map<String, String>> rows, PhotoSource photos, Drawing dr) {
-        String lastCol = colName(BCOLS.length - 1);
+    // ------------------------------------------------------------ trabajos en vallas
+
+    private static final Col[] TCOLS = {
+        new Col("Nº", "num", Kind.TEXT, 6),
+        new Col("FECHA PREVISTA", "fechaPrevista", Kind.DATE, 12),
+        new Col("PRIORIDAD", "prioridad", Kind.TEXT, 10).withList("Normal,Urgente"),
+        new Col("TRABAJO", "tipos", Kind.WRAP, 22),
+        new Col("VALLA", "codigo", Kind.TEXT, 12),
+        new Col("DIRECCIÓN VALLA", "direccion", Kind.WRAP, 34),
+        new Col("MUNICIPIO", "municipio", Kind.TEXT, 14),
+        new Col("MEDIDA", "medida", Kind.TEXT, 11),
+        new Col("LATITUD", "lat", Kind.COORD, 12),
+        new Col("LONGITUD", "lng", Kind.COORD, 12),
+        new Col("MAPA", "mapa", Kind.LINK, 11),
+        new Col("CLIENTE / CAMPAÑA", "campana", Kind.TEXT, 20),
+        new Col("MATERIAL", "material", Kind.TEXT, 13),
+        new Col("INSTRUCCIONES", "descripcion", Kind.WRAP, 36),
+        new Col("ASIGNADO A", "asignado", Kind.TEXT, 16),
+        new Col("ESTADO", "estado", Kind.TEXT, 11).withList("Pendiente,En curso,Hecho"),
+        new Col("FECHA REALIZADO", "fechaHecho", Kind.DATE, 12),
+        new Col("OBSERVACIONES DEL OPERARIO", "obs", Kind.WRAP, 30),
+        new Col("FOTO", "foto", Kind.PHOTO, 26),
+    };
+
+    private static String tableSheet(List<Map<String, String>> rows, Col[] cols, PhotoSource photos, Drawing dr) {
+        String lastCol = colName(cols.length - 1);
         int lastRow = rows.size() + 1;
         StringBuilder sb = new StringBuilder();
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n")
@@ -385,13 +425,13 @@ public final class XlsxWriter {
           .append("<pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/>")
           .append("</sheetView></sheetViews>")
           .append("<sheetFormatPr defaultRowHeight=\"15\"/><cols>");
-        for (int c = 0; c < BCOLS.length; c++) {
+        for (int c = 0; c < cols.length; c++) {
             sb.append("<col min=\"").append(c + 1).append("\" max=\"").append(c + 1)
-              .append("\" width=\"").append(BCOLS[c].width).append("\" customWidth=\"1\"/>");
+              .append("\" width=\"").append(cols[c].width).append("\" customWidth=\"1\"/>");
         }
         sb.append("</cols><sheetData>");
         sb.append("<row r=\"1\" ht=\"32\" customHeight=\"1\">");
-        for (int c = 0; c < BCOLS.length; c++) inlineStr(sb, colName(c) + 1, BCOLS[c].header, S_HEADER);
+        for (int c = 0; c < cols.length; c++) inlineStr(sb, colName(c) + 1, cols[c].header, S_HEADER);
         sb.append("</row>");
 
         Map<String, Integer> mediaIds = new HashMap<>();
@@ -402,8 +442,8 @@ public final class XlsxWriter {
             sb.append("<row r=\"").append(r).append('"');
             if (img != null) sb.append(" ht=\"").append(PHOTO_ROW_PT).append("\" customHeight=\"1\"");
             sb.append('>');
-            for (int c = 0; c < BCOLS.length; c++) {
-                Col col = BCOLS[c];
+            for (int c = 0; c < cols.length; c++) {
+                Col col = cols[c];
                 String ref = colName(c) + r;
                 String v = nz(m.get(col.key)).trim();
                 if (col.kind == Kind.COORD) {
@@ -420,7 +460,7 @@ public final class XlsxWriter {
                         inlineStr(sb, ref, "", S_TEXT);
                     }
                 } else if (col.kind == Kind.PHOTO) {
-                    inlineStr(sb, ref, img == null ? foto : "", S_TEXT);
+                    inlineStr(sb, ref, img == null && !foto.isEmpty() ? "Sin foto" : "", S_TEXT);
                     if (img != null) addPicture(dr, mediaIds, foto, img, c, r - 1);
                 } else {
                     cell(sb, ref, col, v);
@@ -431,6 +471,18 @@ public final class XlsxWriter {
         }
         sb.append("</sheetData>");
         sb.append("<autoFilter ref=\"A1:").append(lastCol).append(lastRow).append("\"/>");
+        int lists = 0;
+        for (Col col : cols) if (col.list != null) lists++;
+        if (lists > 0) {
+            int dvLast = Math.max(lastRow + 100, 200);
+            sb.append("<dataValidations count=\"").append(lists).append("\">");
+            for (int c = 0; c < cols.length; c++) {
+                if (cols[c].list != null) {
+                    listValidation(sb, colName(c) + "2:" + colName(c) + dvLast, cols[c].list);
+                }
+            }
+            sb.append("</dataValidations>");
+        }
         sb.append("<pageMargins left=\"0.5\" right=\"0.5\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/>");
         if (dr.pics > 0) sb.append("<drawing r:id=\"rId1\"/>");
         sb.append("</worksheet>");
@@ -442,6 +494,7 @@ public final class XlsxWriter {
         Integer rid = mediaIds.get(path);
         if (rid == null) {
             dr.mediaNames.add(mediaName(path));
+            dr.mediaPaths.add(path);
             rid = dr.mediaNames.size();
             mediaIds.put(path, rid);
         }

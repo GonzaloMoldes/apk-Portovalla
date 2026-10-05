@@ -12,6 +12,11 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.media.ExifInterface;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
@@ -58,12 +63,16 @@ public class MainActivity extends Activity {
     private static final int REQ_STORAGE = 1;
     private static final int REQ_CAMERA = 2;
     private static final int REQ_GALLERY = 3;
+    private static final int REQ_LOCATION = 4;
+    private static final int PHOTO_MAX_SIDE = 1280;   // fotos de vallas añadidas desde la app
     private static final int OCR_MAX_SIDE = 2048;
 
     private WebView web;
     private volatile Uri lastExcelUri;
     private volatile Uri lastPdfUri;
     private Uri pendingPhoto;          // foto de la cámara en curso
+    private String pendingPurpose = "ocr";   // "ocr" (tarjeta) o etiqueta de la foto de una valla
+    private boolean locationPending;
     private boolean pageLoaded;
     private String pendingJs;          // llamada JS a la espera de que cargue la página
 
@@ -73,6 +82,7 @@ public class MainActivity extends Activity {
         if (savedInstanceState != null) {
             String p = savedInstanceState.getString("pendingPhoto");
             if (p != null) pendingPhoto = Uri.parse(p);
+            pendingPurpose = savedInstanceState.getString("pendingPurpose", "ocr");
         }
         web = new WebView(this);
         setContentView(web);
@@ -108,6 +118,7 @@ public class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
         if (pendingPhoto != null) out.putString("pendingPhoto", pendingPhoto.toString());
+        out.putString("pendingPurpose", pendingPurpose);
     }
 
     /** Ejecuta una función JS global con un argumento de texto. */
@@ -119,26 +130,116 @@ public class MainActivity extends Activity {
         });
     }
 
+    // ---------------------------------------------------------------- ubicación (GPS)
+
+    private void sendLocation(Location l) {
+        try {
+            JSONObject r = new JSONObject();
+            r.put("lat", Math.round(l.getLatitude() * 1e6) / 1e6);
+            r.put("lng", Math.round(l.getLongitude() * 1e6) / 1e6);
+            r.put("acc", Math.round(l.getAccuracy()));
+            callJs("onLocation", r.toString());
+        } catch (Exception e) {
+            callJs("onLocationError", "No se pudo leer la ubicación");
+        }
+    }
+
+    @SuppressWarnings("MissingPermission")
+    private void requestLocation() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            locationPending = true;
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
+            return;
+        }
+        final LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (lm == null) {
+            callJs("onLocationError", "Este dispositivo no tiene ubicación");
+            return;
+        }
+        Location best = null;
+        for (String p : lm.getProviders(true)) {
+            Location l = lm.getLastKnownLocation(p);
+            if (l != null && (best == null || l.getTime() > best.getTime())) best = l;
+        }
+        if (best != null && System.currentTimeMillis() - best.getTime() < 2 * 60 * 1000 && best.getAccuracy() < 40) {
+            sendLocation(best);
+            return;
+        }
+        String provider = lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER
+                : lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ? LocationManager.NETWORK_PROVIDER : null;
+        if (provider == null) {
+            callJs("onLocationError", "Activa la ubicación del dispositivo");
+            return;
+        }
+        callJs("onLocationStart", "");
+        final Handler h = new Handler(Looper.getMainLooper());
+        final Location fallback = best;
+        final LocationListener[] holder = new LocationListener[1];
+        final Runnable timeout = () -> {
+            lm.removeUpdates(holder[0]);
+            if (fallback != null) sendLocation(fallback);
+            else callJs("onLocationError", "No se pudo obtener la ubicación (prueba al aire libre)");
+        };
+        holder[0] = new LocationListener() {
+            @Override
+            public void onLocationChanged(Location l) {
+                h.removeCallbacks(timeout);
+                lm.removeUpdates(this);
+                sendLocation(l);
+            }
+            @Override public void onStatusChanged(String p, int status, Bundle extras) { }
+            @Override public void onProviderEnabled(String p) { }
+            @Override public void onProviderDisabled(String p) { }
+        };
+        lm.requestLocationUpdates(provider, 0, 0, holder[0], Looper.getMainLooper());
+        h.postDelayed(timeout, 25000);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == REQ_LOCATION && locationPending) {
+            locationPending = false;
+            boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+            if (ok) requestLocation();
+            else callJs("onLocationError", "Sin permiso de ubicación");
+        }
+    }
+
     // ---------------------------------------------------------------- tarjeta de visita (OCR)
 
     private void startScan(String source) {
+        startCapture(source, "ocr");
+    }
+
+    /** Errores de cámara/galería: van a la tarjeta (OCR) o a la foto de la valla. */
+    private void captureError(String msg) {
+        if ("ocr".equals(pendingPurpose)) callJs("onOcrError", msg);
+        else callJs("onPhotoError", msg);
+    }
+
+    private void startCapture(String source, String purpose) {
+        pendingPurpose = purpose == null || purpose.isEmpty() ? "ocr" : purpose;
         try {
             if ("gallery".equals(source)) {
                 Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
                 pick.setType("image/*");
                 pick.addCategory(Intent.CATEGORY_OPENABLE);
-                startActivityForResult(Intent.createChooser(pick, "Foto de la tarjeta"), REQ_GALLERY);
+                startActivityForResult(Intent.createChooser(pick,
+                        "ocr".equals(pendingPurpose) ? "Foto de la tarjeta" : "Foto de la valla"), REQ_GALLERY);
                 return;
             }
             ContentValues v = new ContentValues();
-            v.put(MediaStore.MediaColumns.DISPLAY_NAME, "tarjeta_" + System.currentTimeMillis() + ".jpg");
+            v.put(MediaStore.MediaColumns.DISPLAY_NAME,
+                    ("ocr".equals(pendingPurpose) ? "tarjeta_" : "valla_") + System.currentTimeMillis() + ".jpg");
             v.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
             if (Build.VERSION.SDK_INT >= 29) {
                 v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/" + FOLDER);
             }
             pendingPhoto = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
             if (pendingPhoto == null) {
-                callJs("onOcrError", "No se pudo preparar la foto");
+                captureError("No se pudo preparar la foto");
                 return;
             }
             Intent cam = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -148,10 +249,10 @@ public class MainActivity extends Activity {
             startActivityForResult(cam, REQ_CAMERA);
         } catch (ActivityNotFoundException e) {
             discardPendingPhoto();
-            callJs("onOcrError", "No hay ninguna app de cámara disponible");
+            captureError("No hay ninguna app de cámara disponible");
         } catch (Exception e) {
             discardPendingPhoto();
-            callJs("onOcrError", "No se pudo abrir la cámara: " + e.getMessage());
+            captureError("No se pudo abrir la cámara: " + e.getMessage());
         }
     }
 
@@ -176,11 +277,15 @@ public class MainActivity extends Activity {
             if (fromCamera) discardPendingPhoto();
             return;
         }
+        if (!"ocr".equals(pendingPurpose)) {
+            savePhotoForJs(uri, pendingPurpose, fromCamera);
+            return;
+        }
         callJs("onOcrStart", "");
         new Thread(() -> {
             Bitmap bmp;
             try {
-                bmp = loadScaledBitmap(uri);
+                bmp = loadScaledBitmap(uri, OCR_MAX_SIDE);
             } catch (Exception e) {
                 bmp = null;
             }
@@ -204,7 +309,32 @@ public class MainActivity extends Activity {
     }
 
     /** Carga la imagen reducida (lado mayor ≤ OCR_MAX_SIDE) y girada según su EXIF. */
-    private Bitmap loadScaledBitmap(Uri uri) throws IOException {
+    /** Guarda la foto (reducida) en la app y se la pasa a JS: onPhotoResult({tag, url}). */
+    private void savePhotoForJs(Uri uri, String tag, boolean fromCamera) {
+        new Thread(() -> {
+            try {
+                Bitmap bmp = loadScaledBitmap(uri, PHOTO_MAX_SIDE);
+                File dir = new File(getFilesDir(), "vallas");
+                if (!dir.exists() && !dir.mkdirs()) throw new IOException("No se pudo crear la carpeta de fotos");
+                String safe = tag.replaceAll("[^A-Za-z0-9_-]", "_");
+                File f = new File(dir, safe + "_" + System.currentTimeMillis() + ".jpg");
+                try (OutputStream out = new FileOutputStream(f)) {
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 78, out);
+                }
+                bmp.recycle();
+                JSONObject r = new JSONObject();
+                r.put("tag", tag);
+                r.put("url", "file://" + f.getAbsolutePath());
+                callJs("onPhotoResult", r.toString());
+            } catch (Exception e) {
+                callJs("onPhotoError", "No se pudo guardar la foto: " + e.getMessage());
+            } finally {
+                if (fromCamera) runOnUiThread(this::discardPendingPhoto);
+            }
+        }).start();
+    }
+
+    private Bitmap loadScaledBitmap(Uri uri, int maxSide) throws IOException {
         ContentResolver cr = getContentResolver();
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
@@ -212,7 +342,7 @@ public class MainActivity extends Activity {
             BitmapFactory.decodeStream(in, null, bounds);
         }
         int sample = 1;
-        while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= OCR_MAX_SIDE) sample *= 2;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxSide) sample *= 2;
         BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inSampleSize = sample;
         Bitmap bmp;
@@ -352,7 +482,9 @@ public class MainActivity extends Activity {
 
     /** Lee una foto incluida en la app (assets/vallas/…). */
     private byte[] loadAsset(String path) {
-        try (InputStream in = getAssets().open(path)) {
+        try (InputStream in = path.startsWith("file://")
+                ? new FileInputStream(path.substring("file://".length()))
+                : getAssets().open(path)) {
             java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
             byte[] b = new byte[16384];
             int n;
@@ -569,6 +701,49 @@ public class MainActivity extends Activity {
         public void call(String phone) {
             launch(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone))),
                     "No se puede llamar desde este dispositivo");
+        }
+
+        /** Foto para una valla. El resultado llega a JS en onPhotoResult({tag, url}). */
+        @JavascriptInterface
+        public void pickPhoto(String source, String tag) {
+            runOnUiThread(() -> startCapture(source, tag));
+        }
+
+        /** Ubicación actual. El resultado llega a JS en onLocation({lat, lng, acc}). */
+        @JavascriptInterface
+        public void getLocation() {
+            runOnUiThread(MainActivity.this::requestLocation);
+        }
+
+        /**
+         * Excel de trabajos en Descargas/VisitasLeads/Trabajos.
+         * mode: "share" (compartir), "open" (abrir) o "save" (solo guardar).
+         */
+        @JavascriptInterface
+        public String exportTrabajos(String rowsJson, String fileName, String mode) {
+            try {
+                List<Map<String, String>> rows = parseLeads(rowsJson);
+                String name = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
+                if (!name.endsWith(".xlsx")) name += ".xlsx";
+                Uri uri = saveToDownloads(FOLDER + "/Trabajos", name, XLSX_MIME,
+                        out -> XlsxWriter.writeTable("trabajos", "TRABAJOS", rows, MainActivity.this::loadAsset, out));
+                if ("share".equals(mode)) {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType(XLSX_MIME);
+                    send.putExtra(Intent.EXTRA_STREAM, uri);
+                    send.putExtra(Intent.EXTRA_SUBJECT, name);
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    launch(Intent.createChooser(send, "Enviar trabajos"), "No hay apps para compartir");
+                } else if ("open".equals(mode)) {
+                    Intent view = new Intent(Intent.ACTION_VIEW);
+                    view.setDataAndType(uri, XLSX_MIME);
+                    view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    launch(view, "No hay ninguna app instalada para abrir Excel");
+                }
+                return "";
+            } catch (Exception e) {
+                return e.getMessage() == null ? e.toString() : e.getMessage();
+            }
         }
 
         /** source: "camera" o "gallery". El resultado llega a JS en onOcrResult(texto). */
