@@ -1,0 +1,19 @@
+{
+  "_info": "Correcciones a errores de los PDF del catálogo. Clave: zona → número de página → campos que se sustituyen.",
+  "PUEBLOS A CORUÑA": {
+    "118": {
+      "codigo": "OOH-190",
+      "municipio": "Oroso",
+      "direccion": "SIGUEIRO - N-550 (revisar dirección: el PDF repite la cabecera de OOH-189)",
+      "medida": "",
+      "categoria": ""
+    },
+    "134": {
+      "codigo": "OOH-172",
+      "municipio": "Sada",
+      "direccion": "AC-163 (revisar dirección: el PDF repite la cabecera de OOH-189)",
+      "medida": "",
+      "categoria": ""
+    }
+  }
+}

@@ -102,6 +102,12 @@ python3 tools/extraer_vallas.py "A CORUÑA.pdf" "LUGO.pdf" "PUEBLOS A CORUÑA.pd
 
 Genera `app/src/main/assets/vallas.js` y las fotos en `app/src/main/assets/vallas/`.
 La zona se toma del nombre del PDF y las coordenadas del enlace *Ver Street View*.
+Los errores del PDF (por ejemplo, una página con la cabecera de otra valla) se corrigen en
+`tools/correcciones.json` (zona → nº de página → campos).
+
+Catálogo actual: A Coruña (29), Lugo (60) y Pueblos A Coruña (132) = 221 vallas.
+Sin foto en el PDF: OOH-2337, 2338, 2339, 877 y 879. Dirección pendiente de revisar:
+OOH-190 y OOH-172 (el PDF repite la cabecera de OOH-189).
 
 ## Estructura
 

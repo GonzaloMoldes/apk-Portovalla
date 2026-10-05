@@ -30,8 +30,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, 'app', 'src', 'main', 'assets')
 PHOTOS = os.path.join(ASSETS, 'vallas')
 DATA = os.path.join(ASSETS, 'vallas.js')
+FIXES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'correcciones.json')
 
-PHOTO_DPI = 96
+PHOTO_DPI = 72
 FOOTER_Y = 504      # la franja inferior (pie con "Ver Street View") empieza aquí
 
 PROVINCIAS = {'AC': 'Coruña', 'LU': 'Lugo', 'PO': 'Pontevedra', 'OU': 'Ourense'}
@@ -43,8 +44,9 @@ def header_blocks(pdf, page):
                          capture_output=True, text=True, check=True).stdout
     blocks = []
     for m in re.finditer(r'<block xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>(.*?)</block>', out, re.S):
-        words = [(float(x), html.unescape(t), float(y))
-                 for x, y, t in re.findall(r'<word xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>([^<]+)</word>', m.group(3))
+        words = [(float(x), html.unescape(t), float(y), float(x2))
+                 for x, y, x2, t in re.findall(
+                     r'<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)"[^>]*>([^<]+)</word>', m.group(3))
                  if float(y) < 36]
         if words:
             blocks.append((float(m.group(1)), words))
@@ -62,7 +64,7 @@ def parse_header(blocks, addr_x):
     municipio | dirección (puede ocupar 2 líneas) | OOH-código | medida | categoría."""
     words = sorted((w for b in blocks for w in b), key=lambda w: w[0])
     line_of = [round(w[2] / 6) for w in words]   # misma línea si la y es parecida
-    ooh = next((k for k, (_, t, _y) in enumerate(words) if re.match(r'OOH', t, re.I)), None)
+    ooh = next((k for k, (_, t, _y, _x2) in enumerate(words) if re.match(r'OOH', t, re.I)), None)
     if ooh is None:
         return None
     code_x = words[ooh][0]
@@ -76,11 +78,20 @@ def parse_header(blocks, addr_x):
         return None
     if addr_x is None:
         addr_x = 105
-    muni = ' '.join(t for x, t, _y in words if x < addr_x - 3)
-    addr_idx = [k for k, (x, _t, _y) in enumerate(words) if addr_x - 3 <= x < code_x and k not in code_words]
-    addr_idx.sort(key=lambda k: (line_of[k], words[k][0]))
+    by_line = lambda k: (line_of[k], words[k][0])
+    muni_idx = sorted((k for k, w in enumerate(words) if w[0] < addr_x - 3), key=by_line)
+    addr_idx = [k for k, w in enumerate(words) if addr_x - 3 <= w[0] < code_x and k not in code_words]
+    # Si la dirección empieza antes de su columna, se separa del municipio por el hueco entre palabras
+    for j in range(1, len(muni_idx)):
+        a, b = muni_idx[j - 1], muni_idx[j]
+        if line_of[a] == line_of[b] and words[b][0] - words[a][3] > 12:
+            addr_idx += [k for k in muni_idx[j:] if line_of[k] == line_of[b]]
+            muni_idx = [k for k in muni_idx if k not in addr_idx]
+            break
+    addr_idx.sort(key=by_line)
+    muni = ' '.join(words[k][1] for k in muni_idx)
     direccion = ' '.join(words[k][1] for k in addr_idx)
-    after = [(x, t) for k, (x, t, _y) in enumerate(words) if x > code_x and k not in code_words]
+    after = [(w[0], w[1]) for k, w in enumerate(words) if w[0] > code_x and k not in code_words]
     medida = ' '.join(t for x, t in after if x < 880)
     categoria = ' '.join(t for x, t in after if x >= 880)
 
@@ -131,7 +142,7 @@ def render_photo(pdf, page, box, dest):
     x, y, w, h = box
     with tempfile.TemporaryDirectory() as tmp:
         base = os.path.join(tmp, 'p')
-        subprocess.run(['pdftoppm', '-jpeg', '-jpegopt', 'quality=72', '-r', str(PHOTO_DPI),
+        subprocess.run(['pdftoppm', '-jpeg', '-jpegopt', 'quality=68', '-r', str(PHOTO_DPI),
                         '-f', str(page), '-l', str(page), '-singlefile',
                         '-x', str(int(x * s)), '-y', str(int(y * s) + 1),
                         '-W', str(int(w * s)), '-H', str(int(h * s) - 2), pdf, base], check=True)
@@ -155,6 +166,7 @@ def load_existing():
 
 def main(pdfs):
     os.makedirs(PHOTOS, exist_ok=True)
+    fixes = json.load(open(FIXES, encoding='utf-8')) if os.path.exists(FIXES) else {}
     vallas = {v['codigo']: v for v in load_existing()}
     for pdf in pdfs:
         zona = zona_de(pdf)
@@ -162,12 +174,17 @@ def main(pdfs):
         plumber = pdfplumber.open(pdf)
         n = 0
         sin_foto = []
+        vistos = {}
         heads = [header_blocks(pdf, i) for i in range(1, len(reader.pages) + 1)]
         addr_x = address_column(heads)
         for i, page in enumerate(reader.pages, start=1):
             info = parse_header(heads[i - 1], addr_x)
             if not info:
                 continue
+            fix = fixes.get(zona, {}).get(str(i))
+            if fix:
+                print(f"  corrección pág. {i}: {info['codigo']} → {fix.get('codigo', info['codigo'])}")
+                info.update(fix)
             lat, lng = page_coords(page)
             info.update({'zona': zona, 'lat': lat, 'lng': lng, 'foto': ''})
             box = photo_box(plumber.pages[i - 1])
@@ -179,8 +196,9 @@ def main(pdfs):
                 sin_foto.append(info['codigo'])
                 if os.path.exists(dest):
                     os.remove(dest)
-            if info['codigo'] in vallas and vallas[info['codigo']].get('zona') != zona:
-                print(f"  aviso: {info['codigo']} repetido en {zona} (se sobrescribe)")
+            if info['codigo'] in vistos:
+                print(f"  aviso: {info['codigo']} repetido (págs. {vistos[info['codigo']]} y {i}); se queda la última")
+            vistos[info['codigo']] = i
             vallas[info['codigo']] = info
             n += 1
         plumber.close()

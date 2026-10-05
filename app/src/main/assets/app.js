@@ -560,6 +560,7 @@ const PERIOD_MONTHS = { Mensual: 1, Trimestral: 3, Semestral: 6, Anual: 12 };
 let budget = null;          // presupuesto que se está editando en el formulario
 let pickerSel = null;       // Set de códigos marcados en el selector
 let pickerZona = 'Todas';
+let pickerMuni = '';
 
 function emptyBudget() {
   return { codes: [], snap: {}, periodo: '', desde: '', hasta: '', material: '', precioPeriodo: '', precioMaterial: '' };
@@ -696,14 +697,26 @@ function openPicker() {
   $('#vallas-zonas').innerHTML = ['Todas', ...zonas].map(z =>
     `<button type="button" class="chip${z === pickerZona ? ' active' : ''}" data-zona="${esc(z)}">${esc(z === 'Todas' ? 'Todas' : z)}</button>`).join('');
   $('#vallas-search').value = '';
+  renderMunis();
   renderPicker();
   show('vallas');
+}
+
+function renderMunis() {
+  const box = $('#vallas-munis');
+  if (pickerZona === 'Todas') { box.innerHTML = ''; pickerMuni = ''; return; }
+  const munis = [...new Set(VALLAS_DB.filter(v => v.zona === pickerZona).map(v => v.municipio))].sort((a, b) => a.localeCompare(b, 'es'));
+  if (munis.length < 2) { box.innerHTML = ''; pickerMuni = ''; return; }
+  if (!munis.includes(pickerMuni)) pickerMuni = '';
+  box.innerHTML = ['', ...munis].map(m =>
+    `<button type="button" class="chip${m === pickerMuni ? ' active' : ''}" data-muni="${esc(m)}">${esc(m || 'Todos los municipios')}</button>`).join('');
 }
 
 function renderPicker() {
   const q = $('#vallas-search').value.trim().toLowerCase();
   const items = VALLAS_DB.filter(v =>
     (pickerZona === 'Todas' || v.zona === pickerZona) &&
+    (!pickerMuni || v.municipio === pickerMuni) &&
     (!q || q.split(/\s+/).every(w =>
       [v.codigo, v.direccion, v.municipio, v.zona, v.medida].join(' ').toLowerCase().includes(w))));
   $('#vallas-stats').textContent = `${items.length} vallas · ${pickerSel.size} seleccionada${pickerSel.size === 1 ? '' : 's'}`;
@@ -917,6 +930,13 @@ document.addEventListener('click', e => {
   if (t.dataset.zona) {
     pickerZona = t.dataset.zona;
     $$('#vallas-zonas .chip').forEach(c => c.classList.toggle('active', c === t));
+    renderMunis();
+    renderPicker();
+    return;
+  }
+  if (t.dataset.muni !== undefined && t.closest('#vallas-munis')) {
+    pickerMuni = t.dataset.muni;
+    $$('#vallas-munis .chip').forEach(c => c.classList.toggle('active', c === t));
     renderPicker();
     return;
   }
