@@ -96,7 +96,7 @@ versiones tengan la misma firma y se puedan instalar encima).
 Las vallas salen de los PDF del catálogo (una valla por página). Para añadir o actualizar:
 
 ```bash
-pip install pypdf          # y poppler-utils (pdftotext, pdftoppm)
+pip install pypdf pdfplumber   # y poppler-utils (pdftotext, pdftoppm)
 python3 tools/extraer_vallas.py "A CORUÑA.pdf" "LUGO.pdf" "PUEBLOS A CORUÑA.pdf"
 ```
 

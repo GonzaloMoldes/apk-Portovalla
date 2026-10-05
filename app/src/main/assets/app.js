@@ -710,7 +710,7 @@ function renderPicker() {
   $('#vallas-done').textContent = `Listo (${pickerSel.size})`;
   $('#vallas-grid').innerHTML = items.length ? items.map(v => `
     <article class="valla${pickerSel.has(v.codigo) ? ' sel' : ''}" data-valla="${esc(v.codigo)}">
-      <img src="${esc(v.foto)}" alt="" loading="lazy">
+      ${v.foto ? `<img src="${esc(v.foto)}" alt="" loading="lazy">` : '<div class="nofoto">Sin foto</div>'}
       <div class="valla-body">
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>

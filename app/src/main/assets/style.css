@@ -197,3 +197,4 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .valla-map { margin-top: 8px; border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
 .badge.budget-b { background: #e1ecfb; color: #1f4e9a; }
 .vsel .act { min-width: 44px; height: 40px; padding: 0; }
+.valla .nofoto { aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; background: #e3eaf2; color: var(--muted); font-size: 15px; }
