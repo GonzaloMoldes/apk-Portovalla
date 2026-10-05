@@ -527,6 +527,7 @@ public final class XlsxWriter {
         String s = v.replace("€", "").replace(" ", "").trim();
         if (s.isEmpty()) return null;
         if (s.contains(",")) s = s.replace(".", "").replace(",", ".");
+        else if (s.matches("\\d{1,3}(\\.\\d{3})+")) s = s.replace(".", "");   // "1.250" = 1250
         try {
             return trimDouble(Double.parseDouble(s));
         } catch (NumberFormatException e) {

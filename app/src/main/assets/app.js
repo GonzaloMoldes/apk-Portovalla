@@ -77,6 +77,21 @@ const DEFAULT_PLANTILLAS = [
   },
 ];
 
+DEFAULT_PLANTILLAS.push({
+  nombre: 'Presupuesto',
+  emailAsunto: 'Propuesta de campaña para {empresa} – {miEmpresa}',
+  emailCuerpo:
+    'Hola {contacto},\n\n' +
+    'Gracias por su interés. Tal como hablamos, le envío la propuesta de campaña para {empresa}:\n\n' +
+    '{detalle}\n\n' +
+    'Le adjunto el PDF con la foto y la ubicación de cada valla.\n\n' +
+    'Quedo a su disposición para cualquier duda o ajuste.' + FIRMA,
+  whatsapp:
+    'Hola {contacto}, soy {comercial} de {miEmpresa}. Le paso la propuesta de campaña para {empresa}:\n\n' +
+    '{detalle}\n\n' +
+    'Le adjunto el PDF con las fotos y la ubicación de cada valla. Cualquier duda, me dice.',
+});
+
 const FIELDS = ['tipo', 'pvs', 'fecha', 'fechaFirma', 'razonSocial', 'contacto', 'telefono',
   'poblacion', 'provincia', 'correo', 'situacion', 'pvpEntrada', 'pvpTotal', 'volver',
   'porcentaje', 'fechaTrabajo'];
@@ -102,9 +117,19 @@ const store = {
 
 let leads = store.load('leads') || [];
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.load('settings') || {});
-if (!Array.isArray(settings.plantillas) || settings.plantillas.length !== DEFAULT_PLANTILLAS.length) {
+if (!Array.isArray(settings.plantillas) || !settings.plantillas.length) {
   settings.plantillas = DEFAULT_PLANTILLAS.map(p => Object.assign({}, p));
 }
+// Modelos nuevos que no existían en los ajustes guardados, y campos vacíos con su texto por defecto
+while (settings.plantillas.length < DEFAULT_PLANTILLAS.length) {
+  settings.plantillas.push(Object.assign({}, DEFAULT_PLANTILLAS[settings.plantillas.length]));
+}
+settings.plantillas = settings.plantillas.map((t, i) => {
+  const d = DEFAULT_PLANTILLAS[i] || {};
+  const out = Object.assign({}, d, t);
+  for (const k of ['nombre', 'emailAsunto', 'emailCuerpo', 'whatsapp']) if (!out[k]) out[k] = d[k] || '';
+  return out;
+});
 ['emailAsunto', 'emailCuerpo', 'whatsappTexto'].forEach(k => delete settings[k]); // formato antiguo
 let filter = 'semana';
 let editingId = null;
@@ -205,6 +230,7 @@ function fillTemplate(tpl, lead) {
     miEmail: settings.miEmail || '',
     vallas: budgetVallasText(lead.presupuesto),
     presupuesto: budgetSummary(lead.presupuesto),
+    detalle: budgetDetail(lead.presupuesto),
   };
   return String(tpl || '')
     .replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
@@ -490,6 +516,7 @@ let sending = null; // { id, channel, modelo }
 
 /** Modelo sugerido: si no hay persona de contacto se dejaron los datos; si no, agradecimiento. */
 function suggestedModel(lead) {
+  if (hasBudget(lead)) return 3;
   const sit = (lead.situacion || '').toLowerCase();
   if (/presupuesto|propuesta|precio|enviar info|mandar info/.test(sit)) return 2;
   if (/hablado con/.test(sit)) return 0;
@@ -510,6 +537,9 @@ function openSend(id, channel) {
     `<button type="button" class="chip${c === channel ? ' active' : ''}" data-channel="${c}">${c === 'email' ? '✉ Email' : 'WhatsApp'}</button>`).join('');
   $('#send-models').innerHTML = settings.plantillas.map((p, i) =>
     `<button type="button" class="chip${i === sending.modelo ? ' active' : ''}" data-model="${i}">${esc(p.nombre || 'Modelo ' + (i + 1))}</button>`).join('');
+  sending.pdf = hasBudget(lead);
+  $('#send-pdf-wrap').hidden = !hasBudget(lead);
+  $('#send-pdf').checked = sending.pdf;
   fillSend(lead, channel);
   $('#send-modal').hidden = false;
 }
@@ -522,6 +552,11 @@ function fillSend(lead, channel) {
   $('#send-body').value = fillTemplate(isMail ? tpl.emailCuerpo : tpl.whatsapp, lead);
   $('#send-to').textContent = isMail ? `Para: ${lead.correo}` : `WhatsApp: +${normPhone(lead.telefono)}`;
   $('#send-go').textContent = isMail ? 'Abrir correo y enviar' : 'Abrir WhatsApp y enviar';
+  if (hasBudget(lead)) {
+    const n = lead.presupuesto.vallas.length;
+    $('#send-pdf-label').textContent =
+      `📎 Adjuntar PDF del presupuesto (${n} valla${n > 1 ? 's' : ''} con foto, ubicación y precios)`;
+  }
 }
 
 function closeSend() {
@@ -534,19 +569,27 @@ function doSend() {
   const lead = leads.find(l => l.id === sending.id);
   if (!lead) return closeSend();
   const body = $('#send-body').value;
+  const conPdf = NATIVE && hasBudget(lead) && $('#send-pdf').checked;
+  if (conPdf) {
+    const err = window.Android.budgetPdf(JSON.stringify(budgetDoc(lead)));
+    if (err) { toast('⚠ No se pudo crear el PDF: ' + err); return; }
+  }
 
   if (sending.channel === 'email') {
     const subject = $('#send-subject').value;
-    if (NATIVE) window.Android.sendEmail(lead.correo, subject, body);
+    if (conPdf) window.Android.sendEmailPdf(lead.correo, subject, body);
+    else if (NATIVE) window.Android.sendEmail(lead.correo, subject, body);
     else window.open(`mailto:${encodeURIComponent(lead.correo)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
   } else {
     const phone = normPhone(lead.telefono);
-    if (NATIVE) window.Android.sendWhatsApp(phone, body);
+    if (conPdf) window.Android.sendWhatsAppPdf(phone, body);
+    else if (NATIVE) window.Android.sendWhatsApp(phone, body);
     else window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(body)}`);
   }
 
   const modelo = (settings.plantillas[sending.modelo] || {}).nombre || '';
-  lead.envio = [sending.channel === 'email' ? 'Email' : 'WhatsApp', modelo, fmtDate(todayISO())].filter(Boolean).join(' · ');
+  lead.envio = [sending.channel === 'email' ? 'Email' : 'WhatsApp', modelo, conPdf ? 'con PDF' : '',
+    fmtDate(todayISO())].filter(Boolean).join(' · ');
   lead.modificado = new Date().toISOString();
   persist();
   closeSend();
@@ -574,12 +617,15 @@ function parseMoney(s) {
   let v = String(s == null ? '' : s).replace(/[€\s]/g, '');
   if (!v) return 0;
   if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(v)) v = v.replace(/\./g, '');   // "1.250" = mil doscientos cincuenta
   const n = Number(v);
   return isFinite(n) ? n : 0;
 }
 
+/** 1234.5 → "1.234,50 €" */
 function fmtMoney(n) {
-  return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  const [ent, dec] = Math.abs(n).toFixed(2).split('.');
+  return (n < 0 ? '-' : '') + ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec + ' €';
 }
 
 /** Total = (precio periodo + precio material) × nº de vallas. */
@@ -660,6 +706,96 @@ function budgetForSave() {
     periodo: b.periodo, desde: b.desde, hasta: b.hasta, material: b.material,
     precioPeriodo: b.precioPeriodo, precioMaterial: b.precioMaterial,
     total: String(Math.round((parseMoney(b.precioPeriodo) + parseMoney(b.precioMaterial)) * 100) / 100),
+  };
+}
+
+function hasBudget(lead) {
+  return !!(lead && lead.presupuesto && lead.presupuesto.vallas && lead.presupuesto.vallas.length);
+}
+
+function mapsUrl(v) {
+  return v.lat === '' || v.lat == null ? '' : `https://maps.google.com/?q=${v.lat},${v.lng}`;
+}
+
+function periodoText(p) {
+  if (!p.periodo) return '';
+  const fechas = p.desde && p.hasta ? `del ${fmtDate(p.desde)} al ${fmtDate(p.hasta)}` : '';
+  if (p.periodo === 'Fechas') return fechas ? fechas.charAt(0).toUpperCase() + fechas.slice(1) : '';
+  return fechas ? `${p.periodo} (${fechas})` : p.periodo;
+}
+
+/** Líneas con los importes: [etiqueta, valor]. */
+function budgetPriceRows(p) {
+  const n = (p.vallas || []).length;
+  const pp = parseMoney(p.precioPeriodo), pm = parseMoney(p.precioMaterial);
+  const rows = [];
+  if (pp) rows.push(['Precio del periodo por valla', fmtMoney(pp)]);
+  if (pm) rows.push(['Precio del material por valla', fmtMoney(pm)]);
+  if (pp && pm) rows.push(['Precio por valla', fmtMoney(pp + pm)]);
+  const t = budgetTotal(p);
+  if (t) rows.push([`Total ${n} valla${n > 1 ? 's' : ''} (sin IVA)`, fmtMoney(t)]);
+  return rows;
+}
+
+/** Resumen completo para el texto del email / WhatsApp. */
+function budgetDetail(p) {
+  if (!p || !p.vallas || !p.vallas.length) return '';
+  const out = [];
+  p.vallas.forEach((v, i) => {
+    out.push(`${i + 1}. ${v.codigo} – ${v.direccion}${v.municipio ? ` (${v.municipio})` : ''}`);
+    const meta = [v.medida && `Medida ${v.medida}`, v.categoria && `Categoría ${v.categoria}`].filter(Boolean).join(' · ');
+    if (meta) out.push(`   ${meta}`);
+    if (mapsUrl(v)) out.push(`   Ubicación: ${mapsUrl(v)}`);
+  });
+  const extra = [];
+  if (periodoText(p)) extra.push(`Periodo: ${periodoText(p)}`);
+  if (p.material) extra.push(`Material: ${p.material}`);
+  for (const [k, v] of budgetPriceRows(p)) extra.push(`${k}: ${v}`);
+  if (extra.length) out.push('', ...extra);
+  return out.join('\n');
+}
+
+/** Contenido del PDF de la propuesta (lo maqueta BudgetPdf.java). */
+function budgetDoc(lead) {
+  const p = lead.presupuesto;
+  const n = p.vallas.length;
+  const precioValla = parseMoney(p.precioPeriodo) + parseMoney(p.precioMaterial);
+  const safe = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+  const preparado = [settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · ');
+  return {
+    fichero: `Presupuesto_${safe(lead.razonSocial) || 'cliente'}_${(lead.fecha || todayISO()).slice(0, 10)}.pdf`,
+    titulo: 'Propuesta de campaña publicitaria',
+    subtitulo: [settings.miEmpresa, fmtDate(todayISO())].filter(Boolean).join(' · '),
+    datos: [
+      ['Cliente', lead.razonSocial || ''],
+      ['Persona de contacto', lead.contacto || '—'],
+      ['Población', [lead.poblacion, lead.provincia].filter(Boolean).join(' (') + (lead.provincia && lead.poblacion ? ')' : '') || '—'],
+      ['Preparado por', preparado || '—'],
+    ],
+    tituloResumen: 'Resumen de la campaña',
+    resumen: [
+      ['Vallas', String(n)],
+      ...(periodoText(p) ? [['Periodo', periodoText(p)]] : []),
+      ...(p.material ? [['Material', p.material]] : []),
+      ...budgetPriceRows(p),
+    ],
+    ultimoEsTotal: budgetTotal(p) > 0,
+    tituloVallas: `Vallas seleccionadas (${n})`,
+    vallas: p.vallas.map(v => ({
+      codigo: v.codigo,
+      direccion: v.direccion || '',
+      lineas: [
+        [v.municipio, v.provincia && v.provincia !== v.municipio ? v.provincia : ''].filter(Boolean).join(', '),
+        [v.medida && `Medida: ${v.medida}`, v.categoria && `Categoría: ${v.categoria}`].filter(Boolean).join('   '),
+        v.lat !== '' && v.lat != null ? `Coordenadas: ${v.lat}, ${v.lng}` : '',
+      ].filter(Boolean),
+      mapa: mapsUrl(v) ? `Ubicación: ${mapsUrl(v)}` : '',
+      foto: v.foto || '',
+      precio: precioValla ? `${fmtMoney(precioValla)} / valla (sin IVA)` : '',
+    })),
+    nota: 'Precios sin IVA. Propuesta sujeta a disponibilidad de las vallas en las fechas indicadas.',
+    pie: [settings.miEmpresa, settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · '),
   };
 }
 

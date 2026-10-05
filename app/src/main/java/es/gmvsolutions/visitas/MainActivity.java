@@ -62,6 +62,7 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private volatile Uri lastExcelUri;
+    private volatile Uri lastPdfUri;
     private Uri pendingPhoto;          // foto de la cámara en curso
     private boolean pageLoaded;
     private String pendingJs;          // llamada JS a la espera de que cargue la página
@@ -248,6 +249,15 @@ public class MainActivity extends Activity {
         });
     }
 
+    private boolean isInstalled(String pkg) {
+        try {
+            getPackageManager().getPackageInfo(pkg, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
     private void toast(final String msg) {
         runOnUiThread(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
     }
@@ -353,22 +363,25 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Escribe el Excel en Descargas/VisitasLeads y devuelve su Uri. */
-    private Uri writeExcel(String leadsJson, String fileName) throws Exception {
-        List<Map<String, String>> leads = parseLeads(leadsJson);
-        List<Map<String, String>> budgets = parseBudgets(leadsJson);
-        XlsxWriter.PhotoSource photos = this::loadAsset;
-        String name = fileName.endsWith(".xlsx") ? fileName : fileName + ".xlsx";
+    /** Escribe el contenido de un fichero en un OutputStream. */
+    private interface StreamWriter {
+        void write(OutputStream out) throws Exception;
+    }
 
+    /**
+     * Guarda (o sobrescribe) un fichero en Descargas/&lt;subfolder&gt; y devuelve su Uri
+     * para poder abrirlo o compartirlo.
+     */
+    private Uri saveToDownloads(String subfolder, String name, String mime, StreamWriter writer) throws Exception {
         if (Build.VERSION.SDK_INT >= 29) {
             ContentResolver cr = getContentResolver();
             Uri collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
-            String relPath = Environment.DIRECTORY_DOWNLOADS + "/" + FOLDER;
+            String relPath = Environment.DIRECTORY_DOWNLOADS + "/" + subfolder;
             Uri uri = null;
             try (Cursor c = cr.query(collection, new String[]{MediaStore.MediaColumns._ID},
                     MediaStore.MediaColumns.DISPLAY_NAME + "=? AND "
                             + MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ?",
-                    new String[]{name, relPath + "%"}, null)) {
+                    new String[]{name, relPath + "/%"}, null)) {
                 if (c != null && c.moveToFirst()) {
                     uri = Uri.withAppendedPath(collection, String.valueOf(c.getLong(0)));
                 }
@@ -376,7 +389,7 @@ public class MainActivity extends Activity {
             if (uri == null) {
                 ContentValues v = new ContentValues();
                 v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
-                v.put(MediaStore.MediaColumns.MIME_TYPE, XLSX_MIME);
+                v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
                 v.put(MediaStore.MediaColumns.RELATIVE_PATH, relPath);
                 uri = cr.insert(collection, v);
                 if (uri == null) throw new IOException("No se pudo crear el fichero en Descargas");
@@ -384,25 +397,46 @@ public class MainActivity extends Activity {
             try (ParcelFileDescriptor pfd = cr.openFileDescriptor(uri, "rwt");
                  FileOutputStream out = new FileOutputStream(pfd.getFileDescriptor())) {
                 out.getChannel().truncate(0);
-                XlsxWriter.write(leads, budgets, photos, out);
+                writer.write(out);
             }
             return uri;
         }
 
         File dir = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS), FOLDER);
+                Environment.DIRECTORY_DOWNLOADS), subfolder);
         if (!dir.exists() && !dir.mkdirs()) throw new IOException("No se pudo crear la carpeta " + dir);
         File f = new File(dir, name);
         try (OutputStream out = new FileOutputStream(f)) {
-            XlsxWriter.write(leads, budgets, photos, out);
+            writer.write(out);
         }
         final Uri[] result = new Uri[1];
         final CountDownLatch latch = new CountDownLatch(1);
         MediaScannerConnection.scanFile(this, new String[]{f.getAbsolutePath()},
-                new String[]{XLSX_MIME}, (path, uri) -> { result[0] = uri; latch.countDown(); });
+                new String[]{mime}, (path, uri) -> { result[0] = uri; latch.countDown(); });
         latch.await(5, TimeUnit.SECONDS);
-        if (result[0] == null) throw new IOException("Excel guardado en " + f + " pero no se pudo compartir");
+        if (result[0] == null) throw new IOException("Fichero guardado en " + f + " pero no se pudo compartir");
         return result[0];
+    }
+
+    /** Escribe el Excel en Descargas/VisitasLeads y devuelve su Uri. */
+    private Uri writeExcel(String leadsJson, String fileName) throws Exception {
+        List<Map<String, String>> leads = parseLeads(leadsJson);
+        List<Map<String, String>> budgets = parseBudgets(leadsJson);
+        XlsxWriter.PhotoSource photos = this::loadAsset;
+        String name = fileName.endsWith(".xlsx") ? fileName : fileName + ".xlsx";
+        return saveToDownloads(FOLDER, name, XLSX_MIME, out -> XlsxWriter.write(leads, budgets, photos, out));
+    }
+
+    /** Genera el PDF del presupuesto en Descargas/VisitasLeads/Presupuestos. */
+    private Uri writeBudgetPdf(String docJson) throws Exception {
+        JSONObject doc = new JSONObject(docJson);
+        String name = doc.optString("fichero", "Presupuesto").replaceAll("[\\\\/:*?\"<>|]", "_");
+        if (!name.endsWith(".pdf")) name += ".pdf";
+        return saveToDownloads(FOLDER + "/Presupuestos", name, "application/pdf",
+                out -> BudgetPdf.write(doc, path -> {
+                    byte[] b = loadAsset(path);
+                    return b == null ? null : BitmapFactory.decodeByteArray(b, 0, b.length);
+                }, out));
     }
 
     // ---------------------------------------------------------------- puente JS
@@ -452,6 +486,64 @@ public class MainActivity extends Activity {
             view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             launch(view, "No hay ninguna app instalada para abrir Excel (instala Excel o Google Hojas de cálculo)");
             return "";
+        }
+
+        /** Genera el PDF del presupuesto. Devuelve "" si todo fue bien o el mensaje de error. */
+        @JavascriptInterface
+        public String budgetPdf(String docJson) {
+            try {
+                lastPdfUri = writeBudgetPdf(docJson);
+                return "";
+            } catch (Exception e) {
+                lastPdfUri = null;
+                return e.getMessage() == null ? e.toString() : e.getMessage();
+            }
+        }
+
+        @JavascriptInterface
+        public void viewPdf() {
+            if (lastPdfUri == null) return;
+            Intent view = new Intent(Intent.ACTION_VIEW);
+            view.setDataAndType(lastPdfUri, "application/pdf");
+            view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            launch(view, "No hay ninguna app para ver PDF");
+        }
+
+        /** Email con el PDF del presupuesto adjunto (solo apps de correo). */
+        @JavascriptInterface
+        public void sendEmailPdf(String to, String subject, String body) {
+            if (lastPdfUri == null) { sendEmail(to, subject, body); return; }
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setType("application/pdf");
+            i.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
+            i.putExtra(Intent.EXTRA_SUBJECT, subject);
+            i.putExtra(Intent.EXTRA_TEXT, body);
+            i.putExtra(Intent.EXTRA_STREAM, lastPdfUri);
+            i.setClipData(ClipData.newRawUri("", lastPdfUri));
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            i.setSelector(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")));
+            launch(i, "No hay ninguna app de correo configurada");
+        }
+
+        /** WhatsApp con el PDF adjunto, directo al chat del número (phone: 34600111222). */
+        @JavascriptInterface
+        public void sendWhatsAppPdf(String phone, String text) {
+            if (lastPdfUri == null) { sendWhatsApp(phone, text); return; }
+            String pkg = isInstalled("com.whatsapp") ? "com.whatsapp"
+                    : isInstalled("com.whatsapp.w4b") ? "com.whatsapp.w4b" : null;
+            if (pkg == null) {
+                toast("WhatsApp no está instalado");
+                return;
+            }
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setPackage(pkg);
+            i.setType("application/pdf");
+            i.putExtra(Intent.EXTRA_STREAM, lastPdfUri);
+            i.putExtra(Intent.EXTRA_TEXT, text);
+            i.putExtra("jid", phone + "@s.whatsapp.net");
+            i.setClipData(ClipData.newRawUri("", lastPdfUri));
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            launch(i, "No se pudo abrir WhatsApp");
         }
 
         @JavascriptInterface

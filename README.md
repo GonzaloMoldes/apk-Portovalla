@@ -50,6 +50,14 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   - precio del periodo y del material **por valla** (sin IVA). Total = (periodo +
     material) × nº de vallas; si *PVP total* está vacío se rellena con ese total.
 
+  **Envío del presupuesto**: si la visita tiene vallas, al enviar se propone el modelo
+  *Presupuesto* (4º modelo), cuyo texto incluye `{detalle}`: cada valla con código,
+  dirección, medida, categoría y enlace a Google Maps, más periodo, material, precio por
+  valla y total. Además se adjunta un **PDF** (*Propuesta de campaña publicitaria*) con
+  los datos del cliente, el resumen y una ficha por valla con su **foto**, ubicación y
+  precio. El PDF se guarda en `Descargas/VisitasLeads/Presupuestos`. En WhatsApp se abre
+  directamente el chat del número con el PDF adjunto.
+
   En el Excel se añade la hoja **PRESUPUESTOS** con una fila por valla: visita, código,
   dirección, municipio, medida, categoría, latitud, longitud, enlace *Ver mapa*, periodo,
   fechas, material, precios y la **foto** de la valla. En los mensajes se pueden usar

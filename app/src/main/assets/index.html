@@ -226,9 +226,9 @@
     <div class="card">
       <h2>Envío tras la visita</h2>
       <label class="check"><input type="checkbox" name="autoEnviar"> Al guardar una visita nueva, preparar el mensaje automáticamente</label>
-      <p class="hint">Si la lead tiene correo se envía email; si solo tiene móvil, WhatsApp. Variables: <code>{contacto}</code> <code>{empresa}</code> <code>{poblacion}</code> <code>{fecha}</code> <code>{comercial}</code> <code>{miEmpresa}</code> <code>{miTelefono}</code> <code>{miEmail}</code> <code>{vallas}</code> <code>{presupuesto}</code></p>
+      <p class="hint">Si la lead tiene correo se envía email; si solo tiene móvil, WhatsApp. Variables: <code>{contacto}</code> <code>{empresa}</code> <code>{poblacion}</code> <code>{fecha}</code> <code>{comercial}</code> <code>{miEmpresa}</code> <code>{miTelefono}</code> <code>{miEmail}</code> <code>{vallas}</code> <code>{presupuesto}</code> <code>{detalle}</code></p>
       <label>Prefijo de país para WhatsApp<input type="text" name="prefijo" inputmode="numeric"></label>
-      <p class="hint">Hay 3 modelos de mensaje, cada uno con versión email y WhatsApp. Al enviar se propone uno según la visita y puedes cambiarlo.</p>
+      <p class="hint">Hay 4 modelos de mensaje, cada uno con versión email y WhatsApp (el 4º, para presupuestos de vallas). Al enviar se propone uno según la visita y puedes cambiarlo.</p>
     </div>
 
     <div class="card">
@@ -253,6 +253,15 @@
       <label>Asunto del email<input type="text" name="tpl2_emailAsunto"></label>
       <label>Texto del email<textarea name="tpl2_emailCuerpo" rows="9"></textarea></label>
       <label>Texto de WhatsApp<textarea name="tpl2_whatsapp" rows="4"></textarea></label>
+    </div>
+
+    <div class="card">
+      <h2>Modelo 4 (presupuesto de vallas)</h2>
+      <p class="hint">Se propone solo cuando la visita tiene vallas en el presupuesto. <code>{detalle}</code> pone cada valla con su ubicación, el periodo, el material y los precios.</p>
+      <label>Nombre del modelo<input type="text" name="tpl3_nombre"></label>
+      <label>Asunto del email<input type="text" name="tpl3_emailAsunto"></label>
+      <label>Texto del email<textarea name="tpl3_emailCuerpo" rows="9"></textarea></label>
+      <label>Texto de WhatsApp<textarea name="tpl3_whatsapp" rows="5"></textarea></label>
     </div>
 
     <div class="card">
@@ -281,6 +290,7 @@
     <label id="send-subject-wrap">Asunto<input type="text" id="send-subject"></label>
     <label>Mensaje<textarea id="send-body" rows="10"></textarea></label>
     <p class="hint" id="send-to"></p>
+    <label class="check" id="send-pdf-wrap" hidden><input type="checkbox" id="send-pdf" checked> <span id="send-pdf-label">📎 Adjuntar PDF del presupuesto</span></label>
     <div class="form-actions">
       <button type="button" class="btn" data-action="send-cancel">Ahora no</button>
       <span class="spacer"></span>
