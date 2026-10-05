@@ -62,7 +62,23 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   dirección, municipio, medida, categoría, latitud, longitud, enlace *Ver mapa*, periodo,
   fechas, material, precios y la **foto** de la valla. En los mensajes se pueden usar
   `{vallas}` (lista de vallas) y `{presupuesto}` (resumen).
-- **Pestañas** arriba: **Visitas · Vallas · Trabajos**.
+- **Pestañas** arriba: **Visitas · Patrimonio · Trabajos · Vallas**
+  (generación de registros, negociaciones con propietarios, trabajos y catálogo).
+- **Fotos en las visitas**: cualquier registro (lead, propietario, cliente…) puede llevar
+  una o varias fotos (cámara o galería). La primera sale en la lista y en la columna FOTO
+  del Excel.
+- **Patrimonio (negociaciones con propietarios)**: para negociar la instalación de vallas
+  en una finca. Propietario y contacto; ubicación (dirección, municipio, coordenadas por GPS
+  o enlace, fotos); emplazamiento (soporte, nº de vallas, medida, caras, iluminación);
+  visibilidad (vehículos y personas por minuto —con un **contador de 1 minuto** a base de
+  botones—, segundos que se ve, distancia, sentido) con **impactos/día estimados**
+  ((vehículos × 1,3 + personas) × 60 × 14 h) y coste por 1.000 impactos; precio pedido,
+  ofrecido y acordado (€/año por valla), duración, forma de pago y total del contrato;
+  estado (contacto inicial, en negociación, oferta enviada, ganada, perdida), próximo
+  contacto y notas. Se crea a mano o con *🏠 Negociación* desde una visita a un
+  propietario. **Ganada** → *Pasar a patrimonio y crear trabajo de montaje*: añade las
+  vallas al catálogo (propone los siguientes códigos OOH libres) y abre el trabajo
+  *Montaje de valla*. **📤 Excel** de negociaciones (una fila por negociación, con foto).
 - **Vallas (catálogo editable)**: buscar y filtrar por zona y municipio, tocar una valla para
   **editarla** (dirección, zona, municipio, provincia, medida, categoría, coordenadas y
   foto) o **＋ Nueva valla** para añadir una. Para la foto: *Hacer foto* o *Desde

@@ -240,6 +240,34 @@ function fillTemplate(tpl, lead) {
     .trim();
 }
 
+/* ------------------------------------------------------------- fotos (respuesta de Android) */
+
+/** Cada área registra aquí qué hacer con una foto según su etiqueta: PHOTO_HANDLERS[tag](url). */
+const PHOTO_HANDLERS = {};
+window.onPhotoResult = function (json) {
+  let r;
+  try { r = JSON.parse(json); } catch (e) { return; }
+  if (PHOTO_HANDLERS[r.tag]) PHOTO_HANDLERS[r.tag](r.url);
+};
+window.onPhotoError = function (msg) { if (msg) toast('⚠ ' + msg); };
+
+function pickPhoto(source, tag) {
+  if (NATIVE) window.Android.pickPhoto(source, tag);
+  else toast('Las fotos solo se pueden hacer en la tablet');
+}
+
+/** Tira de miniaturas con botón para quitar (data-foto-x="tag:índice"). */
+function photoStrip(fotos, tag) {
+  return fotos.length ? fotos.map((f, i) => `<div class="photo-thumb"><img src="${esc(f)}" alt="">
+    <button type="button" class="photo-x" data-foto-x="${tag}:${i}" aria-label="Quitar foto">✕</button></div>`).join('')
+    : '<p class="hint">Sin fotos.</p>';
+}
+
+/* --- fotos de la visita --- */
+let leadFotos = [];
+function renderLeadFotos() { $('#lead-fotos').innerHTML = photoStrip(leadFotos, 'lead'); }
+PHOTO_HANDLERS.lead = url => { leadFotos.push(url); renderLeadFotos(); toast('Foto añadida'); };
+
 /* ------------------------------------------------------------- persistencia + excel */
 
 function persist() {
@@ -340,10 +368,12 @@ function renderList() {
       ch.includes('whatsapp') ? `<button class="act wa" data-send="whatsapp" data-id="${l.id}">WhatsApp</button>` : '',
       normPhone(l.telefono) ? `<button class="act" data-call="${l.id}">☎ Llamar</button>` : '',
       hasBudget(l) ? `<button class="act" data-g-install="${l.id}">🛠 Trabajo</button>` : '',
+      l.tipo === 'Propietario' ? `<button class="act" data-neg-lead="${l.id}">🏠 Negociación</button>` : '',
     ].join('');
 
     html += `
       <article class="lead" data-id="${l.id}">
+        ${l.fotos && l.fotos.length ? `<img class="lead-thumb" src="${esc(l.fotos[0])}" alt="">` : ''}
         <div class="lead-main">
           <div class="lead-title">${esc(l.razonSocial || '(sin nombre)')}</div>
           ${sub ? `<div class="lead-sub">${sub}</div>` : ''}
@@ -436,6 +466,8 @@ function openForm(id) {
   const sit = splitSituacion(lead.situacion);
   $$('#situacion-chips .chip').forEach(c => c.classList.toggle('active', sit.sel.includes(c.dataset.value)));
   form.elements.nota.value = sit.nota;
+  leadFotos = Array.isArray(lead.fotos) ? lead.fotos.slice() : [];
+  renderLeadFotos();
   syncFillChips();
   loadBudget(lead.presupuesto);
 
@@ -451,6 +483,8 @@ function readForm() {
   const data = {};
   for (const f of FIELDS) data[f] = (form.elements[f].value || '').trim();
   data.situacion = composeSituacion();
+  data.fotos = leadFotos.slice();
+  data.foto = leadFotos[0] || '';     // la primera va al Excel
   data.correo = data.correo.toLowerCase();
   data.presupuesto = budgetForSave();
   const total = budgetTotal();
@@ -1084,6 +1118,11 @@ document.addEventListener('click', e => {
     return;
   }
   if (t.dataset.map) { openMapFor(t.dataset.map); return; }
+  if (t.dataset.fotoX && t.dataset.fotoX.startsWith('lead:')) {
+    leadFotos.splice(Number(t.dataset.fotoX.split(':')[1]), 1);
+    renderLeadFotos();
+    return;
+  }
   const bg = t.closest('[data-budget]');
   if (bg && t.classList.contains('chip')) {
     setBudgetField(bg.dataset.budget, budget[bg.dataset.budget] === t.dataset.value ? '' : t.dataset.value);
@@ -1154,6 +1193,8 @@ document.addEventListener('click', e => {
   const exportArgs = () => [JSON.stringify(leads), settings.fichero || 'Visitas_Leads'];
   switch (t.dataset.action) {
     case 'new': openForm(null); break;
+    case 'lead-photo-camera': pickPhoto('camera', 'lead'); break;
+    case 'lead-photo-gallery': pickPhoto('gallery', 'lead'); break;
     case 'vallas-pick': openBudgetPicker(); break;
     case 'vallas-done': closePicker(); break;
     case 'scan-camera': scanCard('camera'); break;

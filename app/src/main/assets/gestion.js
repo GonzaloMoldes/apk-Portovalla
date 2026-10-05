@@ -9,7 +9,7 @@
  * ========================================================================= */
 
 const TR_TIPOS = ['Desbrozar', 'Instalar lona', 'Desinstalar lona', 'Retirar lona', 'Cambio de lona',
-  'Arreglo / reparación', 'Revisión', 'Otro'];
+  'Arreglo / reparación', 'Revisión', 'Montaje de valla', 'Desmontaje de valla', 'Otro'];
 const TR_ABIERTOS = ['Pendiente', 'En curso'];
 
 let trabajos = store.load('trabajos') || [];
@@ -31,6 +31,7 @@ let txPersona = '';
 
 function openTab(tab) {
   if (tab === 'catalogo') openCatalog();
+  else if (tab === 'patrimonio') openPatrimonio();   // patrimonio.js
   else if (tab === 'trabajos') openTrabajos();
   else { show('list'); renderList(); }
 }
@@ -166,7 +167,7 @@ function openVallaForm(code) {
   $('#vf-restore').hidden = !(isBase && vallasUser[code]);
   $('#vf-origin').textContent = !code ? ''
     : isBase ? (vallasUser[code] ? 'Valla del catálogo, modificada en la tablet.' : 'Valla del catálogo original.')
-      : 'Valla añadida en la tablet.';
+      : v.origen ? `Valla añadida desde ${v.origen}.` : 'Valla añadida en la tablet.';
   $('#vf-coords-hint').textContent = '';
   $('#vf-location').textContent = '📍 Usar mi ubicación';
   show('valla-form');
@@ -227,27 +228,27 @@ function restoreValla() {
 
 /* --- foto y ubicación (respuestas de Android) --- */
 
-window.onPhotoResult = function (json) {
-  let r;
-  try { r = JSON.parse(json); } catch (e) { return; }
-  if (r.tag === 'valla') { vfFoto = r.url; renderVfPhoto(); toast('Foto añadida'); }
-};
-window.onPhotoError = function (msg) { if (msg) toast('⚠ ' + msg); };
+PHOTO_HANDLERS.valla = url => { vfFoto = url; renderVfPhoto(); toast('Foto añadida'); };
 
-window.onLocationStart = function () { $('#vf-location').textContent = '⏳ Buscando ubicación…'; };
+/* Ubicación GPS para la ficha que la pide (valla o negociación). */
+const LOC_VALLA = { form: '#valla-form', btn: '#vf-location', hint: '#vf-coords-hint' };
+let locTarget = LOC_VALLA;
+
+window.onLocationStart = function () { $(locTarget.btn).textContent = '⏳ Buscando ubicación…'; };
 window.onLocation = function (json) {
   let r;
   try { r = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) { return; }
-  $('#vf-location').textContent = '📍 Usar mi ubicación';
-  $('#valla-form').elements.coords.value = `${r.lat}, ${r.lng}`;
-  $('#vf-coords-hint').textContent = r.acc ? `Ubicación actual (precisión ±${r.acc} m)` : 'Ubicación actual';
+  $(locTarget.btn).textContent = '📍 Usar mi ubicación';
+  $(locTarget.form).elements.coords.value = `${r.lat}, ${r.lng}`;
+  $(locTarget.hint).textContent = r.acc ? `Ubicación actual (precisión ±${r.acc} m)` : 'Ubicación actual';
 };
 window.onLocationError = function (msg) {
-  $('#vf-location').textContent = '📍 Usar mi ubicación';
+  $(locTarget.btn).textContent = '📍 Usar mi ubicación';
   toast('⚠ ' + (msg || 'No se pudo obtener la ubicación'));
 };
 
-function vfLocation() {
+function requestLocationFor(target) {
+  locTarget = target;
   if (NATIVE) { window.Android.getLocation(); return; }
   if (!navigator.geolocation) { toast('Ubicación no disponible'); return; }
   window.onLocationStart();
@@ -256,11 +257,16 @@ function vfLocation() {
     e => window.onLocationError(e.message), { enableHighAccuracy: true, timeout: 20000 });
 }
 
-function vfMap() {
-  const c = parseCoords($('#valla-form').elements.coords.value);
+/** Abre en el mapa las coordenadas escritas en un formulario. */
+function mapFromForm(formSel, label) {
+  const c = parseCoords($(formSel).elements.coords.value);
   if (!c) { toast('Escribe primero las coordenadas'); return; }
-  if (NATIVE) window.Android.openMap(String(c.lat), String(c.lng), $('#valla-form').elements.codigo.value || 'Valla');
+  if (NATIVE) window.Android.openMap(String(c.lat), String(c.lng), label || 'Ubicación');
   else window.open(`https://www.google.com/maps?q=${c.lat},${c.lng}`);
+}
+
+function vfMap() {
+  mapFromForm('#valla-form', $('#valla-form').elements.codigo.value || 'Valla');
 }
 
 /* ------------------------------------------------------------- trabajos */
@@ -565,13 +571,13 @@ document.addEventListener('click', e => {
     case 'valla-delete': deleteValla(); break;
     case 'valla-restore': restoreValla(); break;
     case 'vf-photo-camera':
-      if (NATIVE) window.Android.pickPhoto('camera', 'valla'); else toast('La cámara solo funciona en la tablet');
+      pickPhoto('camera', 'valla');
       break;
     case 'vf-photo-gallery':
-      if (NATIVE) window.Android.pickPhoto('gallery', 'valla'); else toast('Solo disponible en la tablet');
+      pickPhoto('gallery', 'valla');
       break;
     case 'vf-photo-remove': vfFoto = ''; renderVfPhoto(); break;
-    case 'vf-location': vfLocation(); break;
+    case 'vf-location': requestLocationFor(LOC_VALLA); break;
     case 'vf-map': vfMap(); break;
     case 'tr-new': openTrabajoForm(null); break;
     case 'lead-install':

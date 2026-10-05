@@ -11,7 +11,7 @@
 <!-- ======================= LISTADO ======================= -->
 <section id="view-list" class="view active">
   <header class="bar">
-    <nav class="tabs"><button class="tab active" data-tab="list">Visitas</button><button class="tab" data-tab="catalogo">Vallas</button><button class="tab" data-tab="trabajos">Trabajos</button></nav>
+    <nav class="tabs"><button class="tab active" data-tab="list">Visitas</button><button class="tab" data-tab="patrimonio">Patrimonio</button><button class="tab" data-tab="trabajos">Trabajos</button><button class="tab" data-tab="catalogo">Vallas</button></nav>
     <div class="bar-actions">
       <button class="btn-bar" data-action="excel-open" title="Abrir Excel">Abrir Excel</button>
       <button class="btn-bar" data-action="excel-share" title="Compartir Excel">Compartir</button>
@@ -48,6 +48,15 @@
     <div class="scan-row">
       <button type="button" class="btn scan" data-action="scan-camera">📷 Escanear tarjeta</button>
       <button type="button" class="btn" data-action="scan-gallery">🖼 Tarjeta desde galería</button>
+    </div>
+
+    <div class="card">
+      <label class="lbl">Fotos <span class="hint-inline">(fachada, local, finca…)</span></label>
+      <div class="photo-strip" id="lead-fotos"></div>
+      <div class="scan-row">
+        <button type="button" class="btn" data-action="lead-photo-camera">📷 Hacer foto</button>
+        <button type="button" class="btn" data-action="lead-photo-gallery">🖼 Desde galería</button>
+      </div>
     </div>
 
     <div class="card">
@@ -203,10 +212,244 @@
   <main id="vallas-grid" class="vallas-grid"></main>
 </section>
 
+<!-- ======================= PATRIMONIO (NEGOCIACIONES) ======================= -->
+<section id="view-patrimonio" class="view">
+  <header class="bar">
+    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab active" data-tab="patrimonio">Patrimonio</button><button class="tab" data-tab="trabajos">Trabajos</button><button class="tab" data-tab="catalogo">Vallas</button></nav>
+    <div class="bar-actions">
+      <button class="btn-bar" data-p="neg-export">📤 Excel</button>
+      <button class="btn-bar" data-p="neg-new">＋ Nueva</button>
+    </div>
+  </header>
+  <div class="toolbar">
+    <input id="neg-search" type="search" placeholder="Buscar propietario, dirección, municipio…" autocomplete="off">
+    <div class="chips" id="neg-estados">
+      <button class="chip active" data-neg-estado="abiertas">En curso</button>
+      <button class="chip" data-neg-estado="Ganada">Ganadas</button>
+      <button class="chip" data-neg-estado="Perdida">Perdidas</button>
+      <button class="chip" data-neg-estado="todas">Todas</button>
+    </div>
+    <p class="stats" id="neg-stats"></p>
+  </div>
+  <main id="neg-list"></main>
+  <button class="fab" data-p="neg-new" aria-label="Nueva negociación">＋ Nueva negociación</button>
+</section>
+
+<!-- ======================= FICHA DE NEGOCIACIÓN ======================= -->
+<section id="view-neg-form" class="view">
+  <header class="bar">
+    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <h1 id="neg-form-title">Nueva negociación</h1>
+    <div class="bar-actions"></div>
+  </header>
+  <form id="neg-form" autocomplete="off" novalidate>
+    <div class="card">
+      <h2>Propietario</h2>
+      <label>Propietario / razón social *<input type="text" name="propietario" autocapitalize="characters"></label>
+      <div class="grid">
+        <label>Persona de contacto<input type="text" name="contacto" autocapitalize="words"></label>
+        <label>Teléfono<input type="tel" name="telefono" inputmode="tel"></label>
+      </div>
+      <label>Correo<input type="email" name="correo" inputmode="email" autocapitalize="none"></label>
+    </div>
+
+    <div class="card">
+      <h2>Ubicación</h2>
+      <label>Dirección / finca *<textarea name="direccion" rows="2" autocapitalize="characters"></textarea></label>
+      <div class="grid">
+        <div>
+          <label>Municipio<input type="text" name="municipio" list="dl-munis"></label>
+        </div>
+        <div>
+          <label>Provincia<input type="text" name="provincia"></label>
+          <div class="chips small" data-nf-fill="provincia">
+            <button type="button" class="chip" data-value="Coruña">Coruña</button>
+            <button type="button" class="chip" data-value="Lugo">Lugo</button>
+            <button type="button" class="chip" data-value="Pontevedra">Pontevedra</button>
+            <button type="button" class="chip" data-value="Ourense">Ourense</button>
+          </div>
+        </div>
+      </div>
+      <label class="lbl">Zona del catálogo (para cuando se gane)</label>
+      <div class="chips small" data-nf-fill="zona" id="nf-zonas"></div>
+      <input type="text" name="zona" class="plain-input" autocapitalize="characters">
+      <label>Coordenadas (latitud, longitud) o enlace de Google Maps
+        <input type="text" name="coords" placeholder="43.332403, -8.399619">
+      </label>
+      <div class="scan-row">
+        <button type="button" class="btn scan" data-p="nf-location" id="nf-location">📍 Usar mi ubicación</button>
+        <button type="button" class="btn" data-p="nf-map">🗺 Ver en mapa</button>
+      </div>
+      <p class="hint" id="nf-coords-hint"></p>
+      <label class="lbl">Fotos del emplazamiento</label>
+      <div class="photo-strip" id="neg-fotos"></div>
+      <div class="scan-row">
+        <button type="button" class="btn" data-p="nf-photo-camera">📷 Hacer foto</button>
+        <button type="button" class="btn" data-p="nf-photo-gallery">🖼 Desde galería</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Emplazamiento</h2>
+      <label class="lbl">Tipo de soporte</label>
+      <div class="chips" data-nf="soporte">
+        <button type="button" class="chip" data-value="Valla en suelo">Valla en suelo</button>
+        <button type="button" class="chip" data-value="Fachada">Fachada</button>
+        <button type="button" class="chip" data-value="Medianera">Medianera</button>
+        <button type="button" class="chip" data-value="Monoposte">Monoposte</button>
+        <button type="button" class="chip" data-value="Pantalla LED">Pantalla LED</button>
+      </div>
+      <div class="grid">
+        <div>
+          <label class="lbl">Nº de vallas</label>
+          <div class="chips" data-nf="nVallas">
+            <button type="button" class="chip" data-value="1">1</button>
+            <button type="button" class="chip" data-value="2">2</button>
+            <button type="button" class="chip" data-value="3">3</button>
+            <button type="button" class="chip" data-value="4">4</button>
+            <button type="button" class="chip" data-value="6">6</button>
+          </div>
+        </div>
+        <div>
+          <label class="lbl">Caras</label>
+          <div class="chips" data-nf="caras">
+            <button type="button" class="chip" data-value="Una cara">Una cara</button>
+            <button type="button" class="chip" data-value="Doble cara">Doble cara</button>
+          </div>
+        </div>
+      </div>
+      <label class="lbl">Medida</label>
+      <div class="chips small" data-nf-fill="medida">
+        <button type="button" class="chip" data-value="800x300">800x300</button>
+        <button type="button" class="chip" data-value="800x600">800x600</button>
+        <button type="button" class="chip" data-value="400x300">400x300</button>
+        <button type="button" class="chip" data-value="1200x500, Monoposte">1200x500 Monoposte</button>
+      </div>
+      <input type="text" name="medida" class="plain-input">
+      <label class="lbl">Iluminación</label>
+      <div class="chips" data-nf="iluminacion">
+        <button type="button" class="chip" data-value="Sí">Sí</button>
+        <button type="button" class="chip" data-value="No">No</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Visibilidad y tráfico</h2>
+      <button type="button" class="btn scan" data-p="nf-count">⏱ Contar tráfico durante 1 minuto</button>
+      <div class="grid">
+        <label>Vehículos por minuto<input type="text" name="vehiculosMin" inputmode="numeric"></label>
+        <label>Personas por minuto<input type="text" name="personasMin" inputmode="numeric"></label>
+      </div>
+      <div class="grid">
+        <div>
+          <label>Tiempo que se ve la valla (segundos)<input type="text" name="tiempoVision" inputmode="numeric"></label>
+          <div class="chips small" data-nf-fill="tiempoVision">
+            <button type="button" class="chip" data-value="3">3 s</button>
+            <button type="button" class="chip" data-value="5">5 s</button>
+            <button type="button" class="chip" data-value="8">8 s</button>
+            <button type="button" class="chip" data-value="12">12 s</button>
+          </div>
+        </div>
+        <div>
+          <label>Distancia desde la que se ve (m)<input type="text" name="distancia" inputmode="numeric"></label>
+          <div class="chips small" data-nf-fill="distancia">
+            <button type="button" class="chip" data-value="50">50 m</button>
+            <button type="button" class="chip" data-value="100">100 m</button>
+            <button type="button" class="chip" data-value="200">200 m</button>
+            <button type="button" class="chip" data-value="300">300 m</button>
+          </div>
+        </div>
+      </div>
+      <label class="lbl">Sentido de la circulación que la ve</label>
+      <div class="chips" data-nf="sentido">
+        <button type="button" class="chip" data-value="Un sentido">Un sentido</button>
+        <button type="button" class="chip" data-value="Ambos sentidos">Ambos sentidos</button>
+      </div>
+      <p class="budget-total" id="nf-impactos"></p>
+    </div>
+
+    <div class="card">
+      <h2>Precio con el propietario</h2>
+      <div class="grid">
+        <label>Pide el propietario (€/año por valla)<input type="text" name="precioPedido" inputmode="decimal"></label>
+        <label>Ofrecemos (€/año por valla)<input type="text" name="precioOfrecido" inputmode="decimal"></label>
+      </div>
+      <label>Precio acordado (€/año por valla)<input type="text" name="precioAcordado" inputmode="decimal"></label>
+      <div class="grid">
+        <div>
+          <label class="lbl">Duración del contrato</label>
+          <div class="chips" data-nf="duracion">
+            <button type="button" class="chip" data-value="1">1 año</button>
+            <button type="button" class="chip" data-value="3">3 años</button>
+            <button type="button" class="chip" data-value="5">5 años</button>
+            <button type="button" class="chip" data-value="10">10 años</button>
+          </div>
+        </div>
+        <div>
+          <label class="lbl">Forma de pago</label>
+          <div class="chips" data-nf="pago">
+            <button type="button" class="chip" data-value="Anual">Anual</button>
+            <button type="button" class="chip" data-value="Semestral">Semestral</button>
+            <button type="button" class="chip" data-value="Trimestral">Trimestral</button>
+            <button type="button" class="chip" data-value="Mensual">Mensual</button>
+          </div>
+        </div>
+      </div>
+      <p class="budget-total" id="nf-total"></p>
+    </div>
+
+    <div class="card">
+      <h2>Estado de la negociación</h2>
+      <div class="chips" data-nf="estado">
+        <button type="button" class="chip" data-value="Contacto inicial">Contacto inicial</button>
+        <button type="button" class="chip" data-value="En negociación">En negociación</button>
+        <button type="button" class="chip" data-value="Oferta enviada">Oferta enviada</button>
+        <button type="button" class="chip" data-value="Ganada">🏆 Ganada</button>
+        <button type="button" class="chip" data-value="Perdida">Perdida</button>
+      </div>
+      <div>
+        <label>Próximo contacto<input type="date" name="proximo"></label>
+        <div class="chips small" data-nf-date="proximo">
+          <button type="button" class="chip" data-offset="1">Mañana</button>
+          <button type="button" class="chip" data-offset="7">En 1 semana</button>
+          <button type="button" class="chip" data-offset="30">En 1 mes</button>
+        </div>
+      </div>
+      <label>Notas (qué se ha hablado, condiciones, motivo si se pierde…)<textarea name="notas" rows="4"></textarea></label>
+      <p class="envio-info" id="nf-ganada-info"></p>
+      <button type="button" class="btn primary" data-p="neg-win" id="nf-win" hidden>🏗 Pasar a patrimonio y crear trabajo de montaje</button>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn danger" data-p="neg-delete" id="nf-delete">Eliminar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-p="neg-save">Guardar negociación</button>
+    </div>
+  </form>
+</section>
+
+<!-- ======================= CONTADOR DE TRÁFICO ======================= -->
+<div class="modal" id="count-modal" hidden>
+  <div class="sheet counter">
+    <h2>Contar tráfico</h2>
+    <p class="hint">Pulsa un botón cada vez que pase un vehículo o una persona por delante del emplazamiento.</p>
+    <div class="count-time" id="count-time">60</div>
+    <div class="count-btns">
+      <button type="button" class="count-btn" data-p="count-car">🚗<span id="count-cars">0</span></button>
+      <button type="button" class="count-btn" data-p="count-person">🚶<span id="count-people">0</span></button>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" data-p="count-cancel">Cancelar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-p="count-stop" id="count-stop">Terminar y guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ======================= CATÁLOGO DE VALLAS ======================= -->
 <section id="view-catalogo" class="view">
   <header class="bar">
-    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab active" data-tab="catalogo">Vallas</button><button class="tab" data-tab="trabajos">Trabajos</button></nav>
+    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab" data-tab="patrimonio">Patrimonio</button><button class="tab" data-tab="trabajos">Trabajos</button><button class="tab active" data-tab="catalogo">Vallas</button></nav>
     <div class="bar-actions">
       <button class="btn-bar" data-g="valla-new">＋ Nueva valla</button>
     </div>
@@ -306,7 +549,7 @@
 <!-- ======================= TRABAJOS EN VALLAS ======================= -->
 <section id="view-trabajos" class="view">
   <header class="bar">
-    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab" data-tab="catalogo">Vallas</button><button class="tab active" data-tab="trabajos">Trabajos</button></nav>
+    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab" data-tab="patrimonio">Patrimonio</button><button class="tab active" data-tab="trabajos">Trabajos</button><button class="tab" data-tab="catalogo">Vallas</button></nav>
     <div class="bar-actions">
       <button class="btn-bar" data-g="tr-export">📤 Excel</button>
       <button class="btn-bar" data-g="tr-new">＋ Nuevo</button>
@@ -540,5 +783,6 @@
 <script src="ocr.js"></script>
 <script src="app.js"></script>
 <script src="gestion.js"></script>
+<script src="patrimonio.js"></script>
 </body>
 </html>

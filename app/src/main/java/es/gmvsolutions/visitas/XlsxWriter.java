@@ -36,7 +36,7 @@ public final class XlsxWriter {
         "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
     };
 
-    private enum Kind { TEXT, WRAP, DATE, MONEY, PERCENT, COORD, LINK, PHOTO }
+    private enum Kind { TEXT, WRAP, DATE, MONEY, PERCENT, COORD, LINK, PHOTO, NUMBER }
 
     private static final class Col {
         final String header; final String key; final Kind kind; final double width;
@@ -48,7 +48,8 @@ public final class XlsxWriter {
     }
 
     private static final Col[] COLS = {
-        new Col("CLIENTE LLAMADAS VISITA PROPIETARIO", "tipo", Kind.TEXT, 20),
+        new Col("CLIENTE LLAMADAS VISITA PROPIETARIO", "tipo", Kind.TEXT, 20)
+                .withList("Visita Patrimonio,Lead,Propietario,Cliente"),
         new Col("PVS", "pvs", Kind.TEXT, 8),
         new Col("FECHA", "fecha", Kind.DATE, 12),
         new Col("FECHA FIRMA", "fechaFirma", Kind.DATE, 12),
@@ -56,15 +57,16 @@ public final class XlsxWriter {
         new Col("PERSONA CONTACTO", "contacto", Kind.TEXT, 22),
         new Col("TELÉFONO", "telefono", Kind.TEXT, 14),
         new Col("POBLACIÓN", "poblacion", Kind.TEXT, 14),
-        new Col("PROVINCIA", "provincia", Kind.TEXT, 12),
+        new Col("PROVINCIA", "provincia", Kind.TEXT, 12).withList("Coruña,Lugo"),
         new Col("CORREO", "correo", Kind.TEXT, 28),
         new Col("SITUACIÓN", "situacion", Kind.WRAP, 40),
         new Col("PVP ENTRADA SIN IVA", "pvpEntrada", Kind.MONEY, 14),
         new Col("PVP TOTAL SIN IVA", "pvpTotal", Kind.MONEY, 14),
-        new Col("VOLVER (SI/NO)", "volver", Kind.TEXT, 10),
-        new Col("%", "porcentaje", Kind.PERCENT, 8),
+        new Col("VOLVER (SI/NO)", "volver", Kind.TEXT, 10).withList("Si,No"),
+        new Col("%", "porcentaje", Kind.PERCENT, 8).withList("25%,50%,75%,100%"),
         new Col("FECHA DE TRABAJO REALIZADO", "fechaTrabajo", Kind.DATE, 14),
         new Col("SEGUIMIENTO ENVIADO", "envio", Kind.TEXT, 22),
+        new Col("FOTO", "foto", Kind.PHOTO, 26),
     };
 
     // Índices de estilo (cellXfs en styles.xml)
@@ -134,8 +136,10 @@ public final class XlsxWriter {
         String lastCol = colName(COLS.length - 1);
         boolean first = true;
         for (Map.Entry<String, List<Map<String, String>>> e : groups.entrySet()) {
-            sheets.add(new Sheet(e.getKey(), sheet(e.getValue()),
-                    "$A$1:$" + lastCol + "$" + Math.max(1, e.getValue().size() + 1), null));
+            Drawing mainDr = new Drawing();
+            String mainXml = tableSheet(e.getValue(), COLS, photos, mainDr);
+            sheets.add(new Sheet(e.getKey(), mainXml,
+                    "$A$1:$" + lastCol + "$" + Math.max(1, e.getValue().size() + 1), mainDr.pics > 0 ? mainDr : null));
             if (first && budgets != null && !budgets.isEmpty()) {
                 // La hoja de presupuestos va justo detrás de TODAS
                 Drawing dr = new Drawing();
@@ -152,7 +156,7 @@ public final class XlsxWriter {
     /** Libro con una sola tabla (p. ej. TRABAJOS) con fotos incrustadas. */
     public static void writeTable(String kind, String sheetName, List<Map<String, String>> rows,
                                   PhotoSource photos, OutputStream out) throws IOException {
-        Col[] cols = "trabajos".equals(kind) ? TCOLS : BCOLS;
+        Col[] cols = "trabajos".equals(kind) ? TCOLS : "patrimonio".equals(kind) ? PCOLS : BCOLS;
         Drawing dr = new Drawing();
         String xml = tableSheet(rows, cols, photos, dr);
         List<Sheet> sheets = new ArrayList<>();
@@ -310,55 +314,6 @@ public final class XlsxWriter {
         return sb.toString();
     }
 
-    private static String sheet(List<Map<String, String>> rows) {
-        String lastCol = colName(COLS.length - 1);
-        int lastRow = rows.size() + 1;
-        int dvLast = Math.max(lastRow + 100, 200);
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n")
-          .append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">")
-          .append("<dimension ref=\"A1:").append(lastCol).append(lastRow).append("\"/>")
-          .append("<sheetViews><sheetView workbookViewId=\"0\">")
-          .append("<pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/>")
-          .append("</sheetView></sheetViews>")
-          .append("<sheetFormatPr defaultRowHeight=\"15\"/><cols>");
-        for (int c = 0; c < COLS.length; c++) {
-            sb.append("<col min=\"").append(c + 1).append("\" max=\"").append(c + 1)
-              .append("\" width=\"").append(COLS[c].width).append("\" customWidth=\"1\"/>");
-        }
-        sb.append("</cols><sheetData>");
-
-        sb.append("<row r=\"1\" ht=\"32\" customHeight=\"1\">");
-        for (int c = 0; c < COLS.length; c++) {
-            inlineStr(sb, colName(c) + 1, COLS[c].header, S_HEADER);
-        }
-        sb.append("</row>");
-
-        int r = 2;
-        for (Map<String, String> m : rows) {
-            sb.append("<row r=\"").append(r).append("\">");
-            for (int c = 0; c < COLS.length; c++) {
-                cell(sb, colName(c) + r, COLS[c], nz(m.get(COLS[c].key)).trim());
-            }
-            sb.append("</row>");
-            r++;
-        }
-        sb.append("</sheetData>");
-        sb.append("<autoFilter ref=\"A1:").append(lastCol).append(lastRow).append("\"/>");
-
-        sb.append("<dataValidations count=\"4\">");
-        listValidation(sb, "A2:A" + dvLast, "Visita Patrimonio,Lead,Propietario,Cliente");
-        listValidation(sb, "I2:I" + dvLast, "Coruña,Lugo");
-        listValidation(sb, "N2:N" + dvLast, "Si,No");
-        listValidation(sb, "O2:O" + dvLast, "25%,50%,75%,100%");
-        sb.append("</dataValidations>");
-
-        sb.append("<pageMargins left=\"0.5\" right=\"0.5\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/>")
-          .append("</worksheet>");
-        return sb.toString();
-    }
-
     // ------------------------------------------------------------ presupuestos
 
     private static final Col[] BCOLS = {
@@ -410,6 +365,46 @@ public final class XlsxWriter {
         new Col("ESTADO", "estado", Kind.TEXT, 11).withList("Pendiente,En curso,Hecho"),
         new Col("FECHA REALIZADO", "fechaHecho", Kind.DATE, 12),
         new Col("OBSERVACIONES DEL OPERARIO", "obs", Kind.WRAP, 30),
+        new Col("FOTO", "foto", Kind.PHOTO, 26),
+    };
+
+    // ------------------------------------------------------------ patrimonio (negociaciones)
+
+    private static final Col[] PCOLS = {
+        new Col("Nº", "num", Kind.TEXT, 6),
+        new Col("FECHA ALTA", "fecha", Kind.DATE, 12),
+        new Col("ESTADO", "estado", Kind.TEXT, 15)
+                .withList("Contacto inicial,En negociación,Oferta enviada,Ganada,Perdida"),
+        new Col("PROPIETARIO", "propietario", Kind.TEXT, 24),
+        new Col("PERSONA CONTACTO", "contacto", Kind.TEXT, 18),
+        new Col("TELÉFONO", "telefono", Kind.TEXT, 13),
+        new Col("CORREO", "correo", Kind.TEXT, 22),
+        new Col("DIRECCIÓN / FINCA", "direccion", Kind.WRAP, 30),
+        new Col("MUNICIPIO", "municipio", Kind.TEXT, 14),
+        new Col("PROVINCIA", "provincia", Kind.TEXT, 11),
+        new Col("LATITUD", "lat", Kind.COORD, 12),
+        new Col("LONGITUD", "lng", Kind.COORD, 12),
+        new Col("MAPA", "mapa", Kind.LINK, 11),
+        new Col("SOPORTE", "soporte", Kind.TEXT, 14),
+        new Col("Nº VALLAS", "nVallas", Kind.NUMBER, 8),
+        new Col("MEDIDA", "medida", Kind.TEXT, 11),
+        new Col("CARAS", "caras", Kind.TEXT, 10),
+        new Col("ILUMINACIÓN", "iluminacion", Kind.TEXT, 10),
+        new Col("VEHÍCULOS / MIN", "vehiculosMin", Kind.NUMBER, 10),
+        new Col("PERSONAS / MIN", "personasMin", Kind.NUMBER, 10),
+        new Col("TIEMPO DE VISIÓN (s)", "tiempoVision", Kind.NUMBER, 10),
+        new Col("DISTANCIA VISIBLE (m)", "distancia", Kind.NUMBER, 10),
+        new Col("SENTIDO", "sentido", Kind.TEXT, 13),
+        new Col("IMPACTOS / DÍA (estim.)", "impactos", Kind.NUMBER, 12),
+        new Col("PRECIO PEDIDO €/AÑO", "precioPedido", Kind.MONEY, 13),
+        new Col("PRECIO OFRECIDO €/AÑO", "precioOfrecido", Kind.MONEY, 13),
+        new Col("PRECIO ACORDADO €/AÑO", "precioAcordado", Kind.MONEY, 13),
+        new Col("DURACIÓN (AÑOS)", "duracion", Kind.NUMBER, 9),
+        new Col("FORMA DE PAGO", "pago", Kind.TEXT, 11),
+        new Col("TOTAL CONTRATO", "totalContrato", Kind.MONEY, 14),
+        new Col("PRÓXIMO CONTACTO", "proximo", Kind.DATE, 12),
+        new Col("NOTAS", "notas", Kind.WRAP, 36),
+        new Col("VALLAS CREADAS", "vallasCreadas", Kind.TEXT, 16),
         new Col("FOTO", "foto", Kind.PHOTO, 26),
     };
 
@@ -548,6 +543,11 @@ public final class XlsxWriter {
                 } else {
                     inlineStr(sb, ref, v, S_TEXT);
                 }
+                return;
+            }
+            case NUMBER: {
+                String n = parseNumber(v);
+                if (n != null) number(sb, ref, n, S_TEXT); else inlineStr(sb, ref, v, S_TEXT);
                 return;
             }
             case MONEY: {

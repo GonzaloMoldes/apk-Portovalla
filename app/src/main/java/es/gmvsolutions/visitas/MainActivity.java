@@ -716,24 +716,27 @@ public class MainActivity extends Activity {
         }
 
         /**
-         * Excel de trabajos en Descargas/VisitasLeads/Trabajos.
+         * Excel de una tabla (kind: "trabajos" o "patrimonio") en Descargas/VisitasLeads/&lt;carpeta&gt;.
          * mode: "share" (compartir), "open" (abrir) o "save" (solo guardar).
          */
         @JavascriptInterface
-        public String exportTrabajos(String rowsJson, String fileName, String mode) {
+        public String exportTable(String kind, String rowsJson, String fileName, String mode) {
             try {
                 List<Map<String, String>> rows = parseLeads(rowsJson);
                 String name = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
                 if (!name.endsWith(".xlsx")) name += ".xlsx";
-                Uri uri = saveToDownloads(FOLDER + "/Trabajos", name, XLSX_MIME,
-                        out -> XlsxWriter.writeTable("trabajos", "TRABAJOS", rows, MainActivity.this::loadAsset, out));
+                boolean patrimonio = "patrimonio".equals(kind);
+                String folder = FOLDER + (patrimonio ? "/Patrimonio" : "/Trabajos");
+                String sheet = patrimonio ? "NEGOCIACIONES" : "TRABAJOS";
+                Uri uri = saveToDownloads(folder, name, XLSX_MIME,
+                        out -> XlsxWriter.writeTable(kind, sheet, rows, MainActivity.this::loadAsset, out));
                 if ("share".equals(mode)) {
                     Intent send = new Intent(Intent.ACTION_SEND);
                     send.setType(XLSX_MIME);
                     send.putExtra(Intent.EXTRA_STREAM, uri);
                     send.putExtra(Intent.EXTRA_SUBJECT, name);
                     send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    launch(Intent.createChooser(send, "Enviar trabajos"), "No hay apps para compartir");
+                    launch(Intent.createChooser(send, "Compartir Excel"), "No hay apps para compartir");
                 } else if ("open".equals(mode)) {
                     Intent view = new Intent(Intent.ACTION_VIEW);
                     view.setDataAndType(uri, XLSX_MIME);
@@ -744,6 +747,11 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 return e.getMessage() == null ? e.toString() : e.getMessage();
             }
+        }
+
+        @JavascriptInterface
+        public String exportTrabajos(String rowsJson, String fileName, String mode) {
+            return exportTable("trabajos", rowsJson, fileName, mode);
         }
 
         /** source: "camera" o "gallery". El resultado llega a JS en onOcrResult(texto). */
