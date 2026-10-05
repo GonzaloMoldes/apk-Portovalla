@@ -23,6 +23,7 @@ let trEditing = null;      // id del trabajo que se edita (null = nuevo)
 let trCodes = [];          // vallas del trabajo en edición
 let trSnap = {};           // datos guardados de esas vallas (por si ya no están en el catálogo)
 let tfState = {};          // selección única: prioridad, material, estado
+let trLeadId = '';         // visita de la que viene el trabajo (instalación de un presupuesto)
 let txEstado = 'abiertos';
 let txPersona = '';
 
@@ -368,6 +369,7 @@ function openTrabajoForm(id, preset) {
     `<button type="button" class="chip${t.tipos.includes(x) ? ' active' : ''}" data-tf-tipo="${esc(x)}">${esc(x)}</button>`).join('');
   for (const k of ['fechaPrevista', 'asignado', 'campana', 'descripcion', 'fechaHecho', 'obs']) form.elements[k].value = t[k] || '';
   tfState = { prioridad: t.prioridad || 'Normal', material: t.material || '', estado: t.estado || 'Pendiente' };
+  trLeadId = t.leadId || '';
   trCodes = t.vallas.map(v => v.codigo);
   trSnap = {};
   t.vallas.forEach(v => { trSnap[v.codigo] = v; });
@@ -392,6 +394,7 @@ function saveTrabajo() {
     prioridad: tfState.prioridad || 'Normal',
     material: tfState.material || '',
     estado: tfState.estado || 'Pendiente',
+    leadId: trLeadId,
   };
   for (const k of ['fechaPrevista', 'asignado', 'campana', 'descripcion', 'fechaHecho', 'obs']) data[k] = form.elements[k].value.trim();
   if (data.estado === 'Hecho' && !data.fechaHecho) data.fechaHecho = todayISO();
@@ -415,6 +418,36 @@ function deleteTrabajo() {
   saveTrabajos();
   toast('Trabajo eliminado');
   openTrabajos();
+}
+
+/* --- instalación desde un presupuesto --- */
+
+/** Abre un trabajo "Instalar lona" con las vallas, cliente y material del presupuesto de la visita. */
+function installFromLead(lead) {
+  if (!hasBudget(lead)) { toast('Esta visita no tiene vallas en el presupuesto'); return; }
+  const prev = trabajos.find(t => t.leadId === lead.id && t.tipos.includes('Instalar lona'));
+  if (prev && confirm(`Ya existe el trabajo #${prev.num} de instalación para ${lead.razonSocial}. ¿Abrirlo?`)) {
+    openTrabajoForm(prev.id);
+    return;
+  }
+  const p = lead.presupuesto;
+  const contacto = [lead.contacto, lead.telefono].filter(Boolean).join(', ');
+  const descripcion = [
+    `Instalar lona de ${lead.razonSocial}${contacto ? ` (contacto: ${contacto})` : ''}.`,
+    periodoText(p) ? `Campaña: ${periodoText(p)}.` : '',
+    p.hasta ? `Retirar al terminar la campaña (${fmtDate(p.hasta)}).` : '',
+  ].filter(Boolean).join(' ');
+  const hoy = todayISO();
+  openTrabajoForm(null, {
+    tipos: ['Instalar lona'],
+    vallas: p.vallas.map(v => Object.assign({}, v)),
+    campana: lead.razonSocial || '',
+    material: p.material || '',
+    fechaPrevista: p.desde && p.desde >= hoy ? p.desde : isoPlus(1),
+    descripcion,
+    leadId: lead.id,
+  });
+  toast('Revisa los datos y guarda el trabajo');
 }
 
 /* --- Excel de trabajos --- */
@@ -496,6 +529,7 @@ document.addEventListener('click', e => {
 
   // Trabajos
   if (t.dataset.trDone) { markDone(t.dataset.trDone); return; }
+  if (t.dataset.gInstall) { installFromLead(leads.find(l => l.id === t.dataset.gInstall)); return; }
   if (t.matches('[data-tr]')) { openTrabajoForm(t.dataset.tr); return; }
   if (t.dataset.trEstado) { trFilter = t.dataset.trEstado; renderTrabajos(); return; }
   if (t.dataset.trPersona !== undefined && t.closest('#tr-personas')) { trPersona = t.dataset.trPersona; renderTrabajos(); return; }
@@ -540,6 +574,11 @@ document.addEventListener('click', e => {
     case 'vf-location': vfLocation(); break;
     case 'vf-map': vfMap(); break;
     case 'tr-new': openTrabajoForm(null); break;
+    case 'lead-install':
+      // Se guarda la visita (con su presupuesto) y se abre el trabajo de instalación
+      if (!budget || !budget.codes.length) { toast('Elige primero las vallas del presupuesto'); break; }
+      saveForm(false, lead => installFromLead(lead));
+      break;
     case 'tr-save': saveTrabajo(); break;
     case 'tr-delete': deleteTrabajo(); break;
     case 'tf-pick': openPicker(trCodes, codes => { trCodes = codes; renderTf(); }, 'trabajo-form'); break;

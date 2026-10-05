@@ -74,6 +74,10 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   varias vallas, con fecha prevista, prioridad (urgente), persona o equipo asignado,
   cliente/campaña, material, instrucciones, estado (pendiente, en curso, hecho), fecha
   realizado y observaciones. Lista filtrable por estado y persona, con botón *✓ Hecho*.
+  **Desde un presupuesto**: en una visita con vallas, *🛠 Crear trabajo de instalación*
+  (en el presupuesto) o *🛠 Trabajo* (en la tarjeta de la visita) abre un trabajo
+  *Instalar lona* con las vallas, el cliente, el material, la fecha de inicio de la campaña
+  y las instrucciones ya puestos. Si ya existe, ofrece abrirlo.
   **📤 Excel**: elige qué trabajos (pendientes o todos) y para quién, y se crea
   `Descargas/VisitasLeads/Trabajos/Trabajos_<persona>_<fecha>.xlsx` con una fila por
   valla (dirección, enlace al mapa, foto, instrucciones, estado con desplegable…) para

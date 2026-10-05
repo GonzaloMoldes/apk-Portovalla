@@ -339,6 +339,7 @@ function renderList() {
       ch.includes('email') ? `<button class="act mail" data-send="email" data-id="${l.id}">✉ Email</button>` : '',
       ch.includes('whatsapp') ? `<button class="act wa" data-send="whatsapp" data-id="${l.id}">WhatsApp</button>` : '',
       normPhone(l.telefono) ? `<button class="act" data-call="${l.id}">☎ Llamar</button>` : '',
+      hasBudget(l) ? `<button class="act" data-g-install="${l.id}">🛠 Trabajo</button>` : '',
     ].join('');
 
     html += `
@@ -457,7 +458,7 @@ function readForm() {
   return data;
 }
 
-function saveForm(thenSend) {
+function saveForm(thenSend, onSaved) {
   const form = $('#lead-form');
   const data = readForm();
   $$('.invalid', form).forEach(el => el.classList.remove('invalid'));
@@ -487,6 +488,7 @@ function saveForm(thenSend) {
   }
   persist();
   toast('Visita guardada');
+  if (onSaved) { editingId = lead.id; onSaved(lead); return; }
 
   show('list');
   renderList();
