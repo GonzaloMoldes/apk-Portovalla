@@ -45,6 +45,11 @@
   </header>
 
   <form id="lead-form" autocomplete="off" novalidate>
+    <div class="scan-row">
+      <button type="button" class="btn scan" data-action="scan-camera">📷 Escanear tarjeta</button>
+      <button type="button" class="btn" data-action="scan-gallery">🖼 Tarjeta desde galería</button>
+    </div>
+
     <div class="card">
       <label class="lbl">Tipo</label>
       <div class="chips" data-bind="tipo">
@@ -56,7 +61,13 @@
       <input type="hidden" name="tipo">
 
       <div class="grid">
-        <label>Fecha<input type="date" name="fecha" required></label>
+        <div>
+          <label>Fecha<input type="date" name="fecha" required></label>
+          <div class="chips small" data-date="fecha">
+            <button type="button" class="chip" data-offset="0">Hoy</button>
+            <button type="button" class="chip" data-offset="-1">Ayer</button>
+          </div>
+        </div>
         <label>PVS<input type="text" name="pvs"></label>
       </div>
     </div>
@@ -69,20 +80,29 @@
       </div>
       <label>Correo<input type="email" name="correo" inputmode="email" autocapitalize="none"></label>
       <div class="grid">
-        <label>Población<input type="text" name="poblacion" list="dl-poblacion" autocapitalize="characters"></label>
-        <label>Provincia<input type="text" name="provincia" list="dl-provincia"></label>
+        <div>
+          <label>Población<input type="text" name="poblacion" list="dl-poblacion" autocapitalize="characters"></label>
+          <div class="chips small" data-fill="poblacion" id="poblacion-chips"></div>
+        </div>
+        <div>
+          <label>Provincia<input type="text" name="provincia" list="dl-provincia"></label>
+          <div class="chips small" data-fill="provincia">
+            <button type="button" class="chip" data-value="Coruña">Coruña</button>
+            <button type="button" class="chip" data-value="Lugo">Lugo</button>
+            <button type="button" class="chip" data-value="Pontevedra">Pontevedra</button>
+            <button type="button" class="chip" data-value="Ourense">Ourense</button>
+          </div>
+        </div>
       </div>
       <datalist id="dl-poblacion"></datalist>
-      <datalist id="dl-provincia"><option value="Coruña"><option value="Lugo"></datalist>
-      <div class="chips small" data-fill="provincia">
-        <button type="button" class="chip" data-value="Coruña">Coruña</button>
-        <button type="button" class="chip" data-value="Lugo">Lugo</button>
-      </div>
+      <datalist id="dl-provincia"><option value="Coruña"><option value="Lugo"><option value="Pontevedra"><option value="Ourense"></datalist>
     </div>
 
     <div class="card">
-      <label>Situación<textarea name="situacion" rows="3"></textarea></label>
-      <div class="chips small" data-append="situacion" id="situacion-chips"></div>
+      <label class="lbl">Situación <span class="hint-inline">(puedes marcar varias)</span></label>
+      <div class="chips multi" data-multi="situacion" id="situacion-chips"></div>
+      <input type="hidden" name="situacion">
+      <label>Nota adicional (opcional)<textarea name="nota" rows="2"></textarea></label>
 
       <div class="grid">
         <div>
@@ -216,8 +236,24 @@
   </div>
 </div>
 
+<!-- ======================= MODAL TARJETA (OCR) ======================= -->
+<div class="modal" id="ocr-modal" hidden>
+  <div class="sheet">
+    <h2>Datos de la tarjeta</h2>
+    <p class="hint">He rellenado lo que he reconocido. Si algo no está bien, pulsa en una línea el botón del campo al que corresponde.</p>
+    <div id="ocr-summary" class="ocr-summary"></div>
+    <div id="ocr-lines"></div>
+    <div class="form-actions">
+      <button type="button" class="btn" data-action="scan-camera">📷 Repetir foto</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-action="ocr-done">Listo</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
+<script src="ocr.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

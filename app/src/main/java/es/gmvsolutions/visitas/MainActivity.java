@@ -3,11 +3,16 @@ package es.gmvsolutions.visitas;
 import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
@@ -21,6 +26,11 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -46,13 +56,23 @@ public class MainActivity extends Activity {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final String FOLDER = "VisitasLeads";
     private static final int REQ_STORAGE = 1;
+    private static final int REQ_CAMERA = 2;
+    private static final int REQ_GALLERY = 3;
+    private static final int OCR_MAX_SIDE = 2048;
 
     private WebView web;
     private volatile Uri lastExcelUri;
+    private Uri pendingPhoto;          // foto de la cámara en curso
+    private boolean pageLoaded;
+    private String pendingJs;          // llamada JS a la espera de que cargue la página
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            String p = savedInstanceState.getString("pendingPhoto");
+            if (p != null) pendingPhoto = Uri.parse(p);
+        }
         web = new WebView(this);
         setContentView(web);
 
@@ -60,7 +80,17 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setAllowFileAccess(true);
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                pageLoaded = true;
+                if (pendingJs != null) {
+                    String js = pendingJs;
+                    pendingJs = null;
+                    web.evaluateJavascript(js, null);
+                }
+            }
+        });
         web.setWebChromeClient(new WebChromeClient());
         web.addJavascriptInterface(new Bridge(), "Android");
         web.loadUrl("file:///android_asset/index.html");
@@ -71,6 +101,143 @@ public class MainActivity extends Activity {
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE);
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle out) {
+        super.onSaveInstanceState(out);
+        if (pendingPhoto != null) out.putString("pendingPhoto", pendingPhoto.toString());
+    }
+
+    /** Ejecuta una función JS global con un argumento de texto. */
+    private void callJs(String fn, String arg) {
+        final String js = "window." + fn + " && " + fn + "(" + JSONObject.quote(arg == null ? "" : arg) + ")";
+        runOnUiThread(() -> {
+            if (pageLoaded) web.evaluateJavascript(js, null);
+            else pendingJs = js;
+        });
+    }
+
+    // ---------------------------------------------------------------- tarjeta de visita (OCR)
+
+    private void startScan(String source) {
+        try {
+            if ("gallery".equals(source)) {
+                Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
+                pick.setType("image/*");
+                pick.addCategory(Intent.CATEGORY_OPENABLE);
+                startActivityForResult(Intent.createChooser(pick, "Foto de la tarjeta"), REQ_GALLERY);
+                return;
+            }
+            ContentValues v = new ContentValues();
+            v.put(MediaStore.MediaColumns.DISPLAY_NAME, "tarjeta_" + System.currentTimeMillis() + ".jpg");
+            v.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
+            if (Build.VERSION.SDK_INT >= 29) {
+                v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/" + FOLDER);
+            }
+            pendingPhoto = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
+            if (pendingPhoto == null) {
+                callJs("onOcrError", "No se pudo preparar la foto");
+                return;
+            }
+            Intent cam = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            cam.putExtra(MediaStore.EXTRA_OUTPUT, pendingPhoto);
+            cam.setClipData(ClipData.newRawUri("", pendingPhoto));
+            cam.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(cam, REQ_CAMERA);
+        } catch (ActivityNotFoundException e) {
+            discardPendingPhoto();
+            callJs("onOcrError", "No hay ninguna app de cámara disponible");
+        } catch (Exception e) {
+            discardPendingPhoto();
+            callJs("onOcrError", "No se pudo abrir la cámara: " + e.getMessage());
+        }
+    }
+
+    private void discardPendingPhoto() {
+        if (pendingPhoto == null) return;
+        try {
+            getContentResolver().delete(pendingPhoto, null, null);
+        } catch (Exception ignored) {
+            // la foto temporal no es imprescindible borrarla
+        }
+        pendingPhoto = null;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_CAMERA && requestCode != REQ_GALLERY) return;
+        final boolean fromCamera = requestCode == REQ_CAMERA;
+        final Uri uri = fromCamera ? pendingPhoto : (data != null ? data.getData() : null);
+        if (resultCode != RESULT_OK || uri == null) {
+            if (fromCamera) discardPendingPhoto();
+            return;
+        }
+        callJs("onOcrStart", "");
+        new Thread(() -> {
+            Bitmap bmp;
+            try {
+                bmp = loadScaledBitmap(uri);
+            } catch (Exception e) {
+                bmp = null;
+            }
+            final Bitmap image = bmp;
+            runOnUiThread(() -> {
+                if (image == null) {
+                    if (fromCamera) discardPendingPhoto();
+                    callJs("onOcrError", "No se pudo leer la foto");
+                    return;
+                }
+                TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+                recognizer.process(InputImage.fromBitmap(image, 0))
+                        .addOnSuccessListener(text -> callJs("onOcrResult", text.getText()))
+                        .addOnFailureListener(e -> callJs("onOcrError", "No se pudo reconocer el texto: " + e.getMessage()))
+                        .addOnCompleteListener(t -> {
+                            recognizer.close();
+                            if (fromCamera) discardPendingPhoto();
+                        });
+            });
+        }).start();
+    }
+
+    /** Carga la imagen reducida (lado mayor ≤ OCR_MAX_SIDE) y girada según su EXIF. */
+    private Bitmap loadScaledBitmap(Uri uri) throws IOException {
+        ContentResolver cr = getContentResolver();
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        try (InputStream in = cr.openInputStream(uri)) {
+            BitmapFactory.decodeStream(in, null, bounds);
+        }
+        int sample = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= OCR_MAX_SIDE) sample *= 2;
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = sample;
+        Bitmap bmp;
+        try (InputStream in = cr.openInputStream(uri)) {
+            bmp = BitmapFactory.decodeStream(in, null, opts);
+        }
+        if (bmp == null) throw new IOException("Imagen no válida");
+
+        int rotation = 0;
+        try (InputStream in = cr.openInputStream(uri)) {
+            int o = new ExifInterface(in).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+            if (o == ExifInterface.ORIENTATION_ROTATE_90) rotation = 90;
+            else if (o == ExifInterface.ORIENTATION_ROTATE_180) rotation = 180;
+            else if (o == ExifInterface.ORIENTATION_ROTATE_270) rotation = 270;
+        } catch (Exception ignored) {
+            // sin EXIF: se usa tal cual
+        }
+        if (rotation != 0) {
+            Matrix m = new Matrix();
+            m.postRotate(rotation);
+            Bitmap rotated = Bitmap.createBitmap(bmp, 0, 0, bmp.getWidth(), bmp.getHeight(), m, true);
+            if (rotated != bmp) bmp.recycle();
+            bmp = rotated;
+        }
+        return bmp;
     }
 
     @Override
@@ -271,6 +438,12 @@ public class MainActivity extends Activity {
         public void call(String phone) {
             launch(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone))),
                     "No se puede llamar desde este dispositivo");
+        }
+
+        /** source: "camera" o "gallery". El resultado llega a JS en onOcrResult(texto). */
+        @JavascriptInterface
+        public void scanCard(String source) {
+            runOnUiThread(() -> startScan(source));
         }
 
         @JavascriptInterface

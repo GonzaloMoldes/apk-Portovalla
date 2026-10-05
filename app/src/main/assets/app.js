@@ -22,10 +22,15 @@ const DEFAULT_SETTINGS = {
   fichero: 'Visitas_Leads',
   situaciones: [
     'VISITADO E INFORMADO',
-    'DEJADA INFORMACIÓN',
+    'HABLADO CON EL RESPONSABLE',
     'NO ESTABA EL RESPONSABLE',
-    'INTERESADO, VOLVER',
+    'DEJADA INFORMACIÓN',
+    'DEJADA TARJETA',
+    'INTERESADO',
+    'NO INTERESADO',
     'PIDE PRESUPUESTO',
+    'LLAMAR PARA CITA',
+    'VOLVER MÁS ADELANTE',
     'SE GESTIONA DESDE CENTRAL',
   ].join('\n'),
 };
@@ -237,6 +242,7 @@ function currentView() {
 
 window.handleBack = function () {
   if (!$('#send-modal').hidden) { closeSend(); return true; }
+  if (!$('#ocr-modal').hidden) { $('#ocr-modal').hidden = true; return true; }
   if (currentView() !== 'list') { show('list'); renderList(); return true; }
   return false;
 };
@@ -327,11 +333,49 @@ function setChipGroup(name, value) {
   $(`#lead-form [name="${name}"]`).value = value || '';
 }
 
+/** Marca el botón de población/provincia que coincide con lo escrito en el campo. */
+function syncFillChips() {
+  $$('#lead-form [data-fill]').forEach(group => {
+    const v = ($(`#lead-form [name="${group.dataset.fill}"]`).value || '').trim().toLowerCase();
+    $$('.chip', group).forEach(c => c.classList.toggle('active', !!v && c.dataset.value.toLowerCase() === v));
+  });
+}
+
+function situacionOptions() {
+  return (settings.situaciones || '').split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+/** Separa el texto de "Situación" en opciones marcadas + nota libre. */
+function splitSituacion(text) {
+  const opts = situacionOptions();
+  const sel = [];
+  const rest = [];
+  for (const part of String(text || '').split(/\.\s+|\n/).map(p => p.trim().replace(/\.$/, '')).filter(Boolean)) {
+    const o = opts.find(x => x.toLowerCase() === part.toLowerCase());
+    if (o) { if (!sel.includes(o)) sel.push(o); } else rest.push(part);
+  }
+  return { sel, nota: rest.join('. ') };
+}
+
+function composeSituacion() {
+  const sel = $$('#situacion-chips .chip.active').map(c => c.dataset.value);
+  const nota = $('#lead-form [name="nota"]').value.trim();
+  return [...sel, nota].filter(Boolean).join('. ');
+}
+
 function refreshDatalists() {
   const pobl = [...new Set(leads.map(l => (l.poblacion || '').trim()).filter(Boolean))].sort();
   $('#dl-poblacion').innerHTML = pobl.map(p => `<option value="${esc(p)}">`).join('');
-  $('#situacion-chips').innerHTML = (settings.situaciones || '').split('\n')
-    .map(s => s.trim()).filter(Boolean)
+  // Botones con las poblaciones usadas más recientemente
+  const recent = [];
+  for (const l of leads.slice().sort((a, b) => (b.creado || '').localeCompare(a.creado || ''))) {
+    const p = (l.poblacion || '').trim().toUpperCase();
+    if (p && !recent.includes(p)) recent.push(p);
+    if (recent.length >= 6) break;
+  }
+  $('#poblacion-chips').innerHTML = recent
+    .map(p => `<button type="button" class="chip" data-value="${esc(p)}">${esc(p)}</button>`).join('');
+  $('#situacion-chips').innerHTML = situacionOptions()
     .map(s => `<button type="button" class="chip" data-value="${esc(s)}">${esc(s)}</button>`).join('');
 }
 
@@ -357,19 +401,23 @@ function openForm(id) {
     if (el) el.value = lead[f] || '';
   }
   ['tipo', 'volver', 'porcentaje'].forEach(n => setChipGroup(n, lead[n] || ''));
+  const sit = splitSituacion(lead.situacion);
+  $$('#situacion-chips .chip').forEach(c => c.classList.toggle('active', sit.sel.includes(c.dataset.value)));
+  form.elements.nota.value = sit.nota;
+  syncFillChips();
 
   $('#form-title').textContent = id ? 'Editar visita' : 'Nueva visita';
   $('#btn-delete').hidden = !id;
   $('#envio-info').textContent = lead.envio ? `Seguimiento enviado: ${lead.envio}` : '';
   $('details.card', form).open = !!(lead.pvpEntrada || lead.pvpTotal || lead.fechaFirma || lead.fechaTrabajo);
   show('form');
-  if (!id) setTimeout(() => form.elements.razonSocial.focus(), 50);
 }
 
 function readForm() {
   const form = $('#lead-form');
   const data = {};
   for (const f of FIELDS) data[f] = (form.elements[f].value || '').trim();
+  data.situacion = composeSituacion();
   data.correo = data.correo.toLowerCase();
   return data;
 }
@@ -432,8 +480,9 @@ let sending = null; // { id, channel, modelo }
 /** Modelo sugerido: si no hay persona de contacto se dejaron los datos; si no, agradecimiento. */
 function suggestedModel(lead) {
   const sit = (lead.situacion || '').toLowerCase();
-  if (/no estaba|dejad|dej[eé] (mis )?datos|ausente/.test(sit)) return 1;
   if (/presupuesto|propuesta|precio|enviar info|mandar info/.test(sit)) return 2;
+  if (/hablado con/.test(sit)) return 0;
+  if (/no estaba|dejad|dej[eé] (mis )?datos|ausente/.test(sit)) return 1;
   return (lead.contacto || '').trim() ? 0 : 1;
 }
 
@@ -491,6 +540,88 @@ function doSend() {
   persist();
   closeSend();
   renderList();
+}
+
+/* ------------------------------------------------------------- tarjeta de visita (OCR) */
+
+let ocrData = null;
+
+function scanCard(source) {
+  if (!NATIVE) { toast('El escáner solo funciona en la tablet'); return; }
+  $('#ocr-modal').hidden = true;
+  window.Android.scanCard(source);
+}
+
+window.onOcrStart = function () { toast('Leyendo la tarjeta…'); };
+window.onOcrError = function (msg) { if (msg) toast('⚠ ' + msg); };
+
+/** Llamado desde Android con el texto reconocido. */
+window.onOcrResult = function (text) {
+  if (currentView() !== 'form') openForm(null);
+  const r = window.parseCard(text);
+  if (!r.lines.length) { toast('No se ha podido leer texto. Prueba con más luz y la tarjeta recta.'); return; }
+  const form = $('#lead-form');
+  const put = (field, value, overwrite) => {
+    if (value && (overwrite || !form.elements[field].value.trim())) form.elements[field].value = value;
+  };
+  put('razonSocial', r.razonSocial, true);
+  put('contacto', r.contacto, true);
+  put('telefono', r.telefono, true);
+  put('correo', r.correo, true);
+  put('poblacion', r.poblacion, true);
+  put('provincia', r.provincia, true);
+  const extra = [r.cargo && `Cargo: ${r.cargo}`, r.telefono2 && `Otro tel.: ${r.telefono2}`, r.web && `Web: ${r.web}`]
+    .filter(Boolean).join('. ');
+  if (extra) {
+    const nota = form.elements.nota;
+    if (!nota.value.includes(extra)) nota.value = [nota.value.trim(), extra].filter(Boolean).join('. ');
+  }
+  ocrData = r;
+  syncFillChips();
+  renderOcr();
+  $('#ocr-modal').hidden = false;
+};
+
+const OCR_TARGETS = [
+  ['razonSocial', 'Empresa'], ['contacto', 'Contacto'], ['telefono', 'Teléfono'],
+  ['correo', 'Correo'], ['poblacion', 'Población'],
+];
+
+function renderOcr() {
+  const form = $('#lead-form');
+  $('#ocr-summary').innerHTML = OCR_TARGETS.map(([f, label]) =>
+    `<dt>${label}</dt><dd>${esc(form.elements[f].value) || '—'}</dd>`).join('') +
+    `<dt>Provincia</dt><dd>${esc(form.elements.provincia.value) || '—'}</dd>`;
+  $('#ocr-lines').innerHTML = ocrData.lines.map((l, i) => `
+    <div class="ocr-line">
+      <div class="ocr-line-text">${esc(l)}</div>
+      <div class="chips small">${OCR_TARGETS.map(([f, label]) =>
+        `<button type="button" class="chip" data-ocr-line="${i}" data-ocr-field="${f}">${label}</button>`).join('')}</div>
+    </div>`).join('');
+}
+
+function assignOcrLine(i, field) {
+  const form = $('#lead-form');
+  let v = ocrData.lines[i];
+  if (field === 'telefono') {
+    const digits = v.replace(/\D/g, '').replace(/^(0034|34)(?=\d{9}$)/, '');
+    v = digits.length === 9 ? digits.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') : v;
+  } else if (field === 'correo') {
+    v = (v.replace(/\s*@\s*/g, '@').match(/[^\s:]+@[^\s]+/) || [v])[0].toLowerCase();
+  } else if (field === 'poblacion') {
+    const m = v.match(/\b(\d{5})\b[\s,-]*(.+)/);
+    if (m) {
+      v = m[2].replace(/\(.*$/, '').trim();
+      const prov = window.parseCard(m[1] + ' X').provincia;
+      if (prov) form.elements.provincia.value = prov;
+    }
+    v = v.toUpperCase();
+  } else if (field === 'razonSocial') {
+    v = v.toUpperCase();
+  }
+  form.elements[field].value = v;
+  syncFillChips();
+  renderOcr();
 }
 
 /* ------------------------------------------------------------- ajustes */
@@ -561,14 +692,22 @@ document.addEventListener('click', e => {
   const fill = t.closest('[data-fill]');
   if (fill && t.classList.contains('chip')) {
     $(`#lead-form [name="${fill.dataset.fill}"]`).value = t.dataset.value;
+    syncFillChips();
     return;
   }
-  const app = t.closest('[data-append]');
-  if (app && t.classList.contains('chip')) {
-    const ta = $(`#lead-form [name="${app.dataset.append}"]`);
-    ta.value = ta.value.trim() ? `${ta.value.trim()}. ${t.dataset.value}` : t.dataset.value;
+  if (t.closest('[data-multi]') && t.classList.contains('chip')) {
+    t.classList.toggle('active');
     return;
   }
+  const dateGroup = t.closest('[data-date]');
+  if (dateGroup && t.classList.contains('chip')) {
+    const d = new Date();
+    d.setDate(d.getDate() + Number(t.dataset.offset || 0));
+    $(`#lead-form [name="${dateGroup.dataset.date}"]`).value =
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return;
+  }
+  if (t.dataset.ocrField) { assignOcrLine(Number(t.dataset.ocrLine), t.dataset.ocrField); return; }
   if (t.dataset.filter) {
     filter = t.dataset.filter;
     $$('#filters .chip').forEach(c => c.classList.toggle('active', c === t));
@@ -598,6 +737,9 @@ document.addEventListener('click', e => {
   const exportArgs = () => [JSON.stringify(leads), settings.fichero || 'Visitas_Leads'];
   switch (t.dataset.action) {
     case 'new': openForm(null); break;
+    case 'scan-camera': scanCard('camera'); break;
+    case 'scan-gallery': scanCard('gallery'); break;
+    case 'ocr-done': $('#ocr-modal').hidden = true; break;
     case 'back': window.handleBack(); break;
     case 'settings': openSettings(); break;
     case 'save': saveForm(false); break;
@@ -619,7 +761,11 @@ document.addEventListener('click', e => {
 });
 
 $('#send-modal').addEventListener('click', e => { if (e.target.id === 'send-modal') closeSend(); });
+$('#ocr-modal').addEventListener('click', e => { if (e.target.id === 'ocr-modal') e.target.hidden = true; });
 $('#search').addEventListener('input', renderList);
+$('#lead-form').addEventListener('input', e => {
+  if (e.target.name === 'poblacion' || e.target.name === 'provincia') syncFillChips();
+});
 
 /* ------------------------------------------------------------- inicio */
 

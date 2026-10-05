@@ -46,3 +46,8 @@ android {
         checkReleaseBuilds false
     }
 }
+
+dependencies {
+    // OCR de tarjetas de visita: reconocimiento de texto de Google ML Kit (modelo incluido, funciona sin conexión)
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+}

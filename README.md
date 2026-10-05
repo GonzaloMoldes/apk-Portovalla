@@ -9,6 +9,15 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   (`PORTO VALLA – GONZALO – SEMANA`): tipo, PVS, fecha, fecha firma, razón social,
   persona de contacto, teléfono, población, provincia, correo, situación, PVP entrada,
   PVP total, volver (Sí/No), % y fecha de trabajo realizado.
+- **Casi todo con botones**: tipo, fecha (Hoy / Ayer), población (las últimas usadas),
+  provincia, volver y %. La **situación** se marca con botones acumulativos (se pueden
+  marcar varios) y una nota libre opcional. Las opciones de situación se editan en Ajustes.
+- **Escáner de tarjetas de visita (OCR)**: con *Escanear tarjeta* se hace una foto (o se
+  elige de la galería) y la app lee el texto sin conexión (Google ML Kit) y rellena empresa,
+  contacto, teléfono (prefiere el móvil), correo, población y provincia (por el código
+  postal). El cargo, otro teléfono o la web se añaden a la nota. En la pantalla de revisión
+  cada línea leída tiene botones (Empresa, Contacto, Teléfono, Correo, Población) para
+  corregir lo que no se haya reconocido bien. La foto no se guarda.
 - **Excel automático**: cada vez que guardas, la app reescribe
   `Descargas/VisitasLeads/Visitas_Leads.xlsx` con:
   - una hoja **TODAS** con todas las visitas,

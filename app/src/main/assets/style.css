@@ -146,3 +146,19 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
   max-width: 90vw; text-align: center;
 }
 .toast[hidden] { display: none; }
+
+/* ---------- situación (selección múltiple) ---------- */
+.chips.multi .chip { padding: 10px 14px; font-size: 14px; }
+.chips.multi .chip.active::before { content: "✓ "; }
+.hint-inline { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+/* ---------- escaneo de tarjetas ---------- */
+.scan-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.scan-row .btn { flex: 1; min-width: 200px; }
+.btn.scan { background: #e1ecfb; border-color: #c4d7f2; color: var(--primary-dark); }
+.ocr-summary { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 12px 0; font-size: 15px; }
+.ocr-summary dt { color: var(--muted); }
+.ocr-summary dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.ocr-line { border-top: 1px solid var(--border); padding: 10px 0; }
+.ocr-line-text { font-size: 15px; overflow-wrap: anywhere; }
+.ocr-line .chips { margin: 6px 0 0; }
