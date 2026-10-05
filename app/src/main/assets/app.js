@@ -20,16 +20,6 @@ const DEFAULT_SETTINGS = {
   autoEnviar: true,
   prefijo: '34',
   fichero: 'Visitas_Leads',
-  emailAsunto: 'Gracias por atenderme – {miEmpresa}',
-  emailCuerpo:
-    'Hola {contacto},\n\n' +
-    'Muchas gracias por atenderme hoy en {empresa}. Como le comenté, le dejo mis datos de contacto ' +
-    'para cualquier cosa que necesite.\n\n' +
-    'Quedo a su disposición para resolver cualquier duda.\n\n' +
-    'Un saludo,\n{comercial}\n{miEmpresa}\n{miTelefono}\n{miEmail}',
-  whatsappTexto:
-    'Hola {contacto}, soy {comercial} de {miEmpresa}. Gracias por atenderme hoy en {empresa}. ' +
-    'Le dejo mi contacto por aquí para lo que necesite. ¡Un saludo!',
   situaciones: [
     'VISITADO E INFORMADO',
     'DEJADA INFORMACIÓN',
@@ -39,6 +29,48 @@ const DEFAULT_SETTINGS = {
     'SE GESTIONA DESDE CENTRAL',
   ].join('\n'),
 };
+
+/* Tres modelos de mensaje; cada uno tiene versión email y versión WhatsApp. */
+const FIRMA = '\n\nUn saludo,\n{comercial}\n{miEmpresa}\n{miTelefono}\n{miEmail}';
+const DEFAULT_PLANTILLAS = [
+  {
+    nombre: 'Gracias tras hablar',
+    emailAsunto: 'Gracias por atenderme – {miEmpresa}',
+    emailCuerpo:
+      'Hola {contacto},\n\n' +
+      'Muchas gracias por el tiempo que me dedicó hoy en {empresa}. Fue un placer conocerle y ' +
+      'comentar con usted cómo podemos ayudarles desde {miEmpresa}.\n\n' +
+      'Le dejo aquí mis datos de contacto para cualquier duda que le surja.' + FIRMA,
+    whatsapp:
+      'Hola {contacto}, soy {comercial} de {miEmpresa}. Muchas gracias por atenderme hoy en {empresa}, ' +
+      'fue un placer hablar con usted. Le dejo mi contacto por aquí para lo que necesite. ¡Un saludo!',
+  },
+  {
+    nombre: 'Dejé mis datos',
+    emailAsunto: 'Visita de {miEmpresa} a {empresa}',
+    emailCuerpo:
+      'Hola {contacto},\n\n' +
+      'Hoy he pasado por {empresa} para presentarles {miEmpresa} y he dejado allí mis datos de contacto. ' +
+      'Le escribo también por aquí para que los tenga a mano.\n\n' +
+      'Me gustaría comentarle brevemente cómo podemos ayudarles. Cuando le venga bien, puede responder ' +
+      'a este correo o llamarme.' + FIRMA,
+    whatsapp:
+      'Hola {contacto}, soy {comercial} de {miEmpresa}. Hoy pasé por {empresa} y dejé mis datos. ' +
+      'Le escribo para que tenga también mi contacto por aquí; cuando le venga bien, lo comentamos. ¡Un saludo!',
+  },
+  {
+    nombre: 'Info en breve',
+    emailAsunto: 'Información de {miEmpresa} para {empresa}',
+    emailCuerpo:
+      'Hola {contacto},\n\n' +
+      'Gracias de nuevo por su interés. Tal como hablamos, en breve le enviaré la información ' +
+      'detallada para {empresa}.\n\n' +
+      'Si mientras tanto tiene cualquier pregunta, quedo a su disposición.' + FIRMA,
+    whatsapp:
+      'Hola {contacto}, soy {comercial} de {miEmpresa}. Tal como hablamos, en breve le envío la ' +
+      'información para {empresa}. Cualquier duda, me dice. ¡Un saludo!',
+  },
+];
 
 const FIELDS = ['tipo', 'pvs', 'fecha', 'fechaFirma', 'razonSocial', 'contacto', 'telefono',
   'poblacion', 'provincia', 'correo', 'situacion', 'pvpEntrada', 'pvpTotal', 'volver',
@@ -65,6 +97,10 @@ const store = {
 
 let leads = store.load('leads') || [];
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.load('settings') || {});
+if (!Array.isArray(settings.plantillas) || settings.plantillas.length !== DEFAULT_PLANTILLAS.length) {
+  settings.plantillas = DEFAULT_PLANTILLAS.map(p => Object.assign({}, p));
+}
+['emailAsunto', 'emailCuerpo', 'whatsappTexto'].forEach(k => delete settings[k]); // formato antiguo
 let filter = 'semana';
 let editingId = null;
 
@@ -391,7 +427,15 @@ function deleteLead() {
 
 /* ------------------------------------------------------------- envío */
 
-let sending = null; // { id, channel }
+let sending = null; // { id, channel, modelo }
+
+/** Modelo sugerido: si no hay persona de contacto se dejaron los datos; si no, agradecimiento. */
+function suggestedModel(lead) {
+  const sit = (lead.situacion || '').toLowerCase();
+  if (/no estaba|dejad|dej[eé] (mis )?datos|ausente/.test(sit)) return 1;
+  if (/presupuesto|propuesta|precio|enviar info|mandar info/.test(sit)) return 2;
+  return (lead.contacto || '').trim() ? 0 : 1;
+}
 
 function openSend(id, channel) {
   const lead = leads.find(l => l.id === id);
@@ -399,11 +443,13 @@ function openSend(id, channel) {
   const ch = channelsFor(lead);
   if (!ch.length) { toast('Sin correo ni móvil para enviar'); return; }
   if (!ch.includes(channel)) channel = ch[0];
-  sending = { id, channel };
+  sending = { id, channel, modelo: suggestedModel(lead) };
 
   $('#send-title').textContent = `Seguimiento · ${lead.razonSocial}`;
   $('#send-channels').innerHTML = ch.map(c =>
     `<button type="button" class="chip${c === channel ? ' active' : ''}" data-channel="${c}">${c === 'email' ? '✉ Email' : 'WhatsApp'}</button>`).join('');
+  $('#send-models').innerHTML = settings.plantillas.map((p, i) =>
+    `<button type="button" class="chip${i === sending.modelo ? ' active' : ''}" data-model="${i}">${esc(p.nombre || 'Modelo ' + (i + 1))}</button>`).join('');
   fillSend(lead, channel);
   $('#send-modal').hidden = false;
 }
@@ -411,8 +457,9 @@ function openSend(id, channel) {
 function fillSend(lead, channel) {
   const isMail = channel === 'email';
   $('#send-subject-wrap').hidden = !isMail;
-  $('#send-subject').value = isMail ? fillTemplate(settings.emailAsunto, lead) : '';
-  $('#send-body').value = fillTemplate(isMail ? settings.emailCuerpo : settings.whatsappTexto, lead);
+  const tpl = settings.plantillas[sending ? sending.modelo : 0] || DEFAULT_PLANTILLAS[0];
+  $('#send-subject').value = isMail ? fillTemplate(tpl.emailAsunto, lead) : '';
+  $('#send-body').value = fillTemplate(isMail ? tpl.emailCuerpo : tpl.whatsapp, lead);
   $('#send-to').textContent = isMail ? `Para: ${lead.correo}` : `WhatsApp: +${normPhone(lead.telefono)}`;
   $('#send-go').textContent = isMail ? 'Abrir correo y enviar' : 'Abrir WhatsApp y enviar';
 }
@@ -438,7 +485,8 @@ function doSend() {
     else window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(body)}`);
   }
 
-  lead.envio = `${sending.channel === 'email' ? 'Email' : 'WhatsApp'} ${fmtDate(todayISO())}`;
+  const modelo = (settings.plantillas[sending.modelo] || {}).nombre || '';
+  lead.envio = [sending.channel === 'email' ? 'Email' : 'WhatsApp', modelo, fmtDate(todayISO())].filter(Boolean).join(' · ');
   lead.modificado = new Date().toISOString();
   persist();
   closeSend();
@@ -454,6 +502,9 @@ function openSettings() {
     if (el.type === 'checkbox') el.checked = !!settings[el.name];
     else el.value = settings[el.name] == null ? '' : settings[el.name];
   }
+  settings.plantillas.forEach((p, i) => {
+    for (const k of ['nombre', 'emailAsunto', 'emailCuerpo', 'whatsapp']) form.elements[`tpl${i}_${k}`].value = p[k] || '';
+  });
   $('#excel-location').textContent = NATIVE
     ? `El Excel se guarda en: ${window.Android.excelLocation()}/${settings.fichero || 'Visitas_Leads'}.xlsx (se actualiza solo cada vez que guardas).`
     : 'Modo navegador: el Excel solo se genera en la tablet.';
@@ -465,8 +516,16 @@ function saveSettings() {
   const next = Object.assign({}, settings);
   for (const el of form.elements) {
     if (!el.name) continue;
+    if (el.name.startsWith('tpl')) continue;
     next[el.name] = el.type === 'checkbox' ? el.checked : el.value.trim();
   }
+  next.plantillas = DEFAULT_PLANTILLAS.map((d, i) => {
+    const p = {};
+    for (const k of ['nombre', 'emailAsunto', 'emailCuerpo', 'whatsapp']) {
+      p[k] = form.elements[`tpl${i}_${k}`].value.trim() || d[k];
+    }
+    return p;
+  });
   next.fichero = (next.fichero || 'Visitas_Leads').replace(/[\\/:*?"<>|]/g, '_').replace(/\.xlsx$/i, '');
   settings = next;
   store.save('settings', settings);
@@ -478,9 +537,10 @@ function saveSettings() {
 
 function resetTemplates() {
   const form = $('#settings-form');
-  ['emailAsunto', 'emailCuerpo', 'whatsappTexto', 'situaciones'].forEach(k => {
-    form.elements[k].value = DEFAULT_SETTINGS[k];
+  DEFAULT_PLANTILLAS.forEach((p, i) => {
+    for (const k of ['nombre', 'emailAsunto', 'emailCuerpo', 'whatsapp']) form.elements[`tpl${i}_${k}`].value = p[k];
   });
+  form.elements.situaciones.value = DEFAULT_SETTINGS.situaciones;
   toast('Textos restaurados (pulsa Guardar ajustes)');
 }
 
@@ -518,6 +578,12 @@ document.addEventListener('click', e => {
   if (t.dataset.channel && sending) {
     sending.channel = t.dataset.channel;
     $$('#send-channels .chip').forEach(c => c.classList.toggle('active', c === t));
+    fillSend(leads.find(l => l.id === sending.id), sending.channel);
+    return;
+  }
+  if (t.dataset.model && sending) {
+    sending.modelo = Number(t.dataset.model);
+    $$('#send-models .chip').forEach(c => c.classList.toggle('active', c === t));
     fillSend(leads.find(l => l.id === sending.id), sending.channel);
     return;
   }

@@ -12,6 +12,8 @@
   --wa: #25d366;
 }
 
+[hidden] { display: none !important; }
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 html, body {

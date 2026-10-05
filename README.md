@@ -15,16 +15,24 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   - una hoja por semana, con el mismo nombre que usas ahora (`1º JUNIO`, `2º JUNIO`…),
   - los mismos desplegables (Tipo, Provincia, Volver, %), fechas y euros con formato,
     filtros y cabecera fija,
-  - una columna extra **SEGUIMIENTO ENVIADO** (p. ej. `Email 05/10/2026`).
+  - una columna extra **SEGUIMIENTO ENVIADO** (p. ej. `Email · Gracias tras hablar · 05/10/2026`).
 - **Seguimiento tras la visita**: al guardar una visita nueva se prepara el mensaje solo:
   - si la lead tiene **correo** → email (asunto y texto con plantilla),
   - si solo tiene **móvil** (6xx/7xx) → WhatsApp,
   - si solo hay fijo → no se envía nada (queda el botón *Llamar*).
 
-  Se abre la app de correo o WhatsApp con el mensaje ya escrito y solo hay que pulsar
-  *Enviar*. Las visitas tipo *Visita Patrimonio* no generan mensaje.
+  Hay **3 modelos de mensaje**, cada uno en versión email y WhatsApp:
+  1. *Gracias tras hablar*: agradecer después de hablar con el propietario o responsable.
+  2. *Dejé mis datos*: pasé por la empresa y dejé mis datos (haya hablado o no con el responsable).
+  3. *Info en breve*: aviso de que en breve le envío información.
+
+  La app propone uno (modelo 2 si no hay persona de contacto o la situación dice que no
+  estaba o que se dejaron datos; modelo 3 si habla de presupuesto o propuesta; si no, el 1) y
+  se puede cambiar antes de enviar. Se abre la app de correo o WhatsApp con el mensaje ya
+  escrito y solo hay que pulsar *Enviar*. Las visitas tipo *Visita Patrimonio* no generan
+  mensaje.
 - **Botones** *Abrir Excel* y *Compartir* (enviarlo por correo, Drive, WhatsApp…).
-- **Ajustes**: tu nombre, empresa, teléfono y correo, textos de las plantillas
+- **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos
   (variables `{contacto}`, `{empresa}`, `{poblacion}`, `{fecha}`, `{comercial}`,
   `{miEmpresa}`, `{miTelefono}`, `{miEmail}`), nombre del Excel y respuestas rápidas
   de *Situación*.

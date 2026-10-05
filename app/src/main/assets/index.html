@@ -154,10 +154,32 @@
       <h2>Envío tras la visita</h2>
       <label class="check"><input type="checkbox" name="autoEnviar"> Al guardar una visita nueva, preparar el mensaje automáticamente</label>
       <p class="hint">Si la lead tiene correo se envía email; si solo tiene móvil, WhatsApp. Variables: <code>{contacto}</code> <code>{empresa}</code> <code>{poblacion}</code> <code>{fecha}</code> <code>{comercial}</code> <code>{miEmpresa}</code> <code>{miTelefono}</code> <code>{miEmail}</code></p>
-      <label>Asunto del email<input type="text" name="emailAsunto"></label>
-      <label>Texto del email<textarea name="emailCuerpo" rows="10"></textarea></label>
-      <label>Texto de WhatsApp<textarea name="whatsappTexto" rows="5"></textarea></label>
       <label>Prefijo de país para WhatsApp<input type="text" name="prefijo" inputmode="numeric"></label>
+      <p class="hint">Hay 3 modelos de mensaje, cada uno con versión email y WhatsApp. Al enviar se propone uno según la visita y puedes cambiarlo.</p>
+    </div>
+
+    <div class="card">
+      <h2>Modelo 1</h2>
+      <label>Nombre del modelo<input type="text" name="tpl0_nombre"></label>
+      <label>Asunto del email<input type="text" name="tpl0_emailAsunto"></label>
+      <label>Texto del email<textarea name="tpl0_emailCuerpo" rows="9"></textarea></label>
+      <label>Texto de WhatsApp<textarea name="tpl0_whatsapp" rows="4"></textarea></label>
+    </div>
+
+    <div class="card">
+      <h2>Modelo 2</h2>
+      <label>Nombre del modelo<input type="text" name="tpl1_nombre"></label>
+      <label>Asunto del email<input type="text" name="tpl1_emailAsunto"></label>
+      <label>Texto del email<textarea name="tpl1_emailCuerpo" rows="9"></textarea></label>
+      <label>Texto de WhatsApp<textarea name="tpl1_whatsapp" rows="4"></textarea></label>
+    </div>
+
+    <div class="card">
+      <h2>Modelo 3</h2>
+      <label>Nombre del modelo<input type="text" name="tpl2_nombre"></label>
+      <label>Asunto del email<input type="text" name="tpl2_emailAsunto"></label>
+      <label>Texto del email<textarea name="tpl2_emailCuerpo" rows="9"></textarea></label>
+      <label>Texto de WhatsApp<textarea name="tpl2_whatsapp" rows="4"></textarea></label>
     </div>
 
     <div class="card">
@@ -179,6 +201,9 @@
 <div class="modal" id="send-modal" hidden>
   <div class="sheet">
     <h2 id="send-title">Enviar seguimiento</h2>
+    <label class="lbl">Modelo</label>
+    <div class="chips" id="send-models"></div>
+    <label class="lbl">Canal</label>
     <div class="chips" id="send-channels"></div>
     <label id="send-subject-wrap">Asunto<input type="text" id="send-subject"></label>
     <label>Mensaje<textarea id="send-body" rows="10"></textarea></label>
