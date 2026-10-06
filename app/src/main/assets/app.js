@@ -1,9 +1,9 @@
 'use strict';
 
 /* =========================================================================
- * Visitas Leads — lógica de la app (corre dentro del WebView de Android).
+ * PortoValla Operadores — lógica de la app (corre dentro del WebView de Android).
  * Los datos se guardan en la tablet (fichero JSON interno) y cada cambio
- * reescribe el Excel en Descargas/VisitasLeads.
+ * reescribe el Excel en Descargas/PortoValla.
  * Fuera de Android (navegador) usa localStorage para poder probarla.
  * ========================================================================= */
 

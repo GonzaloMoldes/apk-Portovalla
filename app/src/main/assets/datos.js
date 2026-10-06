@@ -385,14 +385,14 @@ function exportarCopia() {
   for (const k of BACKUP_KEYS) data[k] = store.load(k);
   const txt = JSON.stringify({ app: 'VisitasLeads', version: 1, fecha: new Date().toISOString(), data });
   if (!NATIVE) { toast('La copia solo se genera en la tablet'); return; }
-  const err = window.Android.saveText('Copias', `Copia_VisitasLeads_${todayISO()}.json`, 'application/json', txt, 'share');
+  const err = window.Android.saveText('Copias', `Copia_PortoValla_Operadores_${todayISO()}.json`, 'application/json', txt, 'share');
   if (err) toast('⚠ ' + err);
 }
 
 function restaurarCopia(text, name) {
   let b;
   try { b = JSON.parse(text); } catch (e) { toast('⚠ La copia no es válida'); return; }
-  if (!b || b.app !== 'VisitasLeads' || !b.data) { toast('⚠ Ese fichero no es una copia de Visitas Leads'); return; }
+  if (!b || b.app !== 'VisitasLeads' || !b.data) { toast('⚠ Ese fichero no es una copia de PortoValla Operadores'); return; }
   const n = (b.data.leads || []).length;
   if (!confirm(`¿Restaurar la copia ${name || ''} del ${fmtDate((b.fecha || '').slice(0, 10))} (${n} visitas)?\n\nSe sustituirán TODOS los datos actuales de la tablet.`)) return;
   for (const k of BACKUP_KEYS) if (b.data[k] !== undefined && b.data[k] !== null) store.save(k, b.data[k]);

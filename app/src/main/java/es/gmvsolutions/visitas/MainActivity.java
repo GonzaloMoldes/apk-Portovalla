@@ -60,7 +60,7 @@ public class MainActivity extends Activity {
 
     private static final String XLSX_MIME =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    private static final String FOLDER = "VisitasLeads";
+    private static final String FOLDER = "PortoValla";
     private static final int REQ_STORAGE = 1;
     private static final int REQ_CAMERA = 2;
     private static final int REQ_GALLERY = 3;
@@ -680,7 +680,7 @@ public class MainActivity extends Activity {
         return result[0];
     }
 
-    /** Escribe el Excel en Descargas/VisitasLeads y devuelve su Uri. */
+    /** Escribe el Excel en Descargas/PortoValla y devuelve su Uri. */
     private Uri writeExcel(String leadsJson, String fileName) throws Exception {
         List<Map<String, String>> leads = parseLeads(leadsJson);
         List<Map<String, String>> budgets = parseBudgets(leadsJson);
@@ -689,7 +689,7 @@ public class MainActivity extends Activity {
         return saveToDownloads(FOLDER, name, XLSX_MIME, out -> XlsxWriter.write(leads, budgets, photos, out));
     }
 
-    /** Genera el PDF del presupuesto en Descargas/VisitasLeads/Presupuestos. */
+    /** Genera el PDF del presupuesto en Descargas/PortoValla/Presupuestos. */
     private Uri writeBudgetPdf(String docJson) throws Exception {
         JSONObject doc = new JSONObject(docJson);
         String name = doc.optString("fichero", "Presupuesto").replaceAll("[\\\\/:*?\"<>|]", "_");
@@ -832,7 +832,7 @@ public class MainActivity extends Activity {
         /**
          * Libro Excel definido por la app:
          * {fileName, folder, mode: share|open|save, sheets: [{name, cols: [[cabecera, clave, tipo, ancho, lista]], rows: [{…}]}]}
-         * Se guarda en Descargas/VisitasLeads/&lt;folder&gt;. Devuelve "" o el mensaje de error.
+         * Se guarda en Descargas/PortoValla/&lt;folder&gt;. Devuelve "" o el mensaje de error.
          */
         @JavascriptInterface
         public String exportBook(String json) {
@@ -864,7 +864,7 @@ public class MainActivity extends Activity {
             }
         }
 
-        /** Guarda un fichero de texto (copia de seguridad JSON…) en Descargas/VisitasLeads/&lt;folder&gt;. */
+        /** Guarda un fichero de texto (copia de seguridad JSON…) en Descargas/PortoValla/&lt;folder&gt;. */
         @JavascriptInterface
         public String saveText(String folder, String fileName, String mime, String text, String mode) {
             try {

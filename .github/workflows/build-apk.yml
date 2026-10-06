@@ -1,4 +1,4 @@
-name: APK Visitas Leads
+name: APK PortoValla Operadores
 
 on:
   push:
@@ -32,23 +32,23 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/VisitasLeads-1.0.${VERSION_CODE}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "dist/PortoValla-Operadores-1.0.${VERSION_CODE}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: VisitasLeads-1.0.${{ github.run_number }}
+          name: PortoValla-Operadores-1.0.${{ github.run_number }}
           path: dist/*.apk
 
       - name: Publicar descarga (Releases)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: vl-${{ env.BUILD }}
-          name: Visitas Leads 1.0.${{ github.run_number }}
+          name: PortoValla Operadores 1.0.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           prerelease: ${{ github.ref != 'refs/heads/main' }}
           make_latest: ${{ github.ref == 'refs/heads/main' }}
           body: |
-            APK de la app Visitas Leads.
+            APK de la app PortoValla Operadores.
             Descarga el fichero `.apk` desde la tablet e instálalo (permite "instalar apps desconocidas" para el navegador).
             Se instala encima de la versión anterior sin perder los datos.
           files: dist/*.apk

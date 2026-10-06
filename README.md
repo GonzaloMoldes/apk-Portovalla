@@ -1,4 +1,4 @@
-# Visitas Leads (APK Android)
+# PortoValla Operadores (APK Android)
 
 App sencilla para registrar las visitas comerciales desde la tablet, guardar todo en un
 **Excel** y mandar el **seguimiento por email o WhatsApp** a cada lead.
@@ -19,7 +19,7 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   cada línea leída tiene botones (Empresa, Contacto, Teléfono, Correo, Población) para
   corregir lo que no se haya reconocido bien. La foto no se guarda.
 - **Excel automático**: cada vez que guardas, la app reescribe
-  `Descargas/VisitasLeads/Visitas_Leads.xlsx` con:
+  `Descargas/PortoValla/Visitas_Leads.xlsx` con:
   - una hoja **TODAS** con todas las visitas,
   - una hoja por semana, con el mismo nombre que usas ahora (`1º JUNIO`, `2º JUNIO`…),
   - los mismos desplegables (Tipo, Provincia, Volver, %), fechas y euros con formato,
@@ -57,7 +57,7 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   dirección, medida, categoría y enlace a Google Maps, más periodo, material, precio por
   valla y total. Además se adjunta un **PDF** (*Propuesta de campaña publicitaria*) con
   los datos del cliente, el resumen y una ficha por valla con su **foto**, ubicación y
-  precio. El PDF se guarda en `Descargas/VisitasLeads/Presupuestos`. En WhatsApp se abre
+  precio. El PDF se guarda en `Descargas/PortoValla/Presupuestos`. En WhatsApp se abre
   directamente el chat del número con el PDF adjunto.
 
   En el Excel se añade la hoja **PRESUPUESTOS** con una fila por valla: visita, código,
@@ -113,7 +113,7 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   *Instalar lona* con las vallas, el cliente, el material, la fecha de inicio de la campaña
   y las instrucciones ya puestos. Si ya existe, ofrece abrirlo.
   **📤 Excel**: elige qué trabajos (pendientes o todos) y para quién, y se crea
-  `Descargas/VisitasLeads/Trabajos/Trabajos_<persona>_<fecha>.xlsx` con una fila por
+  `Descargas/PortoValla/Trabajos/Trabajos_<persona>_<fecha>.xlsx` con una fila por
   valla (dirección, enlace al mapa, foto, instrucciones, estado con desplegable…) para
   **compartirlo** por WhatsApp, email, etc. o abrirlo.
 - **Botones** *Abrir Excel* y *Compartir* (enviarlo por correo, Drive, WhatsApp…).
@@ -128,7 +128,7 @@ Los datos se guardan dentro de la tablet (no se suben a ningún servidor).
 
 1. En la tablet, abre la **última versión**:
    <https://github.com/GonzaloMoldes/apk-Portovalla/releases/latest>
-   y descarga el fichero `VisitasLeads-1.0.N.apk`.
+   y descarga el fichero `PortoValla-Operadores-1.0.N.apk`.
 2. Ábrelo. Android pedirá permitir *Instalar apps desconocidas* para el navegador
    (o el gestor de archivos): actívalo y pulsa **Instalar**.
 3. Para actualizar, instala la APK nueva encima: se conservan las visitas.
