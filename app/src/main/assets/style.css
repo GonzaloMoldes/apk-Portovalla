@@ -1,6 +1,7 @@
 :root {
-  --primary: #1f4e78;
-  --primary-dark: #163a5a;
+  --primary: #365f99;
+  --primary-dark: #284a7a;
+  --gold: #e1a527;
   --bg: #eef2f6;
   --card: #ffffff;
   --text: #1c2733;
@@ -293,3 +294,8 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .linea .grid4 { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0 10px; }
 @media (max-width: 560px) { .linea .grid4 { grid-template-columns: 1fr 1fr; } }
 .valla .badges.dispo-wrap { position: static; margin: 6px 0 0; }
+
+/* ---------- logo ---------- */
+.bar-logo { height: 40px; background: #fff; border-radius: 8px; padding: 3px 8px; }
+.bar { border-bottom: 3px solid var(--gold); }
+.settings-logo { display: block; max-width: 260px; width: 70%; margin: 4px auto 14px; }

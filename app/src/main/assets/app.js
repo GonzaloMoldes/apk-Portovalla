@@ -887,6 +887,7 @@ function budgetDoc(lead) {
   const preparado = [settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · ');
   return {
     fichero: `Presupuesto_${safe(lead.razonSocial) || 'cliente'}_${(lead.fecha || todayISO()).slice(0, 10)}.pdf`,
+    logo: 'logo.png',
     titulo: 'Propuesta de campaña publicitaria',
     subtitulo: [settings.miEmpresa, fmtDate(todayISO())].filter(Boolean).join(' · '),
     datos: [

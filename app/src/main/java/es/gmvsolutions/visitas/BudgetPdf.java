@@ -33,7 +33,8 @@ final class BudgetPdf {
 
     private static final int W = 595, H = 842;          // A4 en puntos
     private static final int M = 36;                     // margen
-    private static final int PRIMARY = Color.rgb(0x1F, 0x4E, 0x78);
+    private static final int PRIMARY = Color.rgb(0x36, 0x5F, 0x99);
+    private static final int GOLD = Color.rgb(0xE1, 0xA5, 0x27);
     private static final int MUTED = Color.rgb(0x5F, 0x6F, 0x80);
     private static final int TEXT = Color.rgb(0x1C, 0x27, 0x33);
     private static final int LINE = Color.rgb(0xD4, 0xDC, 0xE5);
@@ -116,12 +117,25 @@ final class BudgetPdf {
         footer = doc.optString("pie", "");
         newPage();
 
-        // Banda de cabecera
-        fill.setColor(PRIMARY);
-        c.drawRect(0, 0, W, 86, fill);
-        c.drawText(doc.optString("titulo", "Propuesta de campaña"), M, 40, title);
-        c.drawText(doc.optString("subtitulo", ""), M, 62, subtitle);
-        y = 110;
+        // Cabecera: logo a la izquierda (si lo hay) y título; línea dorada debajo
+        Bitmap logo = doc.optString("logo").isEmpty() ? null : photos.load(doc.optString("logo"));
+        float tx = M;
+        if (logo != null) {
+            float lh = 62, lw = lh * logo.getWidth() / logo.getHeight();
+            c.drawBitmap(logo, null, new RectF(M, 14, M + lw, 14 + lh), null);
+            logo.recycle();
+            tx = M + lw + 20;
+            title.setColor(PRIMARY);
+            subtitle.setColor(MUTED);
+        } else {
+            fill.setColor(PRIMARY);
+            c.drawRect(0, 0, W, 86, fill);
+        }
+        c.drawText(doc.optString("titulo", "Propuesta de campaña"), tx, 44, title);
+        c.drawText(doc.optString("subtitulo", ""), tx, 64, subtitle);
+        fill.setColor(GOLD);
+        c.drawRect(0, 88, W, 91, fill);
+        y = 114;
 
         // Datos del cliente (2 columnas)
         JSONArray datos = doc.optJSONArray("datos");
