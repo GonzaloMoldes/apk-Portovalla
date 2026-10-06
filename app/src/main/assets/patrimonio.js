@@ -353,8 +353,27 @@ function stopCount(save) {
 
 /* ------------------------------------------------------------- Excel */
 
+const NEG_COLS = [
+  ['Nº', 'num', 'text', 6], ['FECHA ALTA', 'fecha', 'date', 12],
+  ['ESTADO', 'estado', 'text', 15, 'Contacto inicial,En negociación,Oferta enviada,Ganada,Perdida'],
+  ['PROPIETARIO', 'propietario', 'text', 24], ['PERSONA CONTACTO', 'contacto', 'text', 18], ['TELÉFONO', 'telefono', 'text', 13],
+  ['CORREO', 'correo', 'text', 22], ['DIRECCIÓN / FINCA', 'direccion', 'wrap', 30], ['MUNICIPIO', 'municipio', 'text', 14],
+  ['PROVINCIA', 'provincia', 'text', 11], ['ZONA', 'zona', 'text', 14], ['LATITUD', 'lat', 'coord', 12], ['LONGITUD', 'lng', 'coord', 12],
+  ['MAPA', 'mapa', 'link', 11], ['SOPORTE', 'soporte', 'text', 14], ['Nº VALLAS', 'nVallas', 'number', 8],
+  ['MEDIDA', 'medida', 'text', 11], ['CARAS', 'caras', 'text', 10], ['ILUMINACIÓN', 'iluminacion', 'text', 10],
+  ['VEHÍCULOS / MIN', 'vehiculosMin', 'number', 10], ['PERSONAS / MIN', 'personasMin', 'number', 10],
+  ['TIEMPO DE VISIÓN (s)', 'tiempoVision', 'number', 10], ['DISTANCIA VISIBLE (m)', 'distancia', 'number', 10],
+  ['SENTIDO', 'sentido', 'text', 13], ['IMPACTOS / DÍA (estim.)', 'impactos', 'number', 12],
+  ['PRECIO PEDIDO €/AÑO', 'precioPedido', 'money', 13], ['PRECIO OFRECIDO €/AÑO', 'precioOfrecido', 'money', 13],
+  ['PRECIO ACORDADO €/AÑO', 'precioAcordado', 'money', 13], ['DURACIÓN (AÑOS)', 'duracion', 'number', 9],
+  ['FORMA DE PAGO', 'pago', 'text', 11], ['TOTAL CONTRATO', 'totalContrato', 'money', 14],
+  ['PRÓXIMO CONTACTO', 'proximo', 'date', 12], ['NOTAS', 'notas', 'wrap', 36], ['VALLAS CREADAS', 'vallasCreadas', 'text', 16],
+  ['FOTO', 'foto', 'photo', 26], ['ID', 'id', 'text', 14],
+];
+
 function negRows(list) {
   return list.map(n => ({
+    id: n.id, zona: n.zona || '',
     num: `#${n.num}`, fecha: n.fecha || '', estado: n.estado || '', propietario: n.propietario || '',
     contacto: n.contacto || '', telefono: n.telefono || '', correo: n.correo || '', direccion: n.direccion || '',
     municipio: n.municipio || '', provincia: n.provincia || '',
@@ -372,13 +391,12 @@ function negRows(list) {
   }));
 }
 
-function exportNegs() {
+function exportNegs(mode) {
   const list = negociaciones.filter(negMatches).sort((a, b) => a.num - b.num);
   if (!list.length) { toast('No hay negociaciones con este filtro'); return; }
-  if (!NATIVE) { toast('El Excel solo se genera en la tablet'); return; }
   const nombre = { abiertas: 'en_curso', Ganada: 'ganadas', Perdida: 'perdidas', todas: 'todas' }[negFilter] || 'todas';
-  const err = window.Android.exportTable('patrimonio', JSON.stringify(negRows(list)), `Patrimonio_${nombre}_${todayISO()}`, 'share');
-  if (err) toast('⚠ ' + err);
+  exportBook(`Patrimonio_${nombre}_${todayISO()}`, 'Patrimonio', mode || 'share',
+    [{ name: 'NEGOCIACIONES', cols: NEG_COLS, rows: negRows(list) }]);
 }
 
 /* ------------------------------------------------------------- eventos */

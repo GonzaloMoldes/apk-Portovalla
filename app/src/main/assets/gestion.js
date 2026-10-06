@@ -25,6 +25,16 @@ let trSnap = {};           // datos guardados de esas vallas (por si ya no está
 let tfState = {};          // selección única: prioridad, material, estado
 let trLeadId = '';         // visita de la que viene el trabajo (instalación de un presupuesto)
 let txEstado = 'abiertos';
+let catDispo = '';
+let trClase = '';
+let tfClase = 'Trabajo';
+let tfClienteId = '';
+let tfLineas = [];
+let vfDispo = 'Disponible';
+let vfClienteId = '';
+/* Disponibilidad marcada a mano (los contratos de clientes mandan sobre esto): { CODIGO: {estado, ocupadaPor, hasta} } */
+let vallasDispo = store.load('vallas_dispo') || {};
+function saveDispo() { store.save('vallas_dispo', vallasDispo); }
 let txPersona = '';
 
 /* ------------------------------------------------------------- navegación */
@@ -32,6 +42,8 @@ let txPersona = '';
 function openTab(tab) {
   if (tab === 'catalogo') openCatalog();
   else if (tab === 'patrimonio') openPatrimonio();   // patrimonio.js
+  else if (tab === 'clientes') openClientes();       // clientes.js
+  else if (tab === 'ajustes') openSettings();
   else if (tab === 'trabajos') openTrabajos();
   else { show('list'); renderList(); }
 }
@@ -81,8 +93,10 @@ function renderCatFilters() {
 
 function renderCatalog() {
   const q = $('#cat-search').value.trim().toLowerCase();
+  $$('#cat-dispo .chip').forEach(c => c.classList.toggle('active', c.dataset.catDispo === catDispo));
   const items = VALLAS_DB.filter(v =>
     (catZona === 'Todas' || v.zona === catZona) && (!catMuni || v.municipio === catMuni) &&
+    (!catDispo || vallaDisponibilidad(v.codigo).estado === catDispo) &&
     (!q || q.split(/\s+/).every(w => [v.codigo, v.direccion, v.municipio, v.zona, v.medida].join(' ').toLowerCase().includes(w))));
   const nuevas = VALLAS_DB.filter(v => v._nueva).length;
   const editadas = VALLAS_DB.filter(v => v._editada).length;
@@ -98,6 +112,7 @@ function renderCatalog() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
+        <div class="badges dispo-wrap">${dispoBadge(v.codigo)}</div>
         ${v.lat !== '' && v.lat != null ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
       </div>
     </div>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';
@@ -170,7 +185,33 @@ function openVallaForm(code) {
       : v.origen ? `Valla añadida desde ${v.origen}.` : 'Valla añadida en la tablet.';
   $('#vf-coords-hint').textContent = '';
   $('#vf-location').textContent = '📍 Usar mi ubicación';
+  const d = code ? (vallasDispo[code] || {}) : {};
+  vfDispo = d.estado || 'Disponible';
+  vfClienteId = '';
+  form.elements.ocupadaPor.value = d.ocupadaPor || '';
+  form.elements.ocupadaHasta.value = d.hasta || '';
+  renderVfDispo();
   show('valla-form');
+}
+
+function renderVfDispo() {
+  const ct = vallaEditing ? contratoActivo(vallaEditing) : null;
+  const info = $('#vf-contrato');
+  if (ct) {
+    const c = clienteById(ct.clienteId);
+    info.innerHTML = `🔴 Ocupada por <b>${esc(c ? c.nombre : '?')}</b>${ct.hasta ? ` hasta ${fmtDate(ct.hasta)}` : ''}
+      <button type="button" class="act" data-vf-vercliente="${esc(ct.clienteId)}">Ver cliente</button>
+      <button type="button" class="act" data-vf-liberar="${esc(ct.id)}">Liberar hoy</button>`;
+  } else {
+    info.textContent = '';
+  }
+  $('[data-vf-dispo]').hidden = !!ct;
+  $$('[data-vf-dispo] .chip').forEach(c => c.classList.toggle('active', c.dataset.value === vfDispo));
+  $('#vf-ocupada').hidden = !!ct || vfDispo !== 'Ocupada';
+  $('#vf-clientes').innerHTML = clientes.length
+    ? clientes.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(c =>
+      `<button type="button" class="chip${c.id === vfClienteId ? ' active' : ''}" data-vf-cliente="${c.id}">${esc(c.nombre)}</button>`).join('')
+    : '<span class="hint">No hay clientes dados de alta.</span>';
 }
 
 function saveValla() {
@@ -202,9 +243,25 @@ function saveValla() {
     lat: coords ? coords.lat : '', lng: coords ? coords.lng : '',
     foto: vfFoto,
   };
-  if (vallaEditing && vallaEditing !== codigo) delete vallasUser[vallaEditing];   // cambio de código (solo vallas añadidas)
+  if (vallaEditing && vallaEditing !== codigo) {   // cambio de código (solo vallas añadidas)
+    delete vallasUser[vallaEditing];
+    if (vallasDispo[vallaEditing]) { vallasDispo[codigo] = vallasDispo[vallaEditing]; delete vallasDispo[vallaEditing]; }
+  }
   vallasUser[codigo] = rec;
   saveCatalog();
+  // Disponibilidad
+  if (!contratoActivo(codigo)) {
+    if (vfDispo === 'Ocupada' && vfClienteId) {
+      contratoDesdeValla(codigo, vfClienteId, form.elements.ocupadaHasta.value);
+      delete vallasDispo[codigo];
+    } else if (vfDispo === 'Disponible') {
+      delete vallasDispo[codigo];
+    } else {
+      vallasDispo[codigo] = { estado: vfDispo, ocupadaPor: vfDispo === 'Ocupada' ? form.elements.ocupadaPor.value.trim() : '',
+        hasta: vfDispo === 'Ocupada' ? form.elements.ocupadaHasta.value : '' };
+    }
+    saveDispo();
+  }
   toast(vallaEditing ? 'Valla guardada' : 'Valla añadida');
   openCatalog();
 }
@@ -305,9 +362,11 @@ function renderTrabajos() {
   if (trPersona && !ps.includes(trPersona)) trPersona = '';
   $('#tr-personas').innerHTML = ps.length ? chipsHtml(['', ...ps], 'data-tr-persona', trPersona, p => p || 'Todas las personas') : '';
   $$('#tr-estados .chip').forEach(c => c.classList.toggle('active', c.dataset.trEstado === trFilter));
+  $$('#tr-clases .chip').forEach(c => c.classList.toggle('active', c.dataset.trClase === trClase));
   const q = $('#tr-search').value.trim().toLowerCase();
-  const items = trabajos.filter(t => trMatches(t, trFilter, trPersona) && (!q || q.split(/\s+/).every(w =>
-    [t.tipos.join(' '), t.asignado, t.campana, t.descripcion, ...t.vallas.map(v => `${v.codigo} ${v.direccion} ${v.municipio}`)]
+  const items = trabajos.filter(t => trMatches(t, trFilter, trPersona) && (!trClase || (t.clase || 'Trabajo') === trClase) && (!q || q.split(/\s+/).every(w =>
+    [t.tipos.join(' '), t.asignado, t.campana, t.descripcion, t.clienteNombre, ...(t.lineas || []).map(x => `${x.articulo} ${x.descripcion}`),
+      ...t.vallas.map(v => `${v.codigo} ${v.direccion} ${v.municipio}`)]
       .join(' ').toLowerCase().includes(w)))).sort(trSort);
   const abiertos = trabajos.filter(t => TR_ABIERTOS.includes(t.estado)).length;
   $('#tr-stats').textContent = `${items.length} trabajo${items.length === 1 ? '' : 's'} · ${abiertos} pendiente${abiertos === 1 ? '' : 's'} en total`;
@@ -321,12 +380,15 @@ function renderTrabajos() {
       t.estado === 'Hecho' && t.fechaHecho ? `<span class="badge ok">Hecho ${fmtDate(t.fechaHecho)}</span>` : '',
     ].join('');
     const vallas = t.vallas.map(v => `<b>${esc(v.codigo)}</b> ${esc(v.municipio || '')}`).join(' · ');
+    const venta = t.clase === 'Venta';
+    const titulo = venta ? `🛒 ${(t.lineas || []).map(x => x.articulo).join(', ') || 'Venta'}` : t.tipos.join(' + ');
     return `<article class="job${t.prioridad === 'Urgente' && t.estado !== 'Hecho' ? ' urgente' : ''}${t.estado === 'Hecho' ? ' hecho' : ''}" data-tr="${t.id}">
       <div class="job-main">
-        <div class="job-title">#${t.num} · ${esc(t.tipos.join(' + '))}</div>
-        <div class="job-vallas">${vallas}</div>
-        <div class="job-meta">${[t.asignado && '👷 ' + t.asignado, t.campana && 'Campaña: ' + t.campana, t.material].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="badges">${badges}</div>
+        <div class="job-title">#${t.num} · ${esc(titulo)}</div>
+        ${vallas ? `<div class="job-vallas">${vallas}</div>` : ''}
+        <div class="job-meta">${[t.clienteNombre && '👤 ' + t.clienteNombre, t.asignado && '👷 ' + t.asignado,
+          !venta && t.campana && 'Campaña: ' + t.campana, t.material].filter(Boolean).map(esc).join(' · ')}</div>
+        <div class="badges">${badges}${venta && t.importe ? `<span class="badge budget-b">${fmtMoney(parseMoney(t.importe))}</span>` : ''}</div>
       </div>
       ${t.estado !== 'Hecho' ? `<div class="lead-actions"><button class="act" data-tr-done="${t.id}">✓ Hecho</button></div>` : ''}
     </article>`;
@@ -346,8 +408,43 @@ function markDone(id) {
 
 /* --- ficha de trabajo --- */
 
+function lineaImporte(l) {
+  return Math.round(parseMoney(l.cantidad || '1') * parseMoney(l.precio) * 100) / 100;
+}
+
+function ventaImporte(lineas) {
+  return Math.round((lineas || []).reduce((s, l) => s + lineaImporte(l), 0) * 100) / 100;
+}
+
+function renderTfLineas() {
+  $('#tf-lineas').innerHTML = tfLineas.length ? tfLineas.map((l, i) => `<div class="linea">
+    <div class="linea-head">${esc(l.articulo)}<span class="spacer"></span>
+      ${lineaImporte(l) ? `<span>${fmtMoney(lineaImporte(l))}</span>` : ''}
+      <button type="button" class="vsel-x" data-tf-dellinea="${i}" aria-label="Quitar">✕</button></div>
+    <div class="grid4">
+      <label>Descripción<input type="text" data-linea="${i}" data-k="descripcion" value="${esc(l.descripcion || '')}"></label>
+      <label>Medida<input type="text" data-linea="${i}" data-k="medida" value="${esc(l.medida || '')}"></label>
+      <label>Cantidad<input type="text" inputmode="decimal" data-linea="${i}" data-k="cantidad" value="${esc(l.cantidad || '')}"></label>
+      <label>Precio unidad (€)<input type="text" inputmode="decimal" data-linea="${i}" data-k="precio" value="${esc(l.precio || '')}"></label>
+    </div></div>`).join('') : '<p class="hint">Añade los artículos de la venta con los botones de abajo.</p>';
+  renderTfImporte();
+}
+
+function renderTfImporte() {
+  const t = ventaImporte(tfLineas);
+  $('#tf-importe').textContent = t ? `Total venta: ${fmtMoney(t)} sin IVA` : '';
+}
+
 function renderTf() {
   const form = $('#trabajo-form');
+  const venta = tfClase === 'Venta';
+  $$('#tf-clase .chip').forEach(c => c.classList.toggle('active', c.dataset.tfClase === tfClase));
+  $('#tf-lineas-card').hidden = !venta;
+  $('#tf-tipos-card').hidden = venta;
+  $('#tf-vallas-label').textContent = venta ? 'Vallas (opcional, si la venta es para una valla)' : 'Vallas';
+  const cn = form.elements.clienteNombre.value.trim();
+  $('#tf-clientes').innerHTML = clientes.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(c =>
+    `<button type="button" class="chip${c.id === tfClienteId || (!tfClienteId && cn && normName(cn) === normName(c.nombre)) ? ' active' : ''}" data-tf-cliente="${c.id}">${esc(c.nombre)}</button>`).join('');
   $$('#trabajo-form [data-tf]').forEach(g => $$('.chip', g).forEach(c =>
     c.classList.toggle('active', tfState[g.dataset.tf] === c.dataset.value)));
   const asig = form.elements.asignado.value.trim();
@@ -375,22 +472,39 @@ function openTrabajoForm(id, preset) {
     `<button type="button" class="chip${t.tipos.includes(x) ? ' active' : ''}" data-tf-tipo="${esc(x)}">${esc(x)}</button>`).join('');
   for (const k of ['fechaPrevista', 'asignado', 'campana', 'descripcion', 'fechaHecho', 'obs']) form.elements[k].value = t[k] || '';
   tfState = { prioridad: t.prioridad || 'Normal', material: t.material || '', estado: t.estado || 'Pendiente' };
+  tfClase = t.clase || 'Trabajo';
+  tfClienteId = t.clienteId || '';
+  form.elements.clienteNombre.value = t.clienteNombre || '';
+  tfLineas = (t.lineas || []).map(l => Object.assign({}, l));
+  renderTfLineas();
   trLeadId = t.leadId || '';
   trCodes = t.vallas.map(v => v.codigo);
   trSnap = {};
   t.vallas.forEach(v => { trSnap[v.codigo] = v; });
   renderTf();
-  $('#trabajo-form-title').textContent = id ? `Trabajo #${t.num}` : 'Nuevo trabajo';
+  $('#trabajo-form-title').textContent = id ? `${tfClase === 'Venta' ? 'Venta' : 'Trabajo'} #${t.num}` : 'Nuevo trabajo o venta';
   $('#tf-delete').hidden = !id;
   show('trabajo-form');
 }
 
 function saveTrabajo() {
   const form = $('#trabajo-form');
-  const tipos = $$('#tf-tipos .chip.active').map(c => c.dataset.tfTipo);
-  if (!tipos.length) { toast('Marca qué hay que hacer'); return; }
-  if (!trCodes.length) { toast('Elige al menos una valla'); return; }
+  const venta = tfClase === 'Venta';
+  const tipos = venta ? [] : $$('#tf-tipos .chip.active').map(c => c.dataset.tfTipo);
+  if (venta) {
+    if (!tfLineas.length) { toast('Añade al menos un artículo'); return; }
+  } else {
+    if (!tipos.length) { toast('Marca qué hay que hacer'); return; }
+    if (!trCodes.length) { toast('Elige al menos una valla'); return; }
+  }
+  const clienteNombre = form.elements.clienteNombre.value.trim();
+  const cli = tfClienteId ? clienteById(tfClienteId) : clienteByNombre(clienteNombre);
   const data = {
+    clase: tfClase,
+    clienteId: cli ? cli.id : '',
+    clienteNombre: cli ? cli.nombre : clienteNombre,
+    lineas: venta ? tfLineas.map(l => Object.assign({}, l)) : [],
+    importe: venta ? String(ventaImporte(tfLineas)) : '',
     tipos,
     vallas: trCodes.map(code => {
       const v = VALLAS_DB.find(x => x.codigo === code) || trSnap[code] || { codigo: code };
@@ -413,7 +527,7 @@ function saveTrabajo() {
     trabajos.push(Object.assign({ id: uid(), num, creado: now, modificado: now }, data));
   }
   saveTrabajos();
-  toast('Trabajo guardado');
+  toast(venta ? 'Venta guardada' : 'Trabajo guardado');
   openTrabajos();
 }
 
@@ -462,24 +576,60 @@ function trExportList() {
   return trabajos.filter(t => trMatches(t, txEstado, txPersona)).sort(trSort);
 }
 
-/** Una fila por valla y trabajo (columnas de XlsxWriter.TCOLS). */
+/* Columnas del Excel de trabajos y ventas: [cabecera, clave, tipo, ancho, desplegable] */
+const TR_COLS = [
+  ['Nº', 'num', 'text', 6], ['CLASE', 'clase', 'text', 9, 'Trabajo,Venta'],
+  ['FECHA PREVISTA', 'fechaPrevista', 'date', 12], ['PRIORIDAD', 'prioridad', 'text', 10, 'Normal,Urgente'],
+  ['TRABAJO / ARTÍCULO', 'tipos', 'wrap', 22], ['DESCRIPCIÓN ARTÍCULO', 'artDescripcion', 'wrap', 24],
+  ['MEDIDA ARTÍCULO', 'artMedida', 'text', 11], ['CANTIDAD', 'artCantidad', 'number', 9],
+  ['PRECIO UNIDAD', 'artPrecio', 'money', 12], ['IMPORTE', 'artImporte', 'money', 12],
+  ['CLIENTE', 'clienteNombre', 'text', 22],
+  ['VALLA', 'codigo', 'text', 12], ['DIRECCIÓN VALLA', 'direccion', 'wrap', 34], ['MUNICIPIO', 'municipio', 'text', 14],
+  ['MEDIDA VALLA', 'medida', 'text', 11], ['LATITUD', 'lat', 'coord', 12], ['LONGITUD', 'lng', 'coord', 12],
+  ['MAPA', 'mapa', 'link', 11], ['CLIENTE / CAMPAÑA', 'campana', 'text', 20], ['MATERIAL', 'material', 'text', 13],
+  ['INSTRUCCIONES', 'descripcion', 'wrap', 36], ['ASIGNADO A', 'asignado', 'text', 16],
+  ['ESTADO', 'estado', 'text', 11, 'Pendiente,En curso,Hecho'], ['FECHA REALIZADO', 'fechaHecho', 'date', 12],
+  ['OBSERVACIONES DEL OPERARIO', 'obs', 'wrap', 30], ['FOTO', 'foto', 'photo', 26], ['ID', 'id', 'text', 14],
+];
+
+/** Filas del Excel: trabajos → una por valla; ventas → una por artículo. */
 function trabajoRows(list) {
   const rows = [];
   for (const t of list) {
-    for (const v of t.vallas) {
+    const base = {
+      id: t.id, num: `#${t.num}`, clase: t.clase || 'Trabajo', fechaPrevista: t.fechaPrevista || '',
+      prioridad: t.prioridad || '', clienteNombre: t.clienteNombre || '', campana: t.campana || '',
+      material: t.material || '', descripcion: t.descripcion || '', asignado: t.asignado || '',
+      estado: t.estado || '', fechaHecho: t.fechaHecho || '', obs: t.obs || '',
+    };
+    const vallaCols = v => {
+      if (!v) return { codigo: '', direccion: '', municipio: '', medida: '', lat: '', lng: '', foto: '' };
       const cat = VALLAS_DB.find(x => x.codigo === v.codigo) || {};
-      rows.push({
-        num: `#${t.num}`, fechaPrevista: t.fechaPrevista || '', prioridad: t.prioridad || '',
-        tipos: t.tipos.join(' + '), codigo: v.codigo, direccion: v.direccion || cat.direccion || '',
-        municipio: v.municipio || cat.municipio || '', medida: v.medida || cat.medida || '',
+      return {
+        codigo: v.codigo, direccion: v.direccion || cat.direccion || '', municipio: v.municipio || cat.municipio || '',
+        medida: v.medida || cat.medida || '',
         lat: v.lat === '' || v.lat == null ? '' : String(v.lat), lng: v.lng === '' || v.lng == null ? '' : String(v.lng),
-        campana: t.campana || '', material: t.material || '', descripcion: t.descripcion || '',
-        asignado: t.asignado || '', estado: t.estado || '', fechaHecho: t.fechaHecho || '', obs: t.obs || '',
         foto: cat.foto || v.foto || '',
-      });
+      };
+    };
+    if (t.clase === 'Venta') {
+      (t.lineas || []).forEach((l, i) => rows.push(Object.assign({}, base, vallaCols(t.vallas[i] || null), {
+        tipos: l.articulo, artDescripcion: l.descripcion || '', artMedida: l.medida || '', artCantidad: l.cantidad || '',
+        artPrecio: l.precio || '', artImporte: String(lineaImporte(l)),
+      })));
+    } else {
+      for (const v of t.vallas) rows.push(Object.assign({}, base, vallaCols(v), { tipos: t.tipos.join(' + ') }));
     }
   }
   return rows;
+}
+
+/** Exporta un libro con la app (Android.exportBook). */
+function exportBook(fileName, folder, mode, sheets) {
+  if (!NATIVE) { toast('El Excel solo se genera en la tablet'); return false; }
+  const err = window.Android.exportBook(JSON.stringify({ fileName, folder, mode, sheets }));
+  if (err) { toast('⚠ ' + err); return false; }
+  return true;
 }
 
 function openExport() {
@@ -500,11 +650,9 @@ function renderExport() {
 function doExport(mode) {
   const list = trExportList();
   if (!list.length) { toast('No hay trabajos con ese filtro'); return; }
-  if (!NATIVE) { toast('El Excel solo se genera en la tablet'); return; }
-  const quien = (txPersona || 'todos').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_');
-  const err = window.Android.exportTrabajos(JSON.stringify(trabajoRows(list)), `Trabajos_${quien}_${todayISO()}`, mode);
-  if (err) { toast('⚠ ' + err); return; }
-  $('#tr-export-modal').hidden = true;
+  const quien = (txPersona || 'todos').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_');
+  if (exportBook(`Trabajos_${quien}_${todayISO()}`, 'Trabajos', mode,
+    [{ name: 'TRABAJOS', cols: TR_COLS, rows: trabajoRows(list) }])) $('#tr-export-modal').hidden = true;
 }
 
 /* ------------------------------------------------------------- eventos */
@@ -514,6 +662,40 @@ document.addEventListener('click', e => {
   if (!t) return;
 
   if (t.dataset.tab) { openTab(t.dataset.tab); return; }
+  if (t.dataset.catDispo !== undefined) { catDispo = t.dataset.catDispo; renderCatalog(); return; }
+  if (t.closest('[data-vf-dispo]') && t.classList.contains('chip')) { vfDispo = t.dataset.value; renderVfDispo(); return; }
+  if (t.dataset.vfCliente) {
+    vfClienteId = vfClienteId === t.dataset.vfCliente ? '' : t.dataset.vfCliente;
+    const c = clienteById(vfClienteId);
+    $('#valla-form').elements.ocupadaPor.value = c ? c.nombre : '';
+    renderVfDispo();
+    return;
+  }
+  if (t.dataset.vfVercliente) { openClienteForm(t.dataset.vfVercliente); return; }
+  if (t.dataset.vfLiberar) {
+    if (confirm('¿Liberar la valla? El contrato del cliente se da por terminado hoy.')) {
+      finalizarContrato(t.dataset.vfLiberar, isoPlus(-1));
+      vfDispo = 'Disponible';
+      renderVfDispo();
+      toast('Valla liberada');
+    }
+    return;
+  }
+  if (t.dataset.trClase !== undefined) { trClase = t.dataset.trClase; renderTrabajos(); return; }
+  if (t.dataset.tfClase) { tfClase = t.dataset.tfClase; renderTf(); return; }
+  if (t.dataset.tfCliente) {
+    tfClienteId = tfClienteId === t.dataset.tfCliente ? '' : t.dataset.tfCliente;
+    const c = clienteById(tfClienteId);
+    $('#trabajo-form').elements.clienteNombre.value = c ? c.nombre : '';
+    renderTf();
+    return;
+  }
+  if (t.dataset.tfAdd) {
+    tfLineas.push({ articulo: t.dataset.tfAdd, descripcion: '', medida: '', cantidad: '1', precio: '' });
+    renderTfLineas();
+    return;
+  }
+  if (t.dataset.tfDellinea !== undefined) { tfLineas.splice(Number(t.dataset.tfDellinea), 1); renderTfLineas(); return; }
 
   // Catálogo
   if (t.dataset.catZona) { catZona = t.dataset.catZona; catMuni = ''; renderCatFilters(); renderCatalog(); return; }
@@ -601,4 +783,11 @@ $('#tr-export-modal').addEventListener('click', e => { if (e.target.id === 'tr-e
 $('#valla-form').addEventListener('input', e => {
   if (['zona', 'municipio', 'provincia', 'medida'].includes(e.target.name)) renderVfChips();
 });
-$('#trabajo-form').addEventListener('input', e => { if (e.target.name === 'asignado') renderTf(); });
+$('#trabajo-form').addEventListener('input', e => {
+  if (e.target.name === 'asignado') renderTf();
+  if (e.target.name === 'clienteNombre') { tfClienteId = ''; renderTf(); }
+  if (e.target.dataset.linea !== undefined) {
+    tfLineas[Number(e.target.dataset.linea)][e.target.dataset.k] = e.target.value;
+    renderTfImporte();
+  }
+});

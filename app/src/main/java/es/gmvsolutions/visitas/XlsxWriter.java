@@ -67,6 +67,7 @@ public final class XlsxWriter {
         new Col("FECHA DE TRABAJO REALIZADO", "fechaTrabajo", Kind.DATE, 14),
         new Col("SEGUIMIENTO ENVIADO", "envio", Kind.TEXT, 22),
         new Col("FOTO", "foto", Kind.PHOTO, 26),
+        new Col("ID", "id", Kind.TEXT, 14),
     };
 
     // Índices de estilo (cellXfs en styles.xml)
@@ -153,15 +154,39 @@ public final class XlsxWriter {
         zipWorkbook(sheets, photos, out);
     }
 
-    /** Libro con una sola tabla (p. ej. TRABAJOS) con fotos incrustadas. */
-    public static void writeTable(String kind, String sheetName, List<Map<String, String>> rows,
-                                  PhotoSource photos, OutputStream out) throws IOException {
-        Col[] cols = "trabajos".equals(kind) ? TCOLS : "patrimonio".equals(kind) ? PCOLS : BCOLS;
-        Drawing dr = new Drawing();
-        String xml = tableSheet(rows, cols, photos, dr);
+    /** Hoja definida desde fuera: columnas {cabecera, clave, tipo, ancho, desplegable} y filas. */
+    public static final class SheetDef {
+        public final String name;
+        public final List<String[]> cols;
+        public final List<Map<String, String>> rows;
+        public SheetDef(String name, List<String[]> cols, List<Map<String, String>> rows) {
+            this.name = name; this.cols = cols; this.rows = rows;
+        }
+    }
+
+    /** Libro con varias hojas definidas por la app (clientes, vallas, trabajos…), con fotos. */
+    public static void writeBook(List<SheetDef> defs, PhotoSource photos, OutputStream out) throws IOException {
         List<Sheet> sheets = new ArrayList<>();
-        sheets.add(new Sheet(sheetName, xml, "$A$1:$" + colName(cols.length - 1) + "$" + (rows.size() + 1),
-                dr.pics > 0 ? dr : null));
+        for (SheetDef def : defs) {
+            Col[] cols = new Col[def.cols.size()];
+            for (int i = 0; i < cols.length; i++) {
+                String[] c = def.cols.get(i);
+                Kind kind;
+                try {
+                    kind = Kind.valueOf(c.length > 2 && c[2] != null ? c[2].toUpperCase() : "TEXT");
+                } catch (IllegalArgumentException e) {
+                    kind = Kind.TEXT;
+                }
+                double width = 14;
+                try { if (c.length > 3 && c[3] != null) width = Double.parseDouble(c[3]); } catch (NumberFormatException ignored) { }
+                cols[i] = new Col(c[0], c[1], kind, width);
+                if (c.length > 4 && c[4] != null && !c[4].isEmpty()) cols[i].withList(c[4]);
+            }
+            Drawing dr = new Drawing();
+            String xml = tableSheet(def.rows, cols, photos, dr);
+            sheets.add(new Sheet(def.name, xml, "$A$1:$" + colName(Math.max(0, cols.length - 1)) + "$" + (def.rows.size() + 1),
+                    dr.pics > 0 ? dr : null));
+        }
         zipWorkbook(sheets, photos, out);
     }
 
@@ -334,7 +359,9 @@ public final class XlsxWriter {
         new Col("DESDE", "desde", Kind.DATE, 12),
         new Col("HASTA", "hasta", Kind.DATE, 12),
         new Col("MATERIAL", "material", Kind.TEXT, 13),
-        new Col("PRECIO PERIODO SIN IVA", "precioPeriodo", Kind.MONEY, 14),
+        new Col("PRECIO MES POR VALLA", "precioMes", Kind.MONEY, 13),
+        new Col("MESES", "meses", Kind.NUMBER, 8),
+        new Col("ALQUILER PERIODO SIN IVA", "precioPeriodo", Kind.MONEY, 14),
         new Col("PRECIO MATERIAL SIN IVA", "precioMaterial", Kind.MONEY, 14),
         new Col("TOTAL VALLA SIN IVA", "total", Kind.MONEY, 14),
         new Col("FOTO", "foto", Kind.PHOTO, 26),
@@ -343,70 +370,6 @@ public final class XlsxWriter {
     private static final int PHOTO_W_PX = 176;   // ancho de la foto en la celda
     private static final double PHOTO_ROW_PT = 102;
     private static final long EMU_PX = 9525;
-
-    // ------------------------------------------------------------ trabajos en vallas
-
-    private static final Col[] TCOLS = {
-        new Col("Nº", "num", Kind.TEXT, 6),
-        new Col("FECHA PREVISTA", "fechaPrevista", Kind.DATE, 12),
-        new Col("PRIORIDAD", "prioridad", Kind.TEXT, 10).withList("Normal,Urgente"),
-        new Col("TRABAJO", "tipos", Kind.WRAP, 22),
-        new Col("VALLA", "codigo", Kind.TEXT, 12),
-        new Col("DIRECCIÓN VALLA", "direccion", Kind.WRAP, 34),
-        new Col("MUNICIPIO", "municipio", Kind.TEXT, 14),
-        new Col("MEDIDA", "medida", Kind.TEXT, 11),
-        new Col("LATITUD", "lat", Kind.COORD, 12),
-        new Col("LONGITUD", "lng", Kind.COORD, 12),
-        new Col("MAPA", "mapa", Kind.LINK, 11),
-        new Col("CLIENTE / CAMPAÑA", "campana", Kind.TEXT, 20),
-        new Col("MATERIAL", "material", Kind.TEXT, 13),
-        new Col("INSTRUCCIONES", "descripcion", Kind.WRAP, 36),
-        new Col("ASIGNADO A", "asignado", Kind.TEXT, 16),
-        new Col("ESTADO", "estado", Kind.TEXT, 11).withList("Pendiente,En curso,Hecho"),
-        new Col("FECHA REALIZADO", "fechaHecho", Kind.DATE, 12),
-        new Col("OBSERVACIONES DEL OPERARIO", "obs", Kind.WRAP, 30),
-        new Col("FOTO", "foto", Kind.PHOTO, 26),
-    };
-
-    // ------------------------------------------------------------ patrimonio (negociaciones)
-
-    private static final Col[] PCOLS = {
-        new Col("Nº", "num", Kind.TEXT, 6),
-        new Col("FECHA ALTA", "fecha", Kind.DATE, 12),
-        new Col("ESTADO", "estado", Kind.TEXT, 15)
-                .withList("Contacto inicial,En negociación,Oferta enviada,Ganada,Perdida"),
-        new Col("PROPIETARIO", "propietario", Kind.TEXT, 24),
-        new Col("PERSONA CONTACTO", "contacto", Kind.TEXT, 18),
-        new Col("TELÉFONO", "telefono", Kind.TEXT, 13),
-        new Col("CORREO", "correo", Kind.TEXT, 22),
-        new Col("DIRECCIÓN / FINCA", "direccion", Kind.WRAP, 30),
-        new Col("MUNICIPIO", "municipio", Kind.TEXT, 14),
-        new Col("PROVINCIA", "provincia", Kind.TEXT, 11),
-        new Col("LATITUD", "lat", Kind.COORD, 12),
-        new Col("LONGITUD", "lng", Kind.COORD, 12),
-        new Col("MAPA", "mapa", Kind.LINK, 11),
-        new Col("SOPORTE", "soporte", Kind.TEXT, 14),
-        new Col("Nº VALLAS", "nVallas", Kind.NUMBER, 8),
-        new Col("MEDIDA", "medida", Kind.TEXT, 11),
-        new Col("CARAS", "caras", Kind.TEXT, 10),
-        new Col("ILUMINACIÓN", "iluminacion", Kind.TEXT, 10),
-        new Col("VEHÍCULOS / MIN", "vehiculosMin", Kind.NUMBER, 10),
-        new Col("PERSONAS / MIN", "personasMin", Kind.NUMBER, 10),
-        new Col("TIEMPO DE VISIÓN (s)", "tiempoVision", Kind.NUMBER, 10),
-        new Col("DISTANCIA VISIBLE (m)", "distancia", Kind.NUMBER, 10),
-        new Col("SENTIDO", "sentido", Kind.TEXT, 13),
-        new Col("IMPACTOS / DÍA (estim.)", "impactos", Kind.NUMBER, 12),
-        new Col("PRECIO PEDIDO €/AÑO", "precioPedido", Kind.MONEY, 13),
-        new Col("PRECIO OFRECIDO €/AÑO", "precioOfrecido", Kind.MONEY, 13),
-        new Col("PRECIO ACORDADO €/AÑO", "precioAcordado", Kind.MONEY, 13),
-        new Col("DURACIÓN (AÑOS)", "duracion", Kind.NUMBER, 9),
-        new Col("FORMA DE PAGO", "pago", Kind.TEXT, 11),
-        new Col("TOTAL CONTRATO", "totalContrato", Kind.MONEY, 14),
-        new Col("PRÓXIMO CONTACTO", "proximo", Kind.DATE, 12),
-        new Col("NOTAS", "notas", Kind.WRAP, 36),
-        new Col("VALLAS CREADAS", "vallasCreadas", Kind.TEXT, 16),
-        new Col("FOTO", "foto", Kind.PHOTO, 26),
-    };
 
     private static String tableSheet(List<Map<String, String>> rows, Col[] cols, PhotoSource photos, Drawing dr) {
         String lastCol = colName(cols.length - 1);

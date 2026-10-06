@@ -47,8 +47,10 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   - ¿periodo de la campaña? Mensual, Trimestral, Semestral, Anual o *Elegir fechas*
     (con un periodo fijo, la fecha de fin se calcula sola desde la de inicio);
   - ¿tipo de material? Papel, Lona ligera, Lona pesada o Vinilo;
-  - precio del periodo y del material **por valla** (sin IVA). Total = (periodo +
-    material) × nº de vallas; si *PVP total* está vacío se rellena con ese total.
+  - **precio por mes y valla** y precio del material por valla (sin IVA).
+    Alquiler por valla = precio/mes × meses del periodo (1, 3, 6, 12; con fechas a medida,
+    por días). Total = (alquiler + material) × nº de vallas; si *PVP total* está vacío se
+    rellena con ese total. *📄 Generar PDF* crea el PDF y lo guarda en el historial.
 
   **Envío del presupuesto**: si la visita tiene vallas, al enviar se propone el modelo
   *Presupuesto* (4º modelo), cuyo texto incluye `{detalle}`: cada valla con código,
@@ -62,8 +64,24 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   dirección, municipio, medida, categoría, latitud, longitud, enlace *Ver mapa*, periodo,
   fechas, material, precios y la **foto** de la valla. En los mensajes se pueden usar
   `{vallas}` (lista de vallas) y `{presupuesto}` (resumen).
-- **Pestañas** arriba: **Visitas · Patrimonio · Trabajos · Vallas**
-  (generación de registros, negociaciones con propietarios, trabajos y catálogo).
+- **Barra inferior** con todas las áreas: **Visitas · Clientes · Patrimonio · Trabajos ·
+  Vallas · Ajustes**. En la cabecera de cada área, **⇅** para **exportar** su Excel
+  (compartir o abrir) o **importarlo** (actualiza por ID/código/nº y añade los nuevos; no
+  borra nada). Visitas admite también el Excel antiguo de seguimiento semanal.
+- **Clientes**: datos (nombre, CIF, contacto, teléfono, correo, dirección…), **vallas
+  contratadas** (contratos con desde/hasta, precio por mes, campaña), **historial de
+  documentos** (cada PDF de presupuesto generado queda guardado con su cliente para
+  abrirlo o reenviarlo) y sus visitas, trabajos y ventas. Desde una visita, *👤 Cliente*.
+- **Disponibilidad de las vallas**: 🟢 Disponible, 🔴 Ocupada (con qué cliente y hasta
+  cuándo) o 🟡 Consultar. Un contrato en vigor de un cliente la marca como ocupada; si no,
+  se marca a mano en la ficha de la valla. Filtro por disponibilidad en el catálogo y
+  marca en el selector de vallas del presupuesto.
+- **Ventas** en Trabajos: además de trabajos en vallas, ventas de vinilos, lonas,
+  rotulado de vehículos, estructuras de valla u otros artículos, con cliente, cantidad,
+  precio e importe.
+- **Copia de seguridad** (Ajustes): todos los datos en un fichero JSON para pasarlos a otra
+  tablet o restaurarlos.
+- **Email**: abre **Gmail** directamente (o Outlook / correo de Samsung) con el PDF adjunto.
 - **Fotos en las visitas**: cualquier registro (lead, propietario, cliente…) puede llevar
   una o varias fotos (cámara o galería). La primera sale en la lista y en la columna FOTO
   del Excel.

@@ -11,11 +11,11 @@
 <!-- ======================= LISTADO ======================= -->
 <section id="view-list" class="view active">
   <header class="bar">
-    <nav class="tabs"><button class="tab active" data-tab="list">Visitas</button><button class="tab" data-tab="patrimonio">Patrimonio</button><button class="tab" data-tab="trabajos">Trabajos</button><button class="tab" data-tab="catalogo">Vallas</button></nav>
+    <h1>Visitas</h1>
     <div class="bar-actions">
       <button class="btn-bar" data-action="excel-open" title="Abrir Excel">Abrir Excel</button>
       <button class="btn-bar" data-action="excel-share" title="Compartir Excel">Compartir</button>
-      <button class="btn-bar icon" data-action="settings" title="Ajustes" aria-label="Ajustes">⚙</button>
+      <button class="btn-bar" data-io="visitas" title="Importar / exportar">⇅</button>
     </div>
   </header>
 
@@ -164,11 +164,14 @@
       </div>
 
       <div class="grid">
-        <label>Precio del periodo por valla (€ sin IVA)<input type="text" name="b_precioPeriodo" inputmode="decimal"></label>
+        <label>Precio por mes y valla (€ sin IVA)<input type="text" name="b_precioMes" inputmode="decimal"></label>
         <label>Precio del material por valla (€ sin IVA)<input type="text" name="b_precioMaterial" inputmode="decimal"></label>
       </div>
       <p class="budget-total" id="presupuesto-total"></p>
-      <button type="button" class="btn" data-g="lead-install" id="btn-lead-install">🛠 Crear trabajo de instalación</button>
+      <div class="scan-row">
+        <button type="button" class="btn" data-action="budget-pdf">📄 Generar PDF</button>
+        <button type="button" class="btn" data-g="lead-install" id="btn-lead-install">🛠 Crear trabajo de instalación</button>
+      </div>
     </div>
 
     <details class="card">
@@ -212,12 +215,147 @@
   <main id="vallas-grid" class="vallas-grid"></main>
 </section>
 
+<!-- ======================= CLIENTES ======================= -->
+<section id="view-clientes" class="view">
+  <header class="bar">
+    <h1>Clientes</h1>
+    <div class="bar-actions">
+      <button class="btn-bar" data-io="clientes" title="Importar / exportar">⇅</button>
+      <button class="btn-bar" data-c="cli-new">＋ Nuevo</button>
+    </div>
+  </header>
+  <div class="toolbar">
+    <input id="cli-search" type="search" placeholder="Buscar cliente, contacto, población, valla…" autocomplete="off">
+    <div class="chips" id="cli-filtros">
+      <button class="chip active" data-cli-filtro="todos">Todos</button>
+      <button class="chip" data-cli-filtro="activos">Con vallas contratadas</button>
+      <button class="chip" data-cli-filtro="vencen">Contratos que vencen en 30 días</button>
+    </div>
+    <p class="stats" id="cli-stats"></p>
+  </div>
+  <main id="cli-list" class="list-main"></main>
+  <button class="fab" data-c="cli-new" aria-label="Nuevo cliente">＋ Nuevo cliente</button>
+</section>
+
+<!-- ======================= FICHA DE CLIENTE ======================= -->
+<section id="view-cliente-form" class="view">
+  <header class="bar">
+    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <h1 id="cli-form-title">Nuevo cliente</h1>
+    <div class="bar-actions"></div>
+  </header>
+  <form id="cli-form" autocomplete="off" novalidate>
+    <div class="card">
+      <h2>Datos del cliente</h2>
+      <label>Nombre / razón social *<input type="text" name="nombre" autocapitalize="characters"></label>
+      <div class="grid">
+        <label>CIF / NIF<input type="text" name="cif" autocapitalize="characters"></label>
+        <label>Persona de contacto<input type="text" name="contacto" autocapitalize="words"></label>
+      </div>
+      <div class="grid">
+        <label>Teléfono<input type="tel" name="telefono" inputmode="tel"></label>
+        <label>Correo<input type="email" name="correo" inputmode="email" autocapitalize="none"></label>
+      </div>
+      <label>Dirección<input type="text" name="direccion"></label>
+      <div class="grid">
+        <label>Población<input type="text" name="poblacion" autocapitalize="characters"></label>
+        <div>
+          <label>Provincia<input type="text" name="provincia"></label>
+          <div class="chips small" data-cf-fill="provincia">
+            <button type="button" class="chip" data-value="Coruña">Coruña</button>
+            <button type="button" class="chip" data-value="Lugo">Lugo</button>
+            <button type="button" class="chip" data-value="Pontevedra">Pontevedra</button>
+            <button type="button" class="chip" data-value="Ourense">Ourense</button>
+          </div>
+        </div>
+      </div>
+      <label>Notas<textarea name="notas" rows="2"></textarea></label>
+    </div>
+
+    <div class="card">
+      <h2>Vallas contratadas</h2>
+      <div id="cf-contratos"></div>
+      <button type="button" class="btn" data-c="cf-contratar">＋ Contratar vallas</button>
+      <p class="budget-total" id="cf-contratos-total"></p>
+    </div>
+
+    <div class="card">
+      <h2>Documentos (historial de PDF)</h2>
+      <div id="cf-docs"></div>
+    </div>
+
+    <div class="card">
+      <h2>Visitas, trabajos y ventas</h2>
+      <div id="cf-relacionados"></div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn danger" data-c="cli-delete" id="cf-delete">Eliminar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-c="cli-save">Guardar cliente</button>
+    </div>
+  </form>
+</section>
+
+<!-- ======================= CONTRATO DE VALLAS ======================= -->
+<div class="modal" id="contrato-modal" hidden>
+  <div class="sheet">
+    <h2 id="ct-title">Contratar vallas</h2>
+    <p class="hint" id="ct-vallas"></p>
+    <div class="grid">
+      <div>
+        <label>Desde<input type="date" id="ct-desde"></label>
+        <div class="chips small"><button type="button" class="chip" data-ct-desde="0">Hoy</button></div>
+      </div>
+      <div>
+        <label>Hasta<input type="date" id="ct-hasta"></label>
+        <div class="chips small">
+          <button type="button" class="chip" data-ct-meses="1">1 mes</button>
+          <button type="button" class="chip" data-ct-meses="3">3 meses</button>
+          <button type="button" class="chip" data-ct-meses="6">6 meses</button>
+          <button type="button" class="chip" data-ct-meses="12">1 año</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid">
+      <label>Precio por mes y valla (€ sin IVA)<input type="text" id="ct-precio" inputmode="decimal"></label>
+      <label>Campaña / lona<input type="text" id="ct-campana"></label>
+    </div>
+    <label>Notas<input type="text" id="ct-notas"></label>
+    <div class="form-actions">
+      <button type="button" class="btn danger" data-c="ct-delete" id="ct-delete">Eliminar</button>
+      <button type="button" class="btn" data-c="ct-fin" id="ct-fin">Finalizar hoy</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-c="ct-cancel">Cancelar</button>
+      <button type="button" class="btn primary" data-c="ct-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= IMPORTAR / EXPORTAR ======================= -->
+<div class="modal" id="io-modal" hidden>
+  <div class="sheet">
+    <h2 id="io-title">Importar / exportar</h2>
+    <p class="hint" id="io-hint"></p>
+    <div class="io-btns">
+      <button type="button" class="btn primary" data-io-do="share">📤 Exportar Excel y compartir</button>
+      <button type="button" class="btn" data-io-do="open">📂 Exportar Excel y abrir</button>
+      <button type="button" class="btn" data-io-do="import">📥 Importar desde Excel</button>
+    </div>
+    <p class="hint">Al importar se actualizan los registros que ya existen (por su ID, código o nº) y se añaden los nuevos. No se borra nada.</p>
+    <div class="form-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-io-do="close">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ======================= PATRIMONIO (NEGOCIACIONES) ======================= -->
 <section id="view-patrimonio" class="view">
   <header class="bar">
-    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab active" data-tab="patrimonio">Patrimonio</button><button class="tab" data-tab="trabajos">Trabajos</button><button class="tab" data-tab="catalogo">Vallas</button></nav>
+    <h1>Patrimonio</h1>
     <div class="bar-actions">
-      <button class="btn-bar" data-p="neg-export">📤 Excel</button>
+      <button class="btn-bar" data-io="patrimonio" title="Importar / exportar">⇅</button>
       <button class="btn-bar" data-p="neg-new">＋ Nueva</button>
     </div>
   </header>
@@ -449,8 +587,9 @@
 <!-- ======================= CATÁLOGO DE VALLAS ======================= -->
 <section id="view-catalogo" class="view">
   <header class="bar">
-    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab" data-tab="patrimonio">Patrimonio</button><button class="tab" data-tab="trabajos">Trabajos</button><button class="tab active" data-tab="catalogo">Vallas</button></nav>
+    <h1>Vallas</h1>
     <div class="bar-actions">
+      <button class="btn-bar" data-io="vallas" title="Importar / exportar">⇅</button>
       <button class="btn-bar" data-g="valla-new">＋ Nueva valla</button>
     </div>
   </header>
@@ -458,6 +597,12 @@
     <input id="cat-search" type="search" placeholder="Buscar por código OOH, calle, municipio…" autocomplete="off">
     <div class="chips" id="cat-zonas"></div>
     <div class="chips small" id="cat-munis"></div>
+    <div class="chips small" id="cat-dispo">
+      <button class="chip active" data-cat-dispo="">Todas</button>
+      <button class="chip" data-cat-dispo="Disponible">🟢 Disponibles</button>
+      <button class="chip" data-cat-dispo="Ocupada">🔴 Ocupadas</button>
+      <button class="chip" data-cat-dispo="Consultar">🟡 Consultar</button>
+    </div>
     <p class="stats" id="cat-stats"></p>
   </div>
   <main id="cat-grid" class="vallas-grid"></main>
@@ -536,6 +681,25 @@
       <p class="hint" id="vf-coords-hint"></p>
     </div>
 
+    <div class="card">
+      <h2>Disponibilidad</h2>
+      <p class="envio-info" id="vf-contrato"></p>
+      <div class="chips" data-vf-dispo>
+        <button type="button" class="chip" data-value="Disponible">🟢 Disponible</button>
+        <button type="button" class="chip" data-value="Ocupada">🔴 Ocupada</button>
+        <button type="button" class="chip" data-value="Consultar">🟡 Consultar estado</button>
+      </div>
+      <div id="vf-ocupada">
+        <label class="lbl">¿Con qué cliente?</label>
+        <div class="chips small" id="vf-clientes"></div>
+        <div class="grid">
+          <label>Cliente (si no está en Clientes)<input type="text" name="ocupadaPor"></label>
+          <label>Ocupada hasta<input type="date" name="ocupadaHasta"></label>
+        </div>
+        <p class="hint">Si eliges un cliente de la lista se crea su contrato y la valla aparece en su ficha.</p>
+      </div>
+    </div>
+
     <p class="hint" id="vf-origin"></p>
     <div class="form-actions">
       <button type="button" class="btn danger" data-g="valla-delete" id="vf-delete">Eliminar</button>
@@ -549,9 +713,10 @@
 <!-- ======================= TRABAJOS EN VALLAS ======================= -->
 <section id="view-trabajos" class="view">
   <header class="bar">
-    <nav class="tabs"><button class="tab" data-tab="list">Visitas</button><button class="tab" data-tab="patrimonio">Patrimonio</button><button class="tab active" data-tab="trabajos">Trabajos</button><button class="tab" data-tab="catalogo">Vallas</button></nav>
+    <h1>Trabajos y ventas</h1>
     <div class="bar-actions">
       <button class="btn-bar" data-g="tr-export">📤 Excel</button>
+      <button class="btn-bar" data-io="trabajos" title="Importar / exportar">⇅</button>
       <button class="btn-bar" data-g="tr-new">＋ Nuevo</button>
     </div>
   </header>
@@ -561,6 +726,11 @@
       <button class="chip active" data-tr-estado="abiertos">Pendientes</button>
       <button class="chip" data-tr-estado="Hecho">Hechos</button>
       <button class="chip" data-tr-estado="todos">Todos</button>
+    </div>
+    <div class="chips small" id="tr-clases">
+      <button class="chip active" data-tr-clase="">Todo</button>
+      <button class="chip" data-tr-clase="Trabajo">🛠 Trabajos en vallas</button>
+      <button class="chip" data-tr-clase="Venta">🛒 Ventas</button>
     </div>
     <div class="chips small" id="tr-personas"></div>
     <p class="stats" id="tr-stats"></p>
@@ -578,12 +748,38 @@
   </header>
   <form id="trabajo-form" autocomplete="off" novalidate>
     <div class="card">
+      <div class="chips" id="tf-clase">
+        <button type="button" class="chip" data-tf-clase="Trabajo">🛠 Trabajo en vallas</button>
+        <button type="button" class="chip" data-tf-clase="Venta">🛒 Venta de artículos</button>
+      </div>
+    </div>
+
+    <div class="card" id="tf-cliente-card">
+      <label class="lbl">Cliente</label>
+      <div class="chips small" id="tf-clientes"></div>
+      <input type="text" name="clienteNombre" class="plain-input" placeholder="Nombre del cliente">
+    </div>
+
+    <div class="card" id="tf-lineas-card">
+      <label class="lbl">Artículos</label>
+      <div id="tf-lineas"></div>
+      <div class="chips">
+        <button type="button" class="chip" data-tf-add="Vinilo">＋ Vinilo</button>
+        <button type="button" class="chip" data-tf-add="Lona">＋ Lona</button>
+        <button type="button" class="chip" data-tf-add="Rotulado de vehículo">＋ Rotulado de vehículo</button>
+        <button type="button" class="chip" data-tf-add="Estructura de valla">＋ Estructura de valla</button>
+        <button type="button" class="chip" data-tf-add="Otro">＋ Otro</button>
+      </div>
+      <p class="budget-total" id="tf-importe"></p>
+    </div>
+
+    <div class="card" id="tf-tipos-card">
       <label class="lbl">¿Qué hay que hacer? <span class="hint-inline">(puedes marcar varios)</span></label>
       <div class="chips multi" id="tf-tipos"></div>
     </div>
 
     <div class="card">
-      <label class="lbl">Vallas</label>
+      <label class="lbl" id="tf-vallas-label">Vallas</label>
       <div id="tf-vallas"></div>
       <button type="button" class="btn" data-g="tf-pick">＋ Elegir vallas</button>
     </div>
@@ -734,6 +930,15 @@
       <label>Respuestas rápidas de "Situación" (una por línea)<textarea name="situaciones" rows="5"></textarea></label>
     </div>
 
+    <div class="card">
+      <h2>Copia de seguridad</h2>
+      <p class="hint">Guarda en un fichero todos los datos de la app (visitas, clientes, contratos, trabajos, patrimonio, cambios en vallas y ajustes) para pasarlos a otra tablet o recuperarlos. Las fotos no van incluidas.</p>
+      <div class="scan-row">
+        <button type="button" class="btn" data-backup="export">💾 Hacer copia y compartir</button>
+        <button type="button" class="btn" data-backup="import">♻ Restaurar una copia</button>
+      </div>
+    </div>
+
     <div class="form-actions">
       <button type="button" class="btn" data-action="reset-templates">Restaurar textos</button>
       <span class="spacer"></span>
@@ -777,6 +982,15 @@
   </div>
 </div>
 
+<nav class="bottom-nav" id="bottom-nav">
+  <button data-tab="list" class="active"><span>📋</span>Visitas</button>
+  <button data-tab="clientes"><span>👥</span>Clientes</button>
+  <button data-tab="patrimonio"><span>🏠</span>Patrimonio</button>
+  <button data-tab="trabajos"><span>🛠</span>Trabajos</button>
+  <button data-tab="catalogo"><span>🪧</span>Vallas</button>
+  <button data-tab="ajustes"><span>⚙</span>Ajustes</button>
+</nav>
+
 <div class="toast" id="toast" hidden></div>
 
 <script src="vallas.js"></script>
@@ -784,5 +998,7 @@
 <script src="app.js"></script>
 <script src="gestion.js"></script>
 <script src="patrimonio.js"></script>
+<script src="clientes.js"></script>
+<script src="datos.js"></script>
 </body>
 </html>

@@ -286,8 +286,17 @@ function syncExcel(silent) {
 
 /* ------------------------------------------------------------- navegación */
 
+/* Pestaña de la barra inferior a la que pertenece cada pantalla */
+const VIEW_TAB = {
+  list: 'list', form: 'list', clientes: 'clientes', 'cliente-form': 'clientes',
+  patrimonio: 'patrimonio', 'neg-form': 'patrimonio', trabajos: 'trabajos', 'trabajo-form': 'trabajos',
+  catalogo: 'catalogo', 'valla-form': 'catalogo', settings: 'ajustes',
+};
+
 function show(view) {
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
+  const tab = VIEW_TAB[view];
+  if (tab) $$('#bottom-nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   window.scrollTo(0, 0);
 }
 
@@ -369,6 +378,7 @@ function renderList() {
       normPhone(l.telefono) ? `<button class="act" data-call="${l.id}">☎ Llamar</button>` : '',
       hasBudget(l) ? `<button class="act" data-g-install="${l.id}">🛠 Trabajo</button>` : '',
       l.tipo === 'Propietario' ? `<button class="act" data-neg-lead="${l.id}">🏠 Negociación</button>` : '',
+      l.tipo === 'Cliente' || hasBudget(l) || l.clienteId ? `<button class="act" data-lead-cliente="${l.id}">👤 Cliente</button>` : '',
     ].join('');
 
     html += `
@@ -606,10 +616,7 @@ function doSend() {
   if (!lead) return closeSend();
   const body = $('#send-body').value;
   const conPdf = NATIVE && hasBudget(lead) && $('#send-pdf').checked;
-  if (conPdf) {
-    const err = window.Android.budgetPdf(JSON.stringify(budgetDoc(lead)));
-    if (err) { toast('⚠ No se pudo crear el PDF: ' + err); return; }
-  }
+  if (conPdf && !generarPdfPresupuesto(lead)) return;
 
   if (sending.channel === 'email') {
     const subject = $('#send-subject').value;
@@ -669,7 +676,7 @@ let pickerZona = 'Todas';
 let pickerMuni = '';
 
 function emptyBudget() {
-  return { codes: [], snap: {}, periodo: '', desde: '', hasta: '', material: '', precioPeriodo: '', precioMaterial: '' };
+  return { codes: [], snap: {}, periodo: '', desde: '', hasta: '', material: '', precioMes: '', precioMaterial: '' };
 }
 
 function vallaByCode(code) {
@@ -692,11 +699,47 @@ function fmtMoney(n) {
 }
 
 /** Total = (precio periodo + precio material) × nº de vallas. */
+/** Meses de la campaña: 1/3/6/12 según el periodo, o por días si son fechas a medida. */
+function budgetMeses(b) {
+  if (PERIOD_MONTHS[b.periodo]) return PERIOD_MONTHS[b.periodo];
+  if (b.periodo === 'Fechas') {
+    const d1 = parseISO(b.desde), d2 = parseISO(b.hasta);
+    if (d1 && d2 && d2 >= d1) {
+      const dias = Math.round((d2 - d1) / 86400000) + 1;
+      return Math.round(dias * 12 / 365 * 100) / 100;
+    }
+  }
+  return 0;
+}
+
+function budgetDias(b) {
+  const d1 = parseISO(b.desde), d2 = parseISO(b.hasta);
+  return d1 && d2 && d2 >= d1 ? Math.round((d2 - d1) / 86400000) + 1 : 0;
+}
+
+function mesesText(b) {
+  const m = budgetMeses(b);
+  if (!m) return '';
+  const txt = `${String(m).replace('.', ',')} mes${m === 1 ? '' : 'es'}`;
+  return b.periodo === 'Fechas' ? `${txt} (${budgetDias(b)} días)` : txt;
+}
+
+/** Alquiler de una valla durante la campaña = precio por mes × meses (presupuestos antiguos: precio del periodo). */
+function alquilerValla(b) {
+  if (b.precioMes !== undefined && b.precioMes !== '') return Math.round(parseMoney(b.precioMes) * budgetMeses(b) * 100) / 100;
+  return parseMoney(b.precioPeriodo);
+}
+
+function precioValla(b) {
+  return Math.round((alquilerValla(b) + parseMoney(b.precioMaterial)) * 100) / 100;
+}
+
+/** Total = (alquiler por valla + material por valla) × nº de vallas. */
 function budgetTotal(b) {
   b = b || budget;
   if (!b) return 0;
   const n = b.codes ? b.codes.length : (b.vallas || []).length;
-  return Math.round((parseMoney(b.precioPeriodo) + parseMoney(b.precioMaterial)) * n * 100) / 100;
+  return Math.round(precioValla(b) * n * 100) / 100;
 }
 
 function addMonthsISO(iso, months) {
@@ -709,7 +752,12 @@ function addMonthsISO(iso, months) {
 function loadBudget(p) {
   budget = emptyBudget();
   if (p) {
-    for (const k of ['periodo', 'desde', 'hasta', 'material', 'precioPeriodo', 'precioMaterial']) budget[k] = p[k] || '';
+    for (const k of ['periodo', 'desde', 'hasta', 'material', 'precioMes', 'precioMaterial']) budget[k] = p[k] || '';
+    // Presupuestos antiguos (precio del periodo por valla) → precio por mes
+    if (!p.precioMes && p.precioPeriodo) {
+      const m = budgetMeses(budget) || 1;
+      budget.precioMes = String(Math.round(parseMoney(p.precioPeriodo) / m * 100) / 100).replace('.', ',');
+    }
     for (const v of p.vallas || []) { budget.codes.push(v.codigo); budget.snap[v.codigo] = v; }
   }
   renderBudget();
@@ -742,7 +790,7 @@ function renderBudget() {
   form.elements.b_desde.value = budget.desde;
   form.elements.b_hasta.value = budget.hasta;
   form.elements.b_hasta.readOnly = budget.periodo !== 'Fechas';
-  form.elements.b_precioPeriodo.value = budget.precioPeriodo;
+  form.elements.b_precioMes.value = budget.precioMes;
   form.elements.b_precioMaterial.value = budget.precioMaterial;
   renderBudgetTotal();
 }
@@ -750,15 +798,23 @@ function renderBudget() {
 function renderBudgetTotal() {
   const n = budget.codes.length;
   const t = budgetTotal();
+  const pm = parseMoney(budget.precioMes), mat = parseMoney(budget.precioMaterial);
+  const m = budgetMeses(budget);
+  let detalle = '';
+  if (pm && !m) detalle = ' · elige el periodo para calcular';
+  else if (pm || mat) {
+    const partes = [pm ? `${fmtMoney(pm)}/mes × ${mesesText(budget)}` : '', mat ? `${fmtMoney(mat)} material` : ''].filter(Boolean);
+    detalle = ` · ${n} × (${partes.join(' + ')})`;
+  }
   $('#presupuesto-total').textContent = n
-    ? `${n} valla${n > 1 ? 's' : ''}${t ? ` · Total: ${fmtMoney(t)} sin IVA` : ''}`
+    ? `${n} valla${n > 1 ? 's' : ''}${t ? ` · Total: ${fmtMoney(t)} sin IVA` : ''}${detalle}`
     : '';
 }
 
 function budgetForSave() {
   if (!budget || !budgetVisible()) return null;
   const b = budget;
-  if (!b.codes.length && !b.periodo && !b.material && !b.precioPeriodo && !b.precioMaterial) return null;
+  if (!b.codes.length && !b.periodo && !b.material && !b.precioMes && !b.precioMaterial) return null;
   return {
     vallas: b.codes.map(code => {
       const v = vallaByCode(code) || { codigo: code };
@@ -767,8 +823,9 @@ function budgetForSave() {
         lat: v.lat == null ? '' : v.lat, lng: v.lng == null ? '' : v.lng, foto: v.foto || '' };
     }),
     periodo: b.periodo, desde: b.desde, hasta: b.hasta, material: b.material,
-    precioPeriodo: b.precioPeriodo, precioMaterial: b.precioMaterial,
-    total: String(Math.round((parseMoney(b.precioPeriodo) + parseMoney(b.precioMaterial)) * 100) / 100),
+    precioMes: b.precioMes, meses: String(budgetMeses(b)), precioMaterial: b.precioMaterial,
+    precioPeriodo: String(alquilerValla(b)),          // alquiler por valla de toda la campaña
+    total: String(precioValla(b)),                    // por valla (alquiler + material)
   };
 }
 
@@ -790,11 +847,13 @@ function periodoText(p) {
 /** Líneas con los importes: [etiqueta, valor]. */
 function budgetPriceRows(p) {
   const n = (p.vallas || []).length;
-  const pp = parseMoney(p.precioPeriodo), pm = parseMoney(p.precioMaterial);
+  const pm = parseMoney(p.precioMes), mat = parseMoney(p.precioMaterial), alq = alquilerValla(p);
   const rows = [];
-  if (pp) rows.push(['Precio del periodo por valla', fmtMoney(pp)]);
-  if (pm) rows.push(['Precio del material por valla', fmtMoney(pm)]);
-  if (pp && pm) rows.push(['Precio por valla', fmtMoney(pp + pm)]);
+  if (pm) rows.push(['Precio por mes y valla', fmtMoney(pm)]);
+  if (pm && budgetMeses(p)) rows.push(['Duración', mesesText(p)]);
+  if (alq) rows.push(['Alquiler por valla (campaña)', fmtMoney(alq)]);
+  if (mat) rows.push(['Material por valla', fmtMoney(mat)]);
+  if (alq && mat) rows.push(['Precio por valla', fmtMoney(alq + mat)]);
   const t = budgetTotal(p);
   if (t) rows.push([`Total ${n} valla${n > 1 ? 's' : ''} (sin IVA)`, fmtMoney(t)]);
   return rows;
@@ -822,7 +881,7 @@ function budgetDetail(p) {
 function budgetDoc(lead) {
   const p = lead.presupuesto;
   const n = p.vallas.length;
-  const precioValla = parseMoney(p.precioPeriodo) + parseMoney(p.precioMaterial);
+  const porValla = precioValla(p);
   const safe = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
   const preparado = [settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · ');
@@ -855,11 +914,28 @@ function budgetDoc(lead) {
       ].filter(Boolean),
       mapa: mapsUrl(v) ? `Ubicación: ${mapsUrl(v)}` : '',
       foto: v.foto || '',
-      precio: precioValla ? `${fmtMoney(precioValla)} / valla (sin IVA)` : '',
+      precio: porValla ? `${fmtMoney(porValla)} / valla (sin IVA)` : '',
     })),
     nota: 'Precios sin IVA. Propuesta sujeta a disponibilidad de las vallas en las fechas indicadas.',
     pie: [settings.miEmpresa, settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · '),
   };
+}
+
+/** Genera el PDF del presupuesto de la visita y lo guarda en el historial de documentos. */
+function generarPdfPresupuesto(lead) {
+  if (!NATIVE) { toast('El PDF solo se genera en la tablet'); return null; }
+  const doc = budgetDoc(lead);
+  const err = window.Android.budgetPdf(JSON.stringify(doc));
+  if (err) { toast('⚠ No se pudo crear el PDF: ' + err); return null; }
+  let info = {};
+  try { info = JSON.parse(window.Android.lastPdfInfo() || '{}'); } catch (e) { info = {}; }
+  const cli = lead.clienteId ? clienteById(lead.clienteId) : clienteByNombre(lead.razonSocial);
+  return registrarDocumento({
+    tipo: 'Presupuesto', titulo: `Presupuesto ${lead.razonSocial} · ${lead.presupuesto.vallas.length} valla${lead.presupuesto.vallas.length > 1 ? 's' : ''}`
+      + (budgetTotal(lead.presupuesto) ? ` · ${fmtMoney(budgetTotal(lead.presupuesto))}` : ''),
+    fichero: info.name || doc.fichero, uri: info.uri || '', leadId: lead.id, clienteId: cli ? cli.id : '',
+    empresa: lead.razonSocial || '',
+  });
 }
 
 function budgetVallasText(p) {
@@ -929,6 +1005,7 @@ function renderPicker() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
+        ${typeof dispoBadge === 'function' ? `<div class="badges dispo-wrap">${dispoBadge(v.codigo)}</div>` : ''}
         ${v.lat ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
       </div>
     </article>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';
@@ -1196,6 +1273,12 @@ document.addEventListener('click', e => {
     case 'lead-photo-camera': pickPhoto('camera', 'lead'); break;
     case 'lead-photo-gallery': pickPhoto('gallery', 'lead'); break;
     case 'vallas-pick': openBudgetPicker(); break;
+    case 'budget-pdf':
+      if (!budget || !budget.codes.length) { toast('Elige primero las vallas del presupuesto'); break; }
+      saveForm(false, lead => {
+        if (generarPdfPresupuesto(lead)) { window.Android.viewPdf(); toast('PDF guardado en el historial del cliente'); }
+      });
+      break;
     case 'vallas-done': closePicker(); break;
     case 'scan-camera': scanCard('camera'); break;
     case 'scan-gallery': scanCard('gallery'); break;

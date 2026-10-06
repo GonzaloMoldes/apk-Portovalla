@@ -25,6 +25,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -64,6 +65,7 @@ public class MainActivity extends Activity {
     private static final int REQ_CAMERA = 2;
     private static final int REQ_GALLERY = 3;
     private static final int REQ_LOCATION = 4;
+    private static final int REQ_IMPORT = 5;
     private static final int PHOTO_MAX_SIDE = 1280;   // fotos de vallas añadidas desde la app
     private static final int OCR_MAX_SIDE = 2048;
 
@@ -73,6 +75,7 @@ public class MainActivity extends Activity {
     private Uri pendingPhoto;          // foto de la cámara en curso
     private String pendingPurpose = "ocr";   // "ocr" (tarjeta) o etiqueta de la foto de una valla
     private boolean locationPending;
+    private String pendingImportArea = "";
     private boolean pageLoaded;
     private String pendingJs;          // llamada JS a la espera de que cargue la página
 
@@ -83,6 +86,7 @@ public class MainActivity extends Activity {
             String p = savedInstanceState.getString("pendingPhoto");
             if (p != null) pendingPhoto = Uri.parse(p);
             pendingPurpose = savedInstanceState.getString("pendingPurpose", "ocr");
+            pendingImportArea = savedInstanceState.getString("pendingImportArea", "");
         }
         web = new WebView(this);
         setContentView(web);
@@ -119,6 +123,7 @@ public class MainActivity extends Activity {
         super.onSaveInstanceState(out);
         if (pendingPhoto != null) out.putString("pendingPhoto", pendingPhoto.toString());
         out.putString("pendingPurpose", pendingPurpose);
+        out.putString("pendingImportArea", pendingImportArea);
     }
 
     /** Ejecuta una función JS global con un argumento de texto. */
@@ -128,6 +133,83 @@ public class MainActivity extends Activity {
             if (pageLoaded) web.evaluateJavascript(js, null);
             else pendingJs = js;
         });
+    }
+
+    // ---------------------------------------------------------------- importar ficheros
+
+    private void startImport(String area) {
+        pendingImportArea = area == null ? "" : area;
+        Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        pick.addCategory(Intent.CATEGORY_OPENABLE);
+        pick.setType("*/*");
+        pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{XLSX_MIME, "application/json",
+                "application/octet-stream", "text/plain", "application/vnd.ms-excel"});
+        try {
+            startActivityForResult(pick, REQ_IMPORT);
+        } catch (ActivityNotFoundException e) {
+            callJs("onImportError", "No se puede abrir el selector de ficheros");
+        }
+    }
+
+    private String displayName(Uri uri) {
+        try (Cursor c = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) return c.getString(0);
+        } catch (Exception ignored) {
+            // sin nombre
+        }
+        return "";
+    }
+
+    /** Lee el fichero elegido: Excel → onImportBook({area, name, sheets}); texto/JSON → onImportText({area, name, text}). */
+    private void readImport(Uri uri, String area) {
+        new Thread(() -> {
+            try {
+                byte[] bytes;
+                try (InputStream in = getContentResolver().openInputStream(uri)) {
+                    if (in == null) throw new IOException("No se pudo leer el fichero");
+                    java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+                    byte[] b = new byte[16384];
+                    int n;
+                    while ((n = in.read(b)) > 0) buf.write(b, 0, n);
+                    bytes = buf.toByteArray();
+                }
+                JSONObject r = new JSONObject();
+                r.put("area", area);
+                r.put("name", displayName(uri));
+                if (bytes.length > 1 && bytes[0] == 'P' && bytes[1] == 'K') {
+                    JSONObject sheets = new JSONObject();
+                    for (Map.Entry<String, List<List<String>>> e
+                            : XlsxReader.read(new java.io.ByteArrayInputStream(bytes)).entrySet()) {
+                        JSONArray rows = new JSONArray();
+                        for (List<String> row : e.getValue()) rows.put(new JSONArray(row));
+                        sheets.put(e.getKey(), rows);
+                    }
+                    r.put("sheets", sheets);
+                    callJs("onImportBook", r.toString());
+                } else {
+                    r.put("text", new String(bytes, StandardCharsets.UTF_8));
+                    callJs("onImportText", r.toString());
+                }
+            } catch (Exception e) {
+                callJs("onImportError", "No se pudo importar: " + (e.getMessage() == null ? e.toString() : e.getMessage()));
+            }
+        }).start();
+    }
+
+    private void shareOrOpen(Uri uri, String mime, String name, String mode) {
+        if ("share".equals(mode)) {
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType(mime);
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.putExtra(Intent.EXTRA_SUBJECT, name);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            launch(Intent.createChooser(send, "Compartir"), "No hay apps para compartir");
+        } else if ("open".equals(mode)) {
+            Intent view = new Intent(Intent.ACTION_VIEW);
+            view.setDataAndType(uri, mime);
+            view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            launch(view, "No hay ninguna app para abrir este fichero");
+        }
     }
 
     // ---------------------------------------------------------------- ubicación (GPS)
@@ -270,6 +352,10 @@ public class MainActivity extends Activity {
     @SuppressWarnings("deprecation")
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_IMPORT) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) readImport(data.getData(), pendingImportArea);
+            return;
+        }
         if (requestCode != REQ_CAMERA && requestCode != REQ_GALLERY) return;
         final boolean fromCamera = requestCode == REQ_CAMERA;
         final Uri uri = fromCamera ? pendingPhoto : (data != null ? data.getData() : null);
@@ -386,6 +472,50 @@ public class MainActivity extends Activity {
         } catch (PackageManager.NameNotFoundException e) {
             return false;
         }
+    }
+
+    /** Apps de correo, por orden de preferencia. */
+    private static final String[] MAIL_APPS = {
+        "com.google.android.gm",                 // Gmail
+        "com.microsoft.office.outlook",          // Outlook
+        "com.samsung.android.email.provider",    // Correo de Samsung
+        "com.android.email",
+    };
+
+    /**
+     * Abre la app de correo con destinatario, asunto, texto y (opcional) un adjunto.
+     * Va directa a Gmail si está instalado; si no, a otra app de correo conocida y,
+     * como último recurso, al selector "Enviar con…".
+     */
+    private void openEmail(String to, String subject, String body, Uri attachment) {
+        final Intent i;
+        if (attachment != null) {
+            i = new Intent(Intent.ACTION_SEND);
+            i.setType("application/pdf");
+            i.putExtra(Intent.EXTRA_STREAM, attachment);
+            i.setClipData(ClipData.newRawUri("", attachment));
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } else {
+            i = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(to)));
+        }
+        i.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
+        i.putExtra(Intent.EXTRA_SUBJECT, subject);
+        i.putExtra(Intent.EXTRA_TEXT, body);
+        for (String pkg : MAIL_APPS) {
+            if (isInstalled(pkg)) { i.setPackage(pkg); break; }
+        }
+        runOnUiThread(() -> {
+            try {
+                startActivity(i);
+            } catch (ActivityNotFoundException e) {
+                i.setPackage(null);
+                try {
+                    startActivity(Intent.createChooser(i, "Enviar con…"));
+                } catch (ActivityNotFoundException e2) {
+                    Toast.makeText(this, "No hay ninguna app de correo configurada", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
     }
 
     private void toast(final String msg) {
@@ -641,20 +771,10 @@ public class MainActivity extends Activity {
             launch(view, "No hay ninguna app para ver PDF");
         }
 
-        /** Email con el PDF del presupuesto adjunto (solo apps de correo). */
+        /** Email con el PDF del presupuesto adjunto (abre Gmail directamente si está instalado). */
         @JavascriptInterface
         public void sendEmailPdf(String to, String subject, String body) {
-            if (lastPdfUri == null) { sendEmail(to, subject, body); return; }
-            Intent i = new Intent(Intent.ACTION_SEND);
-            i.setType("application/pdf");
-            i.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
-            i.putExtra(Intent.EXTRA_SUBJECT, subject);
-            i.putExtra(Intent.EXTRA_TEXT, body);
-            i.putExtra(Intent.EXTRA_STREAM, lastPdfUri);
-            i.setClipData(ClipData.newRawUri("", lastPdfUri));
-            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            i.setSelector(new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")));
-            launch(i, "No hay ninguna app de correo configurada");
+            openEmail(to, subject, body, lastPdfUri);
         }
 
         /** WhatsApp con el PDF adjunto, directo al chat del número (phone: 34600111222). */
@@ -680,13 +800,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void sendEmail(String to, String subject, String body) {
-            Uri uri = Uri.parse("mailto:" + Uri.encode(to)
-                    + "?subject=" + Uri.encode(subject) + "&body=" + Uri.encode(body));
-            Intent i = new Intent(Intent.ACTION_SENDTO, uri);
-            i.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
-            i.putExtra(Intent.EXTRA_SUBJECT, subject);
-            i.putExtra(Intent.EXTRA_TEXT, body);
-            launch(i, "No hay ninguna app de correo configurada");
+            openEmail(to, subject, body, null);
         }
 
         /** phone en formato internacional sin "+", p. ej. 34600111222. */
@@ -716,42 +830,78 @@ public class MainActivity extends Activity {
         }
 
         /**
-         * Excel de una tabla (kind: "trabajos" o "patrimonio") en Descargas/VisitasLeads/&lt;carpeta&gt;.
-         * mode: "share" (compartir), "open" (abrir) o "save" (solo guardar).
+         * Libro Excel definido por la app:
+         * {fileName, folder, mode: share|open|save, sheets: [{name, cols: [[cabecera, clave, tipo, ancho, lista]], rows: [{…}]}]}
+         * Se guarda en Descargas/VisitasLeads/&lt;folder&gt;. Devuelve "" o el mensaje de error.
          */
         @JavascriptInterface
-        public String exportTable(String kind, String rowsJson, String fileName, String mode) {
+        public String exportBook(String json) {
             try {
-                List<Map<String, String>> rows = parseLeads(rowsJson);
-                String name = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
-                if (!name.endsWith(".xlsx")) name += ".xlsx";
-                boolean patrimonio = "patrimonio".equals(kind);
-                String folder = FOLDER + (patrimonio ? "/Patrimonio" : "/Trabajos");
-                String sheet = patrimonio ? "NEGOCIACIONES" : "TRABAJOS";
-                Uri uri = saveToDownloads(folder, name, XLSX_MIME,
-                        out -> XlsxWriter.writeTable(kind, sheet, rows, MainActivity.this::loadAsset, out));
-                if ("share".equals(mode)) {
-                    Intent send = new Intent(Intent.ACTION_SEND);
-                    send.setType(XLSX_MIME);
-                    send.putExtra(Intent.EXTRA_STREAM, uri);
-                    send.putExtra(Intent.EXTRA_SUBJECT, name);
-                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    launch(Intent.createChooser(send, "Compartir Excel"), "No hay apps para compartir");
-                } else if ("open".equals(mode)) {
-                    Intent view = new Intent(Intent.ACTION_VIEW);
-                    view.setDataAndType(uri, XLSX_MIME);
-                    view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    launch(view, "No hay ninguna app instalada para abrir Excel");
+                JSONObject spec = new JSONObject(json);
+                List<XlsxWriter.SheetDef> defs = new ArrayList<>();
+                JSONArray sheets = spec.getJSONArray("sheets");
+                for (int i = 0; i < sheets.length(); i++) {
+                    JSONObject sh = sheets.getJSONObject(i);
+                    List<String[]> cols = new ArrayList<>();
+                    JSONArray cs = sh.getJSONArray("cols");
+                    for (int k = 0; k < cs.length(); k++) {
+                        JSONArray c = cs.getJSONArray(k);
+                        String[] def = new String[5];
+                        for (int j = 0; j < 5 && j < c.length(); j++) def[j] = c.isNull(j) ? null : c.optString(j);
+                        cols.add(def);
+                    }
+                    defs.add(new XlsxWriter.SheetDef(sh.getString("name"), cols, parseLeads(sh.getJSONArray("rows").toString())));
                 }
+                String name = spec.optString("fileName", "Export").replaceAll("[\\\\/:*?\"<>|]", "_");
+                if (!name.endsWith(".xlsx")) name += ".xlsx";
+                String folder = FOLDER + (spec.optString("folder").isEmpty() ? "" : "/" + spec.optString("folder"));
+                Uri uri = saveToDownloads(folder, name, XLSX_MIME,
+                        out -> XlsxWriter.writeBook(defs, MainActivity.this::loadAsset, out));
+                shareOrOpen(uri, XLSX_MIME, name, spec.optString("mode", "share"));
                 return "";
             } catch (Exception e) {
                 return e.getMessage() == null ? e.toString() : e.getMessage();
             }
         }
 
+        /** Guarda un fichero de texto (copia de seguridad JSON…) en Descargas/VisitasLeads/&lt;folder&gt;. */
         @JavascriptInterface
-        public String exportTrabajos(String rowsJson, String fileName, String mode) {
-            return exportTable("trabajos", rowsJson, fileName, mode);
+        public String saveText(String folder, String fileName, String mime, String text, String mode) {
+            try {
+                String name = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
+                Uri uri = saveToDownloads(FOLDER + (folder == null || folder.isEmpty() ? "" : "/" + folder), name, mime,
+                        out -> out.write(text.getBytes(StandardCharsets.UTF_8)));
+                shareOrOpen(uri, mime, name, mode);
+                return "";
+            } catch (Exception e) {
+                return e.getMessage() == null ? e.toString() : e.getMessage();
+            }
+        }
+
+        /** Abre el selector para importar un fichero (Excel o copia JSON) en un área. */
+        @JavascriptInterface
+        public void importFile(String area) {
+            runOnUiThread(() -> startImport(area));
+        }
+
+        /** Datos del último PDF generado: {"uri": …, "name": …} o "". */
+        @JavascriptInterface
+        public String lastPdfInfo() {
+            if (lastPdfUri == null) return "";
+            try {
+                JSONObject r = new JSONObject();
+                r.put("uri", lastPdfUri.toString());
+                r.put("name", displayName(lastPdfUri));
+                return r.toString();
+            } catch (Exception e) {
+                return "";
+            }
+        }
+
+        /** Abre o comparte un documento guardado (historial de PDF). mode: open|share */
+        @JavascriptInterface
+        public void openDoc(String uri, String mime, String mode) {
+            shareOrOpen(Uri.parse(uri), mime == null || mime.isEmpty() ? "application/pdf" : mime, "", mode);
         }
 
         /** source: "camera" o "gallery". El resultado llega a JS en onOcrResult(texto). */

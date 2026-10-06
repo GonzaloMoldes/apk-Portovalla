@@ -254,3 +254,42 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .count-btn { border: 0; border-radius: 18px; background: #e1ecfb; font-size: 56px; padding: 22px 10px; }
 .count-btn:active { background: #c4d7f2; }
 .count-btn span { display: block; font-size: 30px; font-weight: 800; color: var(--primary); }
+
+/* ---------- barra de navegación inferior ---------- */
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 8;
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  background: #fff; border-top: 1px solid var(--border); box-shadow: 0 -2px 8px rgba(0,0,0,.06);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottom-nav button {
+  border: 0; background: none; color: var(--muted); font-size: 12px; font-weight: 600;
+  padding: 7px 2px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.bottom-nav button span { font-size: 22px; line-height: 1.1; filter: grayscale(1); opacity: .7; }
+.bottom-nav button.active { color: var(--primary); }
+.bottom-nav button.active span { filter: none; opacity: 1; }
+.view { padding-bottom: 150px; }
+.fab { bottom: 84px; }
+.toast { bottom: 150px; }
+.modal { z-index: 12; }
+@media (min-width: 700px) { .bottom-nav button { font-size: 14px; flex-direction: row; justify-content: center; gap: 8px; padding: 12px 4px; } }
+
+/* ---------- clientes ---------- */
+.list-main { padding: 4px 16px; max-width: 1100px; margin: 0 auto; }
+.row-item { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.row-item img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; flex: none; }
+.row-item .ri-main { flex: 1; min-width: 0; font-size: 14px; }
+.row-item .ri-main b { display: block; font-size: 15px; }
+.row-item .ri-main span { color: var(--muted); overflow-wrap: anywhere; }
+.io-btns { display: grid; gap: 10px; margin: 12px 0; }
+.badge.dispo-Disponible { background: #dff3e7; color: #1d6b3d; }
+.badge.dispo-Ocupada { background: #fde8e6; color: var(--danger); }
+.badge.dispo-Consultar { background: #fff1d6; color: #8a5300; }
+.valla .dispo { position: absolute; left: 8px; bottom: auto; top: 8px; }
+.linea { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+.linea-head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--primary); }
+.linea-head .spacer { flex: 1; }
+.linea .grid4 { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0 10px; }
+@media (max-width: 560px) { .linea .grid4 { grid-template-columns: 1fr 1fr; } }
+.valla .badges.dispo-wrap { position: static; margin: 6px 0 0; }
