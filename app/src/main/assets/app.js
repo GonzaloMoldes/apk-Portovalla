@@ -677,7 +677,7 @@ let pickerZona = 'Todas';
 let pickerMuni = '';
 
 function emptyBudget() {
-  return { codes: [], snap: {}, periodo: '', desde: '', hasta: '', material: '', precioMes: '', precioMaterial: '', lineas: [] };
+  return { codes: [], snap: {}, precios: {}, periodo: '', desde: '', hasta: '', material: '', precioMaterial: '', lineas: [] };
 }
 
 /* --- artículos que se venden (en el presupuesto de la visita y en las ventas de Trabajos) --- */
@@ -770,22 +770,40 @@ function mesesText(b) {
   return b.periodo === 'Fechas' ? `${txt} (${budgetDias(b)} días)` : txt;
 }
 
-/** Alquiler de una valla durante la campaña = precio por mes × meses (presupuestos antiguos: precio del periodo). */
-function alquilerValla(b) {
-  if (b.precioMes !== undefined && b.precioMes !== '') return Math.round(parseMoney(b.precioMes) * budgetMeses(b) * 100) / 100;
-  return parseMoney(b.precioPeriodo);
+/** Precio por mes de una valla según su categoría (Ajustes → Precios por categoría). */
+function precioCategoria(cat) {
+  const c = String(cat || '').trim().toUpperCase();
+  return c ? String(settings['precioCat' + c] || '').trim() : '';
 }
 
-function precioValla(b) {
-  return Math.round((alquilerValla(b) + parseMoney(b.precioMaterial)) * 100) / 100;
+/**
+ * Vallas del presupuesto con su precio por mes: sirve para el presupuesto que se edita
+ * (codes + precios) y para el guardado (vallas[i].precioMes). Los presupuestos antiguos
+ * tenían un único precio por mes (p.precioMes) o por periodo (p.precioPeriodo).
+ */
+function budgetItems(b) {
+  if (b.codes) return b.codes.map(c => ({ codigo: c, precioMes: b.precios[c] || '' }));
+  return (b.vallas || []).map(v => v.precioMes !== undefined
+    ? { codigo: v.codigo, precioMes: v.precioMes }
+    : { codigo: v.codigo, precioMes: b.precioMes || '', precioPeriodo: b.precioMes ? '' : b.precioPeriodo });
 }
 
-/** Vallas = (alquiler por valla + material por valla) × nº de vallas. */
+/** Alquiler de una valla durante la campaña = precio por mes × meses. */
+function alquilerItem(b, it) {
+  if (it.precioMes !== '' && it.precioMes != null) return Math.round(parseMoney(it.precioMes) * budgetMeses(b) * 100) / 100;
+  return parseMoney(it.precioPeriodo);
+}
+
+/** Alquiler + material de una valla. */
+function precioItem(b, it) {
+  return Math.round((alquilerItem(b, it) + parseMoney(b.precioMaterial)) * 100) / 100;
+}
+
+/** Vallas = suma de (alquiler + material) de cada valla. */
 function budgetVallasTotal(b) {
   b = b || budget;
   if (!b) return 0;
-  const n = b.codes ? b.codes.length : (b.vallas || []).length;
-  return Math.round(precioValla(b) * n * 100) / 100;
+  return Math.round(budgetItems(b).reduce((s, it) => s + precioItem(b, it), 0) * 100) / 100;
 }
 
 /** Total del presupuesto = vallas + artículos. */
@@ -812,13 +830,18 @@ function addMonthsISO(iso, months) {
 function loadBudget(p) {
   budget = emptyBudget();
   if (p) {
-    for (const k of ['periodo', 'desde', 'hasta', 'material', 'precioMes', 'precioMaterial']) budget[k] = p[k] || '';
-    // Presupuestos antiguos (precio del periodo por valla) → precio por mes
-    if (!p.precioMes && p.precioPeriodo) {
+    for (const k of ['periodo', 'desde', 'hasta', 'material', 'precioMaterial']) budget[k] = p[k] || '';
+    // Presupuestos antiguos: un precio por mes común, o el precio del periodo → precio por mes de cada valla
+    let comun = p.precioMes || '';
+    if (!comun && p.precioPeriodo) {
       const m = budgetMeses(budget) || 1;
-      budget.precioMes = String(Math.round(parseMoney(p.precioPeriodo) / m * 100) / 100).replace('.', ',');
+      comun = String(Math.round(parseMoney(p.precioPeriodo) / m * 100) / 100).replace('.', ',');
     }
-    for (const v of p.vallas || []) { budget.codes.push(v.codigo); budget.snap[v.codigo] = v; }
+    for (const v of p.vallas || []) {
+      budget.codes.push(v.codigo);
+      budget.snap[v.codigo] = v;
+      budget.precios[v.codigo] = v.precioMes !== undefined ? v.precioMes : comun;
+    }
     budget.lineas = (p.lineas || []).map(l => Object.assign({}, l));
   }
   renderBudget();
@@ -835,11 +858,17 @@ function renderBudget() {
   if (card.hidden || !budget) return;
   $('#vallas-sel').innerHTML = budget.codes.length ? budget.codes.map(code => {
     const v = vallaByCode(code) || { codigo: code, direccion: '' };
-    return `<div class="vsel">
+    const cat = precioCategoria(v.categoria);
+    const imp = typeof impactosValla === 'function' ? impactosValla(code) : 0;
+    return `<div class="vsel vsel-budget">
       ${v.foto ? `<img src="${esc(v.foto)}" alt="">` : ''}
-      <div class="vsel-info"><b>${esc(v.codigo)}</b><span>${esc(v.direccion)}${v.municipio ? ' · ' + esc(v.municipio) : ''}</span></div>
+      <div class="vsel-info"><b>${esc(v.codigo)}${v.categoria ? ` <span class="cat-tag">Cat. ${esc(v.categoria)}</span>` : ''}</b>
+        <span>${esc(v.direccion)}${v.municipio ? ' · ' + esc(v.municipio) : ''}</span>
+        ${imp ? `<span class="imp-line">👁 ${fmtInt(imp)} impactos/día</span>` : ''}</div>
+      <label class="vsel-precio">€/mes<input type="text" inputmode="decimal" data-bprecio="${esc(code)}" value="${esc(budget.precios[code] || '')}"
+        placeholder="${cat ? esc(cat) : '—'}"></label>
       ${v.lat ? `<button type="button" class="act" data-map="${esc(code)}">📍</button>` : ''}
-      <button type="button" class="vsel-x" data-unvalla="${esc(code)}" aria-label="Quitar">✕</button>
+      <button type="button" class="vsel-x" data-unvalla="${esc(code)}" aria-label="Quitar" title="Quitar">${icon('close')}</button>
     </div>`;
   }).join('') : '<p class="hint">Todavía no has elegido ninguna valla.</p>';
 
@@ -851,7 +880,6 @@ function renderBudget() {
   form.elements.b_desde.value = budget.desde;
   form.elements.b_hasta.value = budget.hasta;
   form.elements.b_hasta.readOnly = budget.periodo !== 'Fechas';
-  form.elements.b_precioMes.value = budget.precioMes;
   form.elements.b_precioMaterial.value = budget.precioMaterial;
   $('#b-campana').hidden = !budget.codes.length;
   $('#b-lineas').innerHTML = lineasEditorHtml(budget.lineas, 'data-b-dellinea',
@@ -862,14 +890,17 @@ function renderBudget() {
 function renderBudgetTotal() {
   const n = budget.codes.length;
   const t = budgetVallasTotal();
-  const pm = parseMoney(budget.precioMes), mat = parseMoney(budget.precioMaterial);
+  const pms = budgetItems(budget).map(it => parseMoney(it.precioMes));
+  const sumPm = pms.reduce((s, x) => s + x, 0);
+  const mat = parseMoney(budget.precioMaterial);
   const m = budgetMeses(budget);
   let detalle = '';
-  if (pm && !m) detalle = ' · elige el periodo para calcular';
-  else if (pm || mat) {
-    const partes = [pm ? `${fmtMoney(pm)}/mes × ${mesesText(budget)}` : '', mat ? `${fmtMoney(mat)} material` : ''].filter(Boolean);
-    detalle = ` · ${n} × (${partes.join(' + ')})`;
+  if (sumPm && !m) detalle = ' · elige el periodo para calcular';
+  else if (sumPm || mat) {
+    const partes = [sumPm ? `${fmtMoney(sumPm)}/mes × ${mesesText(budget)}` : '', mat ? `${fmtMoney(mat)} × ${n} material` : ''].filter(Boolean);
+    detalle = ` · ${partes.join(' + ')}`;
   }
+  if (pms.some(x => !x) && n) detalle += ` · ${pms.filter(x => !x).length} sin precio`;
   $('#presupuesto-total').textContent = n
     ? `${n} valla${n > 1 ? 's' : ''}${t ? ` · ${fmtMoney(t)} sin IVA` : ''}${detalle}`
     : '';
@@ -883,18 +914,21 @@ function renderBudgetTotal() {
 function budgetForSave() {
   if (!budget || !budgetVisible()) return null;
   const b = budget;
-  if (!b.codes.length && !b.lineas.length && !b.periodo && !b.material && !b.precioMes && !b.precioMaterial) return null;
+  if (!b.codes.length && !b.lineas.length && !b.periodo && !b.material && !b.precioMaterial) return null;
   return {
-    vallas: b.codes.map(code => {
-      const v = vallaByCode(code) || { codigo: code };
+    vallas: budgetItems(b).map(it => {
+      const v = vallaByCode(it.codigo) || { codigo: it.codigo };
+      const imp = typeof impactosValla === 'function' ? impactosValla(it.codigo) : 0;
       return { codigo: v.codigo, direccion: v.direccion || '', municipio: v.municipio || '', provincia: v.provincia || '',
         zona: v.zona || '', medida: v.medida || '', categoria: v.categoria || '',
-        lat: v.lat == null ? '' : v.lat, lng: v.lng == null ? '' : v.lng, foto: v.foto || '' };
+        lat: v.lat == null ? '' : v.lat, lng: v.lng == null ? '' : v.lng, foto: v.foto || '',
+        precioMes: it.precioMes,                        // precio por mes de esta valla
+        precioPeriodo: String(alquilerItem(b, it)),     // alquiler de toda la campaña
+        total: String(precioItem(b, it)),               // alquiler + material
+        impactos: imp ? String(imp) : '' };
     }),
     periodo: b.periodo, desde: b.desde, hasta: b.hasta, material: b.material,
-    precioMes: b.precioMes, meses: String(budgetMeses(b)), precioMaterial: b.precioMaterial,
-    precioPeriodo: String(alquilerValla(b)),          // alquiler por valla de toda la campaña
-    total: String(precioValla(b)),                    // por valla (alquiler + material)
+    meses: String(budgetMeses(b)), precioMaterial: b.precioMaterial,
     lineas: lineasForSave(b.lineas),                  // artículos vendidos en la visita
     importeArticulos: String(ventaImporte(b.lineas)),
   };
@@ -923,14 +957,19 @@ function periodoText(p) {
 
 /** Líneas con los importes: [etiqueta, valor]. */
 function budgetPriceRows(p) {
-  const n = (p.vallas || []).length;
-  const pm = parseMoney(p.precioMes), mat = parseMoney(p.precioMaterial), alq = alquilerValla(p);
+  const items = budgetItems(p);
+  const n = items.length;
+  const pms = items.map(it => parseMoney(it.precioMes));
+  const igual = n > 0 && pms.every(x => x === pms[0]);
+  const mat = parseMoney(p.precioMaterial);
+  const alqs = items.map(it => alquilerItem(p, it));
+  const alq = alqs.reduce((s, x) => s + x, 0);
   const rows = [];
-  if (pm) rows.push(['Precio por mes y valla', fmtMoney(pm)]);
-  if (pm && budgetMeses(p)) rows.push(['Duración', mesesText(p)]);
-  if (alq) rows.push(['Alquiler por valla (campaña)', fmtMoney(alq)]);
+  if (pms.some(Boolean)) rows.push(igual ? ['Precio por mes y valla', fmtMoney(pms[0])] : ['Precio por mes (todas las vallas)', fmtMoney(pms.reduce((s, x) => s + x, 0))]);
+  if (pms.some(Boolean) && budgetMeses(p)) rows.push(['Duración', mesesText(p)]);
+  if (alq) rows.push(igual ? ['Alquiler por valla (campaña)', fmtMoney(alqs[0])] : ['Alquiler de la campaña (todas las vallas)', fmtMoney(alq)]);
   if (mat) rows.push(['Material por valla', fmtMoney(mat)]);
-  if (alq && mat) rows.push(['Precio por valla', fmtMoney(alq + mat)]);
+  if (igual && alq && mat) rows.push(['Precio por valla', fmtMoney(alqs[0] + mat)]);
   const tv = budgetVallasTotal(p), ta = ventaImporte(p.lineas);
   if (tv && ta) rows.push([`Vallas (${n})`, fmtMoney(tv)]);
   if (ta && (tv || n)) rows.push([`Artículos (${p.lineas.length})`, fmtMoney(ta)]);
@@ -947,6 +986,10 @@ function budgetDetail(p) {
     out.push(`${i + 1}. ${v.codigo} – ${v.direccion}${v.municipio ? ` (${v.municipio})` : ''}`);
     const meta = [v.medida && `Medida ${v.medida}`, v.categoria && `Categoría ${v.categoria}`].filter(Boolean).join(' · ');
     if (meta) out.push(`   ${meta}`);
+    const imp = Number(v.impactos) || (typeof impactosValla === 'function' ? impactosValla(v.codigo) : 0);
+    if (imp) out.push(`   Impactos estimados: ${fmtInt(imp)} al día`);
+    const it = budgetItems(p)[i];
+    if (it && parseMoney(it.precioMes)) out.push(`   Precio: ${fmtMoney(parseMoney(it.precioMes))}/mes`);
     if (mapsUrl(v)) out.push(`   Ubicación: ${mapsUrl(v)}`);
   });
   if (p.lineas && p.lineas.length) {
@@ -973,7 +1016,7 @@ function budgetDoc(lead) {
   const p = lead.presupuesto;
   const n = (p.vallas || []).length;
   const lineas = p.lineas || [];
-  const porValla = precioValla(p);
+  const items = budgetItems(p);
   const safe = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
   const preparado = [settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · ');
@@ -1004,18 +1047,23 @@ function budgetDoc(lead) {
       cantidad: l.cantidad || '1', precio: parseMoney(l.precio) ? fmtMoney(parseMoney(l.precio)) : '',
       importe: lineaImporte(l) ? fmtMoney(lineaImporte(l)) : '',
     })),
-    vallas: (p.vallas || []).map(v => ({
-      codigo: v.codigo,
-      direccion: v.direccion || '',
-      lineas: [
-        [v.municipio, v.provincia && v.provincia !== v.municipio ? v.provincia : ''].filter(Boolean).join(', '),
-        [v.medida && `Medida: ${v.medida}`, v.categoria && `Categoría: ${v.categoria}`].filter(Boolean).join('   '),
-        v.lat !== '' && v.lat != null ? `Coordenadas: ${v.lat}, ${v.lng}` : '',
-      ].filter(Boolean),
-      mapa: mapsUrl(v) ? `Ubicación: ${mapsUrl(v)}` : '',
-      foto: v.foto || '',
-      precio: porValla ? `${fmtMoney(porValla)} / valla (sin IVA)` : '',
-    })),
+    vallas: (p.vallas || []).map((v, i) => {
+      const it = items[i], total = precioItem(p, it), pm = parseMoney(it.precioMes);
+      const imp = Number(v.impactos) || (typeof impactosValla === 'function' ? impactosValla(v.codigo) : 0);
+      return {
+        codigo: v.codigo,
+        direccion: v.direccion || '',
+        lineas: [
+          [v.municipio, v.provincia && v.provincia !== v.municipio ? v.provincia : ''].filter(Boolean).join(', '),
+          [v.medida && `Medida: ${v.medida}`, v.categoria && `Categoría: ${v.categoria}`].filter(Boolean).join('   '),
+          imp ? `Impactos estimados: ${fmtInt(imp)} al día` : '',
+          v.lat !== '' && v.lat != null ? `Coordenadas: ${v.lat}, ${v.lng}` : '',
+        ].filter(Boolean),
+        mapa: mapsUrl(v) ? `Ubicación: ${mapsUrl(v)}` : '',
+        foto: v.foto || '',
+        precio: total ? `${fmtMoney(total)} (sin IVA)${pm ? ` · ${fmtMoney(pm)}/mes` : ''}` : '',
+      };
+    }),
     nota: n ? 'Precios sin IVA. Propuesta sujeta a disponibilidad de las vallas en las fechas indicadas.' : 'Precios sin IVA.',
     pie: [settings.miEmpresa, settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · '),
   };
@@ -1107,7 +1155,7 @@ function renderPicker() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
-        ${typeof dispoBadge === 'function' ? `<div class="badges dispo-wrap">${dispoBadge(v.codigo)}</div>` : ''}
+        ${typeof dispoBadge === 'function' ? `<div class="badges dispo-wrap">${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${precioCategoria(v.categoria) ? `<span class="badge">${fmtMoney(parseMoney(precioCategoria(v.categoria)))}/mes</span>` : ''}</div>` : ''}
         ${v.lat ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
       </div>
     </article>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';
@@ -1126,6 +1174,9 @@ function closePicker() {
 function openBudgetPicker() {
   openPicker(budget.codes, codes => {
     budget.codes = codes;
+    for (const c of codes) {
+      if (!budget.precios[c]) budget.precios[c] = precioCategoria((vallaByCode(c) || {}).categoria);
+    }
     renderBudget();
     setTimeout(() => $('#presupuesto-card').scrollIntoView({ block: 'start', behavior: 'instant' }), 30);
   }, 'form');
@@ -1423,6 +1474,11 @@ $('#search').addEventListener('input', renderList);
 $('#vallas-search').addEventListener('input', renderPicker);
 $('#lead-form').addEventListener('input', e => {
   const k = e.target.name || '';
+  if (e.target.dataset.bprecio && budget) {
+    budget.precios[e.target.dataset.bprecio] = e.target.value.trim();
+    renderBudgetTotal();
+    return;
+  }
   if (e.target.dataset.linea !== undefined && budget && e.target.closest('#b-lineas')) {
     lineaInput(budget.lineas, e.target);
     renderBudgetTotal();

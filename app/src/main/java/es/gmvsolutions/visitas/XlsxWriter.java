@@ -352,6 +352,7 @@ public final class XlsxWriter {
         new Col("MUNICIPIO", "municipio", Kind.TEXT, 14),
         new Col("MEDIDA", "medida", Kind.TEXT, 11),
         new Col("CATEGORÍA", "categoria", Kind.TEXT, 10),
+        new Col("IMPACTOS / DÍA", "impactos", Kind.NUMBER, 11),
         new Col("LATITUD", "lat", Kind.COORD, 12),
         new Col("LONGITUD", "lng", Kind.COORD, 12),
         new Col("MAPA", "mapa", Kind.LINK, 11),

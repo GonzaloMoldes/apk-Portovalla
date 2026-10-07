@@ -319,10 +319,11 @@ function negFromLead(lead) {
 
 /* ------------------------------------------------------------- contador de tráfico */
 
-let count = null;   // { cars, people, start, timer }
+let count = null;   // { cars, people, start, timer, done }
 
-function startCount() {
-  count = { cars: 0, people: 0, start: Date.now(), timer: null };
+/** Abre el contador de 1 minuto; al terminar llama a done(vehículos/min, personas/min, segundos). */
+function startCount(done) {
+  count = { cars: 0, people: 0, start: Date.now(), timer: null, done: done || countToNeg };
   $('#count-cars').textContent = '0';
   $('#count-people').textContent = '0';
   $('#count-time').textContent = '60';
@@ -339,16 +340,23 @@ function stopCount(save) {
   if (!count) { $('#count-modal').hidden = true; return; }
   clearInterval(count.timer);
   const secs = Math.max(1, Math.min(60, (Date.now() - count.start) / 1000));
-  if (save) {
-    const form = $('#neg-form');
-    const factor = 60 / secs;
-    form.elements.vehiculosMin.value = String(Math.round(count.cars * factor));
-    form.elements.personasMin.value = String(Math.round(count.people * factor));
-    toast(secs < 59 ? `Contado ${Math.round(secs)} s; calculado por minuto` : 'Tráfico de 1 minuto guardado');
-    renderNf();
-  }
+  const done = count.done;
+  const factor = 60 / secs;
+  const veh = Math.round(count.cars * factor), per = Math.round(count.people * factor);
   count = null;
   $('#count-modal').hidden = true;
+  if (save) {
+    done(veh, per, secs);
+    toast(secs < 59 ? `Contado ${Math.round(secs)} s; calculado por minuto` : 'Tráfico de 1 minuto guardado');
+  }
+}
+
+/** Resultado del contador en la ficha de negociación. */
+function countToNeg(veh, per) {
+  const form = $('#neg-form');
+  form.elements.vehiculosMin.value = String(veh);
+  form.elements.personasMin.value = String(per);
+  renderNf();
 }
 
 /* ------------------------------------------------------------- Excel */
@@ -440,7 +448,7 @@ document.addEventListener('click', e => {
     case 'nf-map': mapFromForm('#neg-form', $('#neg-form').elements.propietario.value || 'Emplazamiento'); break;
     case 'nf-photo-camera': pickPhoto('camera', 'neg'); break;
     case 'nf-photo-gallery': pickPhoto('gallery', 'neg'); break;
-    case 'nf-count': startCount(); break;
+    case 'nf-count': startCount(countToNeg); break;
     case 'count-car': if (count) $('#count-cars').textContent = String(++count.cars); break;
     case 'count-person': if (count) $('#count-people').textContent = String(++count.people); break;
     case 'count-stop': stopCount(true); break;

@@ -166,10 +166,8 @@
         <button type="button" class="chip" data-value="Vinilo">Vinilo</button>
       </div>
 
-      <div class="grid">
-        <label>Precio por mes y valla (€ sin IVA)<input type="text" name="b_precioMes" inputmode="decimal"></label>
-        <label>Precio del material por valla (€ sin IVA)<input type="text" name="b_precioMaterial" inputmode="decimal"></label>
-      </div>
+      <label>Precio del material por valla (€ sin IVA)<input type="text" name="b_precioMaterial" inputmode="decimal"></label>
+      <p class="hint">El precio por mes de cada valla (arriba, en «€/mes») sale de su categoría (Ajustes) y se puede cambiar.</p>
       <p class="budget-total" id="presupuesto-total"></p>
       </div>
 
@@ -618,6 +616,11 @@
       <button class="chip" data-cat-dispo="Ocupada">🔴 Ocupadas</button>
       <button class="chip" data-cat-dispo="Consultar">🟡 Consultar</button>
     </div>
+    <div class="chips small" id="cat-trafico">
+      <button class="chip" data-cat-trafico="impactos">👁 Más impactos primero</button>
+      <button class="chip" data-cat-trafico="recontar">⏱ Por recontar</button>
+      <button class="chip" data-cat-trafico="sinconteo">Sin conteo de tráfico</button>
+    </div>
     <p class="stats" id="cat-stats"></p>
   </div>
   <main id="cat-grid" class="vallas-grid"></main>
@@ -695,6 +698,19 @@
         <button type="button" class="btn" data-g="vf-map">🗺 Ver en mapa</button>
       </div>
       <p class="hint" id="vf-coords-hint"></p>
+    </div>
+
+    <div class="card">
+      <h2>Tráfico e impactos</h2>
+      <p id="vf-trafico-estado" class="hint"></p>
+      <button type="button" class="btn scan" data-vt="count">⏱ Contar tráfico durante 1 minuto</button>
+      <div class="grid3">
+        <label>Vehículos por minuto<input type="text" name="t_veh" inputmode="numeric"></label>
+        <label>Personas por minuto<input type="text" name="t_per" inputmode="numeric"></label>
+        <label>Fecha del conteo<input type="date" name="t_fecha"></label>
+      </div>
+      <p class="budget-total" id="vf-impactos"></p>
+      <div id="vf-trafico-hist"></div>
     </div>
 
     <div class="card">
@@ -899,6 +915,19 @@
     </div>
 
     <div class="card">
+      <h2>Precios de las vallas por categoría</h2>
+      <p class="hint">Precio de alquiler por mes y valla (€ sin IVA). Al elegir vallas en un presupuesto se pone el precio de su categoría (se puede cambiar en cada valla).</p>
+      <div class="grid4 cat-precios">
+        <label>Categoría A<input type="text" name="precioCatA" inputmode="decimal"></label>
+        <label>Categoría B<input type="text" name="precioCatB" inputmode="decimal"></label>
+        <label>Categoría C<input type="text" name="precioCatC" inputmode="decimal"></label>
+        <label>Categoría D<input type="text" name="precioCatD" inputmode="decimal"></label>
+      </div>
+      <label>Recontar el tráfico de cada valla cada (meses)<input type="text" name="recontarMeses" inputmode="numeric" placeholder="6"></label>
+      <p class="hint">Las vallas con el último conteo más antiguo se marcan con «⏱ Recontar» en el catálogo.</p>
+    </div>
+
+    <div class="card">
       <h2>Envío tras la visita</h2>
       <label class="check"><input type="checkbox" name="autoEnviar"> Al guardar una visita nueva, preparar el mensaje automáticamente</label>
       <p class="hint">Si la lead tiene correo se envía email; si solo tiene móvil, WhatsApp. Variables: <code>{contacto}</code> <code>{empresa}</code> <code>{poblacion}</code> <code>{fecha}</code> <code>{comercial}</code> <code>{miEmpresa}</code> <code>{miTelefono}</code> <code>{miEmail}</code> <code>{vallas}</code> <code>{presupuesto}</code> <code>{detalle}</code></p>
@@ -1016,6 +1045,7 @@
 <script src="gestion.js"></script>
 <script src="patrimonio.js"></script>
 <script src="clientes.js"></script>
+<script src="trafico.js"></script>
 <script src="datos.js"></script>
 </body>
 </html>

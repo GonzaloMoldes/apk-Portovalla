@@ -349,3 +349,18 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 /* ---------- logo ---------- */
 .bar-logo { height: 42px; background: #fff; border-radius: 10px; padding: 3px 8px; flex: none; }
 .settings-logo { display: block; max-width: 260px; width: 70%; margin: 4px auto 14px; }
+
+/* ---------- tráfico e impactos ---------- */
+.badge.imp { background: #e6f0fb; color: #1f4e9a; font-weight: 600; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 14px; }
+.cat-precios { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 12px; }
+@media (max-width: 560px) { .grid3, .cat-precios { grid-template-columns: 1fr 1fr; } }
+.aviso { background: #fff1d6; color: #8a5300; border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+.trend { font-size: 12px; margin-left: 6px; font-weight: 700; }
+.trend.up, .ri-main .trend.up { color: var(--ok); }
+.trend.down, .ri-main .trend.down { color: var(--danger); }
+.cat-tag { font-size: 12px; font-weight: 600; color: var(--muted); background: #eef2f6; border-radius: 6px; padding: 1px 6px; }
+.imp-line { display: block; color: #1f4e9a !important; font-size: 13px; }
+.vsel-budget { flex-wrap: wrap; }
+.vsel-precio { margin: 0; font-size: 12px; width: 104px; flex: none; }
+.vsel-precio input { margin-top: 2px; padding: 8px 10px; text-align: right; }

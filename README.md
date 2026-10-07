@@ -115,6 +115,20 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   galería*; para las coordenadas: *Usar mi ubicación* (GPS), escribirlas o pegar un enlace
   de Google Maps. Las vallas del catálogo original se pueden eliminar o *Volver al
   original*. Los cambios se guardan en la tablet y se usan en presupuestos y trabajos.
+- **Tráfico e impactos de las vallas**: en la ficha de cada valla, el mismo **contador de
+  1 minuto** de Patrimonio (vehículos y personas) calcula los **impactos al día**
+  ((vehículos × 1,3 + personas) × 60 × 14 h). Cada conteo se guarda con su fecha en un
+  **historial** (con la subida o bajada respecto al anterior) para recalcularlo cada cierto
+  tiempo: en Ajustes se fija cada cuántos meses hay que recontar (6 por defecto) y las vallas
+  pasadas de plazo se marcan con **⏱ Recontar**. En el catálogo cada valla muestra sus
+  **impactos/día**, y se puede ordenar por *Más impactos* o filtrar *Por recontar* /
+  *Sin conteo*. Con el precio de su categoría se calcula el coste por 1.000 impactos. Los
+  impactos salen también en el selector del presupuesto, en el mensaje, en el PDF y en los
+  Excel de vallas y de presupuestos.
+- **Precios por categoría** (Ajustes): precio de alquiler por mes y valla para las
+  categorías A, B, C y D. Al elegir vallas en un presupuesto, cada una toma el precio de su
+  categoría (campo *€/mes* de cada valla, que se puede cambiar) y el total se calcula valla
+  a valla × meses del periodo + material.
 - **Trabajos en vallas**: desbrozar, instalar lona, desinstalar lona, retirar lona, cambio
   de lona, arreglo / reparación, revisión u otro (se pueden marcar varios), sobre una o
   varias vallas, con fecha prevista, prioridad (urgente), persona o equipo asignado,

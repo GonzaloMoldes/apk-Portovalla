@@ -26,6 +26,7 @@ let tfState = {};          // selección única: prioridad, material, estado
 let trLeadId = '';         // visita de la que viene el trabajo (instalación de un presupuesto)
 let txEstado = 'abiertos';
 let catDispo = '';
+let catTrafico = '';      // '' · impactos (ordenar) · recontar · sinconteo
 let trClase = '';
 let tfClase = 'Trabajo';
 let tfClienteId = '';
@@ -97,7 +98,12 @@ function renderCatalog() {
   const items = VALLAS_DB.filter(v =>
     (catZona === 'Todas' || v.zona === catZona) && (!catMuni || v.municipio === catMuni) &&
     (!catDispo || vallaDisponibilidad(v.codigo).estado === catDispo) &&
+    (catTrafico !== 'recontar' || conteoVencido(v.codigo)) && (catTrafico !== 'sinconteo' || !ultimoConteo(v.codigo)) &&
     (!q || q.split(/\s+/).every(w => [v.codigo, v.direccion, v.municipio, v.zona, v.medida].join(' ').toLowerCase().includes(w))));
+  if (catTrafico === 'impactos') items.sort((a, b) => impactosValla(b.codigo) - impactosValla(a.codigo));
+  $$('#cat-trafico .chip').forEach(c => c.classList.toggle('active', c.dataset.catTrafico === catTrafico));
+  const porRecontar = VALLAS_DB.filter(v => conteoVencido(v.codigo)).length;
+  $('#cat-trafico [data-cat-trafico=recontar]').textContent = `⏱ Por recontar${porRecontar ? ` (${porRecontar})` : ''}`;
   const nuevas = VALLAS_DB.filter(v => v._nueva).length;
   const editadas = VALLAS_DB.filter(v => v._editada).length;
   const borradas = Object.values(vallasUser).filter(u => u._borrada).length;
@@ -112,7 +118,7 @@ function renderCatalog() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="badges dispo-wrap">${dispoBadge(v.codigo)}</div>
+        <div class="badges dispo-wrap">${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}</div>
         ${v.lat !== '' && v.lat != null ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
       </div>
     </div>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';
@@ -157,6 +163,7 @@ function renderVfChips() {
   });
   $$('#valla-form [data-vf] .chip').forEach(c =>
     c.classList.toggle('active', c.dataset.value === form.elements.categoria.value));
+  renderTrafico();
 }
 
 function openVallaForm(code) {
@@ -191,6 +198,7 @@ function openVallaForm(code) {
   form.elements.ocupadaPor.value = d.ocupadaPor || '';
   form.elements.ocupadaHasta.value = d.hasta || '';
   renderVfDispo();
+  traficoLoad(code || '');
   show('valla-form');
 }
 
@@ -248,6 +256,7 @@ function saveValla() {
     if (vallasDispo[vallaEditing]) { vallasDispo[codigo] = vallasDispo[vallaEditing]; delete vallasDispo[vallaEditing]; }
   }
   vallasUser[codigo] = rec;
+  traficoSave(codigo, vallaEditing);
   saveCatalog();
   // Disponibilidad
   if (!contratoActivo(codigo)) {
@@ -702,6 +711,7 @@ document.addEventListener('click', e => {
 
   if (t.dataset.tab) { openTab(t.dataset.tab); return; }
   if (t.dataset.catDispo !== undefined) { catDispo = t.dataset.catDispo; renderCatalog(); return; }
+  if (t.dataset.catTrafico !== undefined) { catTrafico = catTrafico === t.dataset.catTrafico ? '' : t.dataset.catTrafico; renderCatalog(); return; }
   if (t.closest('[data-vf-dispo]') && t.classList.contains('chip')) { vfDispo = t.dataset.value; renderVfDispo(); return; }
   if (t.dataset.vfCliente) {
     vfClienteId = vfClienteId === t.dataset.vfCliente ? '' : t.dataset.vfCliente;

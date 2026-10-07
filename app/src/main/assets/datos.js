@@ -23,6 +23,9 @@ const VALLA_COLS = [
   ['CATEGORÍA', 'categoria', 'text', 9, 'A,B,C,D'], ['LATITUD', 'lat', 'coord', 12], ['LONGITUD', 'lng', 'coord', 12],
   ['MAPA', 'mapa', 'link', 11], ['DISPONIBILIDAD', 'disponibilidad', 'text', 13, 'Disponible,Ocupada,Consultar'],
   ['CLIENTE / OCUPADA POR', 'ocupadaPor', 'text', 22], ['OCUPADA HASTA', 'ocupadaHasta', 'date', 12],
+  ['VEHÍCULOS / MIN', 'vehiculosMin', 'number', 10], ['PERSONAS / MIN', 'personasMin', 'number', 10],
+  ['IMPACTOS / DÍA (estim.)', 'impactos', 'number', 12], ['FECHA CONTEO', 'fechaConteo', 'date', 12],
+  ['PRECIO MES (categoría)', 'precioCat', 'money', 12],
   ['FOTO', 'foto', 'photo', 26],
 ];
 
@@ -161,6 +164,16 @@ const IMPORTERS = {
         vallasUser[codigo] = Object.assign({ codigo, foto: '' }, campos);
         res.nuevos++;
       }
+      // Conteo de tráfico: se añade al historial si es nuevo
+      if (o.vehiculosMin || o.personasMin) {
+        const c = { fecha: o.fechaConteo || todayISO(), vehiculosMin: String(o.vehiculosMin || ''), personasMin: String(o.personasMin || '') };
+        c.impactos = String(impactosDia(c));
+        const hist = vallasTrafico[codigo] || [];
+        const i = hist.findIndex(x => x.fecha === c.fecha);
+        if (i >= 0) hist[i] = c; else hist.push(c);
+        hist.sort((a, b) => a.fecha.localeCompare(b.fecha));
+        vallasTrafico[codigo] = hist;
+      }
       if (o.disponibilidad && !contratoActivo(codigo)) {
         const c = o.ocupadaPor && clienteByNombre(o.ocupadaPor);
         if (o.disponibilidad === 'Ocupada' && c) contratoDesdeValla(codigo, c.id, o.ocupadaHasta);
@@ -170,6 +183,7 @@ const IMPORTERS = {
     }
     saveCatalog();
     saveDispo();
+    saveTrafico();
     return res;
   },
 
@@ -298,7 +312,10 @@ function contratoRows() {
 function vallaRows() {
   return VALLAS_DB.map(v => {
     const d = vallaDisponibilidad(v.codigo);
-    return Object.assign({}, v, { disponibilidad: d.estado, ocupadaPor: d.cliente || '', ocupadaHasta: d.hasta || '' });
+    const c = ultimoConteo(v.codigo) || {};
+    return Object.assign({}, v, { disponibilidad: d.estado, ocupadaPor: d.cliente || '', ocupadaHasta: d.hasta || '',
+      vehiculosMin: c.vehiculosMin || '', personasMin: c.personasMin || '', impactos: c.impactos || '', fechaConteo: c.fecha || '',
+      precioCat: precioCategoria(v.categoria) });
   });
 }
 
@@ -378,7 +395,7 @@ window.onImportError = function (msg) { toast('⚠ ' + (msg || 'No se pudo impor
 /* ------------------------------------------------------------- copia de seguridad completa */
 
 const BACKUP_KEYS = ['leads', 'settings', 'trabajos', 'negociaciones', 'clientes', 'contratos', 'documentos',
-  'vallas_user', 'vallas_dispo'];
+  'vallas_user', 'vallas_dispo', 'vallas_trafico'];
 
 function exportarCopia() {
   const data = {};
