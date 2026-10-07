@@ -364,3 +364,9 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .vsel-budget { flex-wrap: wrap; }
 .vsel-precio { margin: 0; font-size: 12px; width: 104px; flex: none; }
 .vsel-precio input { margin-top: 2px; padding: 8px 10px; text-align: right; }
+
+/* ---------- visitas copiadas en la ficha del cliente ---------- */
+.visita-snap { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 8px 0; cursor: pointer; }
+.vs-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.visita-snap .ocr-summary { margin: 8px 0 4px; font-size: 14px; }
+.visita-snap .ocr-summary dd { font-weight: 500; }

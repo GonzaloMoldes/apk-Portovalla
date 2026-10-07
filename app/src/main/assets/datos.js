@@ -33,7 +33,9 @@ const CLIENTE_COLS = [
   ['NOMBRE / RAZÓN SOCIAL', 'nombre', 'text', 28], ['CIF / NIF', 'cif', 'text', 12], ['PERSONA CONTACTO', 'contacto', 'text', 18],
   ['TELÉFONO', 'telefono', 'text', 13], ['CORREO', 'correo', 'text', 24], ['DIRECCIÓN', 'direccion', 'text', 28],
   ['POBLACIÓN', 'poblacion', 'text', 14], ['PROVINCIA', 'provincia', 'text', 11], ['NOTAS', 'notas', 'wrap', 30],
-  ['VALLAS EN VIGOR', 'vallasActivas', 'text', 22], ['€ / MES EN VIGOR', 'mensual', 'money', 12], ['ID', 'id', 'text', 14],
+  ['VALLAS EN VIGOR', 'vallasActivas', 'text', 22], ['€ / MES EN VIGOR', 'mensual', 'money', 12],
+  ['VALLAS DE INTERÉS', 'vallasInteresTxt', 'wrap', 24], ['ARTÍCULOS DE INTERÉS', 'articulosTxt', 'wrap', 22],
+  ['ÚLTIMA VISITA', 'ultimaVisita', 'date', 12], ['SITUACIÓN ÚLTIMA VISITA', 'situacionVisita', 'wrap', 26], ['ID', 'id', 'text', 14],
 ];
 
 const CONTRATO_COLS = [
@@ -195,6 +197,7 @@ const IMPORTERS = {
       for (const o of sheetToObjects(cs[0][1], CLIENTE_COLS)) {
         if (!o.nombre) continue;
         delete o.vallasActivas; delete o.mensual;
+        delete o.vallasInteresTxt; delete o.articulosTxt; delete o.ultimaVisita; delete o.situacionVisita;
         let c = (o.id && clienteById(o.id)) || clienteByNombre(o.nombre);
         if (c) { mergeInto(c, o); c.modificado = now; res.actualizados++; }
         else { clientes.push(Object.assign({ id: o.id || uid(), creado: now, modificado: now }, o)); res.nuevos++; }
@@ -296,7 +299,11 @@ const IMPORTERS = {
 function clienteRows() {
   return clientes.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(c => {
     const r = clienteResumen(c);
-    return Object.assign({}, c, { vallasActivas: r.activos.map(ct => ct.codigo).join(', '), mensual: r.mensual ? String(r.mensual) : '' });
+    const v0 = (c.visitas || [])[0] || {};
+    return Object.assign({}, c, { vallasActivas: r.activos.map(ct => ct.codigo).join(', '), mensual: r.mensual ? String(r.mensual) : '',
+      vallasInteresTxt: [...new Set((c.vallasInteres || []).map(v => v.codigo))].join(', '),
+      articulosTxt: (c.articulosInteres || []).map(a => a.articulo + (a.descripcion ? ` (${a.descripcion})` : '')).join(', '),
+      ultimaVisita: v0.fecha || '', situacionVisita: v0.situacion || '' });
   });
 }
 

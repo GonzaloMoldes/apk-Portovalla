@@ -76,6 +76,14 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   contratadas** (contratos con desde/hasta, precio por mes, campaña), **historial de
   documentos** (cada PDF de presupuesto generado queda guardado con su cliente para
   abrirlo o reenviarlo) y sus visitas, trabajos y ventas. Desde una visita, *👤 Cliente*.
+  **Las visitas marcadas como *Cliente* o con *100 %* de avance se copian solas a
+  Clientes** al guardarlas (y al abrir la app, las que ya estaban así): crea el cliente si no
+  existe (o completa sus datos de contacto sin pisar lo que ya tenga) y guarda los
+  **detalles de la visita** (situación, nota, presupuesto, PVS, PVP, firma, fotos…), las
+  **vallas de interés** (con categoría, precio por mes, periodo y material) y los
+  **artículos** del presupuesto. Con *✍ Contratar estas vallas* se crea el contrato con las
+  fechas y el precio de la propuesta. En el Excel de clientes salen las vallas y artículos de
+  interés y la última visita.
 - **Disponibilidad de las vallas**: 🟢 Disponible, 🔴 Ocupada (con qué cliente y hasta
   cuándo) o 🟡 Consultar. Un contrato en vigor de un cliente la marca como ocupada; si no,
   se marca a mano en la ficha de la valla. Filtro por disponibilidad en el catálogo y

@@ -184,6 +184,41 @@ function renderCf() {
   const r = c ? clienteResumen(c) : { activos: [], mensual: 0 };
   $('#cf-contratos-total').textContent = r.activos.length
     ? `${r.activos.length} valla${r.activos.length > 1 ? 's' : ''} en vigor${r.mensual ? ` · ${fmtMoney(r.mensual)}/mes` : ''}` : '';
+  // Vallas y artículos de interés (copiados de las visitas)
+  const vi = c ? (c.vallasInteres || []) : [];
+  const ai = c ? (c.articulosInteres || []) : [];
+  $('#cf-interes-card').hidden = !vi.length && !ai.length;
+  $('#cf-interes').innerHTML = vi.map(v => {
+    const ct = contratos.find(x => x.clienteId === (c && c.id) && x.codigo === v.codigo && contratoEstado(x, hoy) !== 'Vencido');
+    const imp = typeof impactosValla === 'function' ? impactosValla(v.codigo) : 0;
+    return `<div class="row-item">
+      ${v.foto ? `<img src="${esc(v.foto)}" alt="">` : ''}
+      <div class="ri-main"><b>${esc(v.codigo)} · ${esc(v.direccion)}</b>
+        <span>${[v.municipio, v.categoria && 'Cat. ' + v.categoria, v.precioMes && `${fmtMoney(parseMoney(v.precioMes))}/mes`, v.periodo,
+          v.material, imp && `${fmtInt(imp)} impactos/día`, v.fecha && `visita ${fmtDate(v.fecha)}`].filter(Boolean).map(esc).join(' · ')}</span></div>
+      ${ct ? '<span class="badge dispo-Ocupada">Contratada</span>' : dispoBadge(v.codigo)}
+    </div>`;
+  }).join('') + (ai.length ? `<label class="lbl">Artículos</label>` + ai.map(a => `<div class="row-item"><div class="ri-main">
+      <b>🛒 ${esc(a.articulo)}${a.descripcion ? ' · ' + esc(a.descripcion) : ''}</b>
+      <span>${[a.medida, a.cantidad && `× ${a.cantidad}`, lineaImporte(a) && fmtMoney(lineaImporte(a)), a.fecha && `visita ${fmtDate(a.fecha)}`]
+        .filter(Boolean).map(esc).join(' · ')}</span></div></div>`).join('') : '');
+  $('#cf-contratar-interes').hidden = !vi.length;
+  // Detalles de las visitas
+  const vsn = c ? (c.visitas || []) : [];
+  $('#cf-visitas-card').hidden = !vsn.length;
+  $('#cf-visitas').innerHTML = vsn.map(v => `<div class="visita-snap" data-rel-lead="${esc(v.leadId)}">
+      <div class="vs-head"><b>📋 Visita ${esc(fmtDate(v.fecha))}</b>
+        ${v.tipo ? `<span class="badge t-${esc(v.tipo.replace(/\s/g, ''))}">${esc(v.tipo)}</span>` : ''}
+        ${v.porcentaje ? `<span class="badge">${esc(v.porcentaje)}%</span>` : ''}
+        ${v.envio ? `<span class="badge ok">✓ ${esc(v.envio)}</span>` : ''}</div>
+      <dl class="ocr-summary">
+        ${[['Situación', v.situacion], ['Nota', v.nota], ['Presupuesto', v.presupuesto], ['PVS', v.pvs],
+          ['PVP entrada', v.pvpEntrada && fmtMoney(parseMoney(v.pvpEntrada))], ['PVP total', v.pvpTotal && fmtMoney(parseMoney(v.pvpTotal))],
+          ['Fecha firma', v.fechaFirma && fmtDate(v.fechaFirma)], ['Trabajo realizado', v.fechaTrabajo && fmtDate(v.fechaTrabajo)],
+          ['Volver', v.volver]].filter(x => x[1]).map(([k, val]) => `<dt>${k}</dt><dd>${esc(val)}</dd>`).join('')}
+      </dl>
+      ${(v.fotos || []).length ? `<div class="photo-strip">${v.fotos.map(f => `<div class="photo-thumb"><img src="${esc(f)}" alt=""></div>`).join('')}</div>` : ''}
+    </div>`).join('');
   // Documentos
   const docs = c ? docsDeCliente(c) : [];
   $('#cf-docs').innerHTML = docs.length ? docs.map(d => `<div class="row-item">
@@ -339,6 +374,90 @@ function clienteFromLead(lead) {
 }
 let pendingLeadLink = '';
 
+/* ------------------------------------------------------------- visitas que pasan a clientes */
+
+/** Una visita marcada como Cliente o con 100 % de avance se copia a Clientes. */
+function esVisitaCliente(l) {
+  return !!l && (l.tipo === 'Cliente' || String(l.porcentaje) === '100');
+}
+
+const VISITA_SNAP = ['fecha', 'tipo', 'porcentaje', 'situacion', 'nota', 'volver', 'pvs', 'pvpEntrada', 'pvpTotal',
+  'fechaFirma', 'fechaTrabajo', 'envio'];
+
+/**
+ * Copia (o actualiza) la visita en la ficha del cliente: datos de contacto (sin pisar lo que
+ * ya tenga el cliente), los detalles de la visita, las vallas en las que tuvo interés con su
+ * precio y periodo, los artículos y las fotos. Devuelve { cliente, nuevo }.
+ */
+function syncClienteDesdeLead(lead) {
+  const now = new Date().toISOString();
+  let c = (lead.clienteId && clienteById(lead.clienteId)) || clienteByNombre(lead.razonSocial);
+  const nuevo = !c;
+  if (!c) {
+    c = { id: uid(), creado: now, nombre: (lead.razonSocial || '').trim().toUpperCase(), cif: '', direccion: '', notas: '' };
+    clientes.push(c);
+  }
+  for (const k of ['contacto', 'telefono', 'correo', 'poblacion', 'provincia']) {
+    if (!c[k] && lead[k]) c[k] = k === 'correo' ? lead[k].toLowerCase() : lead[k];
+  }
+  // Detalles de la visita (una entrada por visita)
+  const snap = { leadId: lead.id };
+  for (const k of VISITA_SNAP) snap[k] = lead[k] || '';
+  const p = lead.presupuesto;
+  snap.presupuesto = p ? budgetSummary(p) : '';
+  snap.fotos = (lead.fotos || []).slice();
+  c.visitas = (c.visitas || []).filter(v => v.leadId !== lead.id).concat(snap)
+    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  // Vallas de interés (las del presupuesto de la visita)
+  const items = p ? budgetItems(p) : [];
+  c.vallasInteres = (c.vallasInteres || []).filter(v => v.leadId !== lead.id).concat((p && p.vallas || []).map((v, i) => ({
+    codigo: v.codigo, direccion: v.direccion || '', municipio: v.municipio || '', medida: v.medida || '',
+    categoria: v.categoria || '', foto: v.foto || '', precioMes: items[i] ? items[i].precioMes || '' : '',
+    periodo: periodoText(p), desde: p.desde || '', hasta: p.hasta || '', material: p.material || '',
+    leadId: lead.id, fecha: lead.fecha || '',
+  })));
+  // Artículos de interés
+  c.articulosInteres = (c.articulosInteres || []).filter(a => a.leadId !== lead.id).concat((p && p.lineas || []).map(l =>
+    Object.assign({}, l, { leadId: lead.id, fecha: lead.fecha || '' })));
+  c.modificado = now;
+  lead.clienteId = c.id;
+  saveClientes();
+  return { cliente: c, nuevo };
+}
+
+/** Pasa a Clientes las visitas ya marcadas como cliente que aún no estén copiadas. */
+function syncVisitasClientes() {
+  let n = 0;
+  for (const l of leads) {
+    if (!esVisitaCliente(l) || !l.razonSocial) continue;
+    const c = (l.clienteId && clienteById(l.clienteId)) || clienteByNombre(l.razonSocial);
+    if (c && (c.visitas || []).some(v => v.leadId === l.id)) continue;
+    syncClienteDesdeLead(l);
+    n++;
+  }
+  if (n) store.save('leads', leads);
+  return n;
+}
+syncVisitasClientes();
+
+/** Contrata las vallas en las que el cliente tuvo interés. */
+function contratarInteres() {
+  const c = saveCliente(true);
+  if (!c) return;
+  const vs = c.vallasInteres || [];
+  const codes = [...new Set(vs.map(v => v.codigo))].filter(code => !contratos.some(ct => ct.clienteId === c.id && ct.codigo === code
+    && contratoEstado(ct) !== 'Vencido'));
+  if (!codes.length) { toast('Esas vallas ya están contratadas'); return; }
+  openContrato(codes);
+  const ult = vs.filter(v => codes.includes(v.codigo)).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))[0];
+  if (ult) {
+    if (ult.desde) $('#ct-desde').value = ult.desde;
+    if (ult.hasta) $('#ct-hasta').value = ult.hasta;
+    const precios = [...new Set(vs.filter(v => codes.includes(v.codigo)).map(v => v.precioMes).filter(Boolean))];
+    if (precios.length === 1) $('#ct-precio').value = precios[0];
+  }
+}
+
 /* ------------------------------------------------------------- navegación y eventos */
 
 const patrimonioHandleBack = window.handleBack;
@@ -385,6 +504,7 @@ document.addEventListener('click', e => {
     }
     case 'cli-delete': deleteCliente(); break;
     case 'cf-contratar': contratar(); break;
+    case 'cf-contratar-interes': contratarInteres(); break;
     case 'ct-save': saveContrato(); break;
     case 'ct-cancel': $('#contrato-modal').hidden = true; ctCtx = null; break;
     case 'ct-fin': finalizarContrato(ctCtx.id); $('#contrato-modal').hidden = true; toast('Contrato finalizado hoy'); renderCf(); break;

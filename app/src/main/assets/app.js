@@ -531,8 +531,13 @@ function saveForm(thenSend, onSaved) {
     if (!lead.presupuesto) delete lead.presupuesto;
     leads.push(lead);
   }
+  let aviso = 'Visita guardada';
+  if (typeof esVisitaCliente === 'function' && esVisitaCliente(lead)) {
+    const r = syncClienteDesdeLead(lead);
+    aviso += r.nuevo ? ` · cliente ${r.cliente.nombre} creado en Clientes` : ' · copiada a Clientes';
+  }
   persist();
-  toast('Visita guardada');
+  toast(aviso);
   if (onSaved) { editingId = lead.id; onSaved(lead); return; }
 
   show('list');
