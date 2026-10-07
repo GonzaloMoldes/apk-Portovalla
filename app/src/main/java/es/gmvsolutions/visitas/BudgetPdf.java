@@ -193,6 +193,10 @@ final class BudgetPdf {
             }
         }
 
+        // Artículos (vinilos, lonas, rotulados, estructuras…)
+        JSONArray arts = doc.optJSONArray("articulos");
+        if (arts != null && arts.length() > 0) drawArticulos(doc.optString("tituloArticulos", "Artículos"), arts);
+
         // Nota final
         String nota = doc.optString("nota", "");
         if (!nota.isEmpty()) {
@@ -249,6 +253,56 @@ final class BudgetPdf {
             c.drawText(v.optString("precio"), textX, ty + 6, price);
         }
         y = top + cardH + 10;
+    }
+
+    /** Tabla de artículos: concepto (con descripción), medida, cantidad, precio e importe. */
+    private void drawArticulos(String titulo, JSONArray arts) {
+        final float[] colW = {0, 70, 44, 72, 78};               // la primera ocupa lo que sobra
+        float total = 0;
+        for (int i = 1; i < colW.length; i++) total += colW[i];
+        colW[0] = W - 2 * M - total - 16;
+        final String[] heads = {"Artículo", "Medida", "Cant.", "Precio ud.", "Importe"};
+
+        ensure(60);
+        y += 6;
+        c.drawText(titulo, M, y + 4, h2);
+        y += 14;
+        // Cabecera de la tabla
+        fill.setColor(PRIMARY);
+        c.drawRoundRect(new RectF(M, y, W - M, y + 22), 6, 6, fill);
+        Paint hp = paint(9.5f, true, Color.WHITE);
+        float x = M + 8;
+        for (int i = 0; i < heads.length; i++) {
+            if (i == 0) c.drawText(heads[i], x, y + 15, hp);
+            else c.drawText(heads[i], x + colW[i] - hp.measureText(heads[i]), y + 15, hp);
+            x += colW[i];
+        }
+        y += 26;
+
+        for (int k = 0; k < arts.length(); k++) {
+            JSONObject a = arts.optJSONObject(k);
+            if (a == null) continue;
+            String desc = a.optString("descripcion");
+            float h = 16 + measureWrapped(desc, colW[0] - 8, small, 11) + 6;
+            ensure(h);
+            if (k % 2 == 1) {
+                fill.setColor(SOFT);
+                c.drawRect(M, y - 2, W - M, y + h - 4, fill);
+            }
+            x = M + 8;
+            c.drawText(a.optString("articulo"), x, y + 11, value);
+            drawWrapped(desc, x, y + 25, colW[0] - 8, small, 11);
+            x += colW[0];
+            String[] vals = {a.optString("medida"), a.optString("cantidad"), a.optString("precio"), a.optString("importe")};
+            for (int i = 0; i < vals.length; i++) {
+                Paint vp = i == 3 ? price : body;
+                c.drawText(vals[i], x + colW[i + 1] - vp.measureText(vals[i]), y + 11, vp);
+                x += colW[i + 1];
+            }
+            y += h;
+            c.drawLine(M, y - 4, W - M, y - 4, stroke);
+        }
+        y += 10;
     }
 
     /** Recorte centrado de la foto para llenar la caja sin deformarla. */

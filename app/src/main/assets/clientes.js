@@ -138,7 +138,7 @@ function renderClientes() {
       </div>
     </article>`;
   }).join('') : `<div class="empty">${clientes.length ? 'No hay clientes con este filtro.'
-    : 'Aún no hay clientes.<br>Pulsa <b>＋ Nuevo cliente</b> o el botón <b>👤 Cliente</b> de una visita.'}</div>`;
+    : 'Aún no hay clientes.<br>Pulsa <b>＋ Cliente</b> o el botón <b>👤 Cliente</b> de una visita.'}</div>`;
 }
 
 /* ------------------------------------------------------------- ficha */

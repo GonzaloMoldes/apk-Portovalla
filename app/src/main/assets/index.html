@@ -14,9 +14,9 @@
     <img class="bar-logo" src="logo.png" alt="Porto Valla">
     <h1>Visitas</h1>
     <div class="bar-actions">
-      <button class="btn-bar" data-action="excel-open" title="Abrir Excel">Abrir Excel</button>
-      <button class="btn-bar" data-action="excel-share" title="Compartir Excel">Compartir</button>
-      <button class="btn-bar" data-io="visitas" title="Importar / exportar">⇅</button>
+      <button class="btn-bar icon" data-action="excel-open" title="Abrir el Excel de visitas" aria-label="Abrir el Excel de visitas"><i data-icon="table"></i></button>
+      <button class="btn-bar icon" data-action="excel-share" title="Compartir el Excel de visitas" aria-label="Compartir el Excel de visitas"><i data-icon="share"></i></button>
+      <button class="btn-bar icon" data-io="visitas" title="Importar / exportar visitas" aria-label="Importar / exportar visitas"><i data-icon="sync"></i></button>
     </div>
   </header>
 
@@ -34,13 +34,13 @@
 
   <main id="list"></main>
 
-  <button class="fab" data-action="new" aria-label="Nueva visita">＋ Nueva visita</button>
+  <button class="fab" data-action="new" aria-label="Nueva visita"><i data-icon="add"></i><span>Visita</span></button>
 </section>
 
 <!-- ======================= FORMULARIO ======================= -->
 <section id="view-form" class="view">
   <header class="bar">
-    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <button class="btn-bar icon" data-action="back" title="Volver" aria-label="Volver"><i data-icon="back"></i></button>
     <h1 id="form-title">Nueva visita</h1>
     <div class="bar-actions"></div>
   </header>
@@ -138,11 +138,13 @@
 
     <div class="card budget" id="presupuesto-card" hidden>
       <h2>Presupuesto</h2>
+      <p class="hint">Lo que la visita quiere contratar o comprar: alquiler de vallas y/o artículos.</p>
 
-      <label class="lbl">Vallas</label>
+      <h3 class="sub-h">🪧 Alquiler de vallas</h3>
       <div id="vallas-sel"></div>
       <button type="button" class="btn" data-action="vallas-pick">＋ Elegir vallas</button>
 
+      <div id="b-campana" hidden>
       <label class="lbl">¿Cuál es el periodo de la campaña?</label>
       <div class="chips" data-budget="periodo">
         <button type="button" class="chip" data-value="Mensual">Mensual</button>
@@ -169,10 +171,25 @@
         <label>Precio del material por valla (€ sin IVA)<input type="text" name="b_precioMaterial" inputmode="decimal"></label>
       </div>
       <p class="budget-total" id="presupuesto-total"></p>
+      </div>
+
+      <h3 class="sub-h">🛒 Venta de artículos</h3>
+      <div id="b-lineas"></div>
+      <div class="chips">
+        <button type="button" class="chip" data-b-add="Vinilo">＋ Vinilo</button>
+        <button type="button" class="chip" data-b-add="Lona">＋ Lona</button>
+        <button type="button" class="chip" data-b-add="Rotulado de vehículo">＋ Rotulado de vehículo</button>
+        <button type="button" class="chip" data-b-add="Estructura de valla">＋ Estructura de valla</button>
+        <button type="button" class="chip" data-b-add="Otro">＋ Otro</button>
+      </div>
+      <p class="budget-total" id="b-lineas-total"></p>
+
+      <p class="grand-total" id="b-gran-total" hidden></p>
       <div class="scan-row">
         <button type="button" class="btn" data-action="budget-pdf">📄 Generar PDF</button>
-        <button type="button" class="btn" data-g="lead-install" id="btn-lead-install">🛠 Crear trabajo de instalación</button>
+        <button type="button" class="btn" data-g="lead-install" id="btn-lead-install">🛠 Pasar a trabajos</button>
       </div>
+      <p class="hint">«Pasar a trabajos» crea el trabajo de instalación de las vallas y la venta de los artículos.</p>
     </div>
 
     <details class="card">
@@ -201,10 +218,10 @@
 <!-- ======================= ELEGIR VALLAS ======================= -->
 <section id="view-vallas" class="view">
   <header class="bar">
-    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <button class="btn-bar icon" data-action="back" title="Volver" aria-label="Volver"><i data-icon="back"></i></button>
     <h1>Elegir vallas</h1>
     <div class="bar-actions">
-      <button class="btn-bar" data-action="vallas-done" id="vallas-done">Listo</button>
+      <button class="btn-bar icon done" data-action="vallas-done" id="vallas-done" title="Listo" aria-label="Listo"><i data-icon="check"></i><span class="bar-count" id="vallas-count"></span></button>
     </div>
   </header>
   <div class="toolbar">
@@ -221,8 +238,7 @@
   <header class="bar">
     <h1>Clientes</h1>
     <div class="bar-actions">
-      <button class="btn-bar" data-io="clientes" title="Importar / exportar">⇅</button>
-      <button class="btn-bar" data-c="cli-new">＋ Nuevo</button>
+      <button class="btn-bar icon" data-io="clientes" title="Importar / exportar clientes" aria-label="Importar / exportar clientes"><i data-icon="sync"></i></button>
     </div>
   </header>
   <div class="toolbar">
@@ -235,13 +251,13 @@
     <p class="stats" id="cli-stats"></p>
   </div>
   <main id="cli-list" class="list-main"></main>
-  <button class="fab" data-c="cli-new" aria-label="Nuevo cliente">＋ Nuevo cliente</button>
+  <button class="fab" data-c="cli-new" aria-label="Nuevo cliente"><i data-icon="add"></i><span>Cliente</span></button>
 </section>
 
 <!-- ======================= FICHA DE CLIENTE ======================= -->
 <section id="view-cliente-form" class="view">
   <header class="bar">
-    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <button class="btn-bar icon" data-action="back" title="Volver" aria-label="Volver"><i data-icon="back"></i></button>
     <h1 id="cli-form-title">Nuevo cliente</h1>
     <div class="bar-actions"></div>
   </header>
@@ -356,8 +372,7 @@
   <header class="bar">
     <h1>Patrimonio</h1>
     <div class="bar-actions">
-      <button class="btn-bar" data-io="patrimonio" title="Importar / exportar">⇅</button>
-      <button class="btn-bar" data-p="neg-new">＋ Nueva</button>
+      <button class="btn-bar icon" data-io="patrimonio" title="Importar / exportar negociaciones" aria-label="Importar / exportar negociaciones"><i data-icon="sync"></i></button>
     </div>
   </header>
   <div class="toolbar">
@@ -371,13 +386,13 @@
     <p class="stats" id="neg-stats"></p>
   </div>
   <main id="neg-list"></main>
-  <button class="fab" data-p="neg-new" aria-label="Nueva negociación">＋ Nueva negociación</button>
+  <button class="fab" data-p="neg-new" aria-label="Nueva negociación"><i data-icon="add"></i><span>Negociación</span></button>
 </section>
 
 <!-- ======================= FICHA DE NEGOCIACIÓN ======================= -->
 <section id="view-neg-form" class="view">
   <header class="bar">
-    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <button class="btn-bar icon" data-action="back" title="Volver" aria-label="Volver"><i data-icon="back"></i></button>
     <h1 id="neg-form-title">Nueva negociación</h1>
     <div class="bar-actions"></div>
   </header>
@@ -590,8 +605,7 @@
   <header class="bar">
     <h1>Vallas</h1>
     <div class="bar-actions">
-      <button class="btn-bar" data-io="vallas" title="Importar / exportar">⇅</button>
-      <button class="btn-bar" data-g="valla-new">＋ Nueva valla</button>
+      <button class="btn-bar icon" data-io="vallas" title="Importar / exportar vallas" aria-label="Importar / exportar vallas"><i data-icon="sync"></i></button>
     </div>
   </header>
   <div class="toolbar">
@@ -607,12 +621,13 @@
     <p class="stats" id="cat-stats"></p>
   </div>
   <main id="cat-grid" class="vallas-grid"></main>
+  <button class="fab" data-g="valla-new" aria-label="Nueva valla"><i data-icon="add"></i><span>Valla</span></button>
 </section>
 
 <!-- ======================= FICHA DE VALLA ======================= -->
 <section id="view-valla-form" class="view">
   <header class="bar">
-    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <button class="btn-bar icon" data-action="back" title="Volver" aria-label="Volver"><i data-icon="back"></i></button>
     <h1 id="valla-form-title">Nueva valla</h1>
     <div class="bar-actions"></div>
   </header>
@@ -716,9 +731,8 @@
   <header class="bar">
     <h1>Trabajos y ventas</h1>
     <div class="bar-actions">
-      <button class="btn-bar" data-g="tr-export">📤 Excel</button>
-      <button class="btn-bar" data-io="trabajos" title="Importar / exportar">⇅</button>
-      <button class="btn-bar" data-g="tr-new">＋ Nuevo</button>
+      <button class="btn-bar icon" data-g="tr-export" title="Enviar Excel de trabajos al equipo" aria-label="Enviar Excel de trabajos al equipo"><i data-icon="send"></i></button>
+      <button class="btn-bar icon" data-io="trabajos" title="Importar / exportar trabajos" aria-label="Importar / exportar trabajos"><i data-icon="sync"></i></button>
     </div>
   </header>
   <div class="toolbar">
@@ -737,13 +751,13 @@
     <p class="stats" id="tr-stats"></p>
   </div>
   <main id="tr-list"></main>
-  <button class="fab" data-g="tr-new" aria-label="Nuevo trabajo">＋ Nuevo trabajo</button>
+  <button class="fab" data-g="tr-new" aria-label="Nuevo trabajo o venta"><i data-icon="add"></i><span>Trabajo</span></button>
 </section>
 
 <!-- ======================= FICHA DE TRABAJO ======================= -->
 <section id="view-trabajo-form" class="view">
   <header class="bar">
-    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <button class="btn-bar icon" data-action="back" title="Volver" aria-label="Volver"><i data-icon="back"></i></button>
     <h1 id="trabajo-form-title">Nuevo trabajo</h1>
     <div class="bar-actions"></div>
   </header>
@@ -865,7 +879,7 @@
 <!-- ======================= AJUSTES ======================= -->
 <section id="view-settings" class="view">
   <header class="bar">
-    <button class="btn-bar icon" data-action="back" aria-label="Volver">←</button>
+    <button class="btn-bar icon" data-action="back" title="Volver" aria-label="Volver"><i data-icon="back"></i></button>
     <h1>Ajustes</h1>
     <div class="bar-actions"></div>
   </header>
@@ -985,16 +999,17 @@
 </div>
 
 <nav class="bottom-nav" id="bottom-nav">
-  <button data-tab="list" class="active"><span>📋</span>Visitas</button>
-  <button data-tab="clientes"><span>👥</span>Clientes</button>
-  <button data-tab="patrimonio"><span>🏠</span>Patrimonio</button>
-  <button data-tab="trabajos"><span>🛠</span>Trabajos</button>
-  <button data-tab="catalogo"><span>🪧</span>Vallas</button>
-  <button data-tab="ajustes"><span>⚙</span>Ajustes</button>
+  <button data-tab="list" class="active"><span class="nav-ico"><i data-icon="visitas"></i></span>Visitas</button>
+  <button data-tab="clientes"><span class="nav-ico"><i data-icon="clientes"></i></span>Clientes</button>
+  <button data-tab="patrimonio"><span class="nav-ico"><i data-icon="patrimonio"></i></span>Patrimonio</button>
+  <button data-tab="trabajos"><span class="nav-ico"><i data-icon="trabajos"></i></span>Trabajos</button>
+  <button data-tab="catalogo"><span class="nav-ico"><i data-icon="vallas"></i></span>Vallas</button>
+  <button data-tab="ajustes"><span class="nav-ico"><i data-icon="ajustes"></i></span>Ajustes</button>
 </nav>
 
 <div class="toast" id="toast" hidden></div>
 
+<script src="icons.js"></script>
 <script src="vallas.js"></script>
 <script src="ocr.js"></script>
 <script src="app.js"></script>

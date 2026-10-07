@@ -297,7 +297,8 @@ function show(view) {
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   const tab = VIEW_TAB[view];
   if (tab) $$('#bottom-nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  window.scrollTo(0, 0);
+  const v = $('#view-' + view);
+  if (v) v.scrollTop = 0;
 }
 
 function currentView() {
@@ -348,7 +349,7 @@ function renderList() {
   if (!items.length) {
     list.innerHTML = `<div class="empty">${leads.length
       ? 'No hay visitas con este filtro.'
-      : 'Aún no hay visitas.<br>Pulsa <b>＋ Nueva visita</b> para empezar.'}</div>`;
+      : 'Aún no hay visitas.<br>Pulsa <b>＋ Visita</b> para empezar.'}</div>`;
     return;
   }
 
@@ -366,8 +367,8 @@ function renderList() {
       `<span class="badge">${esc(fmtDate(l.fecha))}</span>`,
       l.porcentaje ? `<span class="badge">${esc(l.porcentaje)}%</span>` : '',
       l.volver === 'Si' ? '<span class="badge volver">Volver</span>' : '',
-      l.presupuesto && l.presupuesto.vallas && l.presupuesto.vallas.length
-        ? `<span class="badge budget-b">Presupuesto · ${l.presupuesto.vallas.length} valla${l.presupuesto.vallas.length > 1 ? 's' : ''}${budgetTotal(l.presupuesto) ? ' · ' + fmtMoney(budgetTotal(l.presupuesto)) : ''}</span>` : '',
+      hasBudget(l)
+        ? `<span class="badge budget-b">Presupuesto · ${budgetCuenta(l.presupuesto)}${budgetTotal(l.presupuesto) ? ' · ' + fmtMoney(budgetTotal(l.presupuesto)) : ''}</span>` : '',
       l.envio ? `<span class="badge ok">✓ ${esc(l.envio)}</span>`
         : (ch.length && l.tipo !== 'Visita Patrimonio' ? '<span class="badge pend">Sin seguimiento</span>' : ''),
     ].join('');
@@ -376,7 +377,7 @@ function renderList() {
       ch.includes('email') ? `<button class="act mail" data-send="email" data-id="${l.id}">✉ Email</button>` : '',
       ch.includes('whatsapp') ? `<button class="act wa" data-send="whatsapp" data-id="${l.id}">WhatsApp</button>` : '',
       normPhone(l.telefono) ? `<button class="act" data-call="${l.id}">☎ Llamar</button>` : '',
-      hasBudget(l) ? `<button class="act" data-g-install="${l.id}">🛠 Trabajo</button>` : '',
+      hasBudget(l) ? `<button class="act" data-g-install="${l.id}">🛠 A trabajos</button>` : '',
       l.tipo === 'Propietario' ? `<button class="act" data-neg-lead="${l.id}">🏠 Negociación</button>` : '',
       l.tipo === 'Cliente' || hasBudget(l) || l.clienteId ? `<button class="act" data-lead-cliente="${l.id}">👤 Cliente</button>` : '',
     ].join('');
@@ -599,9 +600,9 @@ function fillSend(lead, channel) {
   $('#send-to').textContent = isMail ? `Para: ${lead.correo}` : `WhatsApp: +${normPhone(lead.telefono)}`;
   $('#send-go').textContent = isMail ? 'Abrir correo y enviar' : 'Abrir WhatsApp y enviar';
   if (hasBudget(lead)) {
-    const n = lead.presupuesto.vallas.length;
-    $('#send-pdf-label').textContent =
-      `📎 Adjuntar PDF del presupuesto (${n} valla${n > 1 ? 's' : ''} con foto, ubicación y precios)`;
+    $('#send-pdf-label').textContent = hasBudgetVallas(lead)
+      ? `📎 Adjuntar PDF del presupuesto (${budgetCuenta(lead.presupuesto)}, con foto, ubicación y precios)`
+      : `📎 Adjuntar PDF del presupuesto (${budgetCuenta(lead.presupuesto)} con precios)`;
   }
 }
 
@@ -676,7 +677,52 @@ let pickerZona = 'Todas';
 let pickerMuni = '';
 
 function emptyBudget() {
-  return { codes: [], snap: {}, periodo: '', desde: '', hasta: '', material: '', precioMes: '', precioMaterial: '' };
+  return { codes: [], snap: {}, periodo: '', desde: '', hasta: '', material: '', precioMes: '', precioMaterial: '', lineas: [] };
+}
+
+/* --- artículos que se venden (en el presupuesto de la visita y en las ventas de Trabajos) --- */
+const ARTICULOS = ['Vinilo', 'Lona', 'Rotulado de vehículo', 'Estructura de valla', 'Otro'];
+
+function lineaImporte(l) {
+  return Math.round(parseMoney(l.cantidad || '1') * parseMoney(l.precio) * 100) / 100;
+}
+
+function ventaImporte(lineas) {
+  return Math.round((lineas || []).reduce((s, l) => s + lineaImporte(l), 0) * 100) / 100;
+}
+
+function nuevaLinea(articulo) {
+  return { articulo, descripcion: '', medida: '', cantidad: '1', precio: '' };
+}
+
+/** Editor de líneas de artículos; `del` es el atributo del botón de quitar (data-tf-dellinea, data-b-dellinea). */
+function lineasEditorHtml(lineas, del, vacio) {
+  return lineas.length ? lineas.map((l, i) => `<div class="linea">
+    <div class="linea-head">${esc(l.articulo)}<span class="spacer"></span>
+      <span class="linea-imp" data-linea-imp="${i}">${lineaImporte(l) ? fmtMoney(lineaImporte(l)) : ''}</span>
+      <button type="button" class="vsel-x" ${del}="${i}" aria-label="Quitar" title="Quitar">${icon('close')}</button></div>
+    <div class="grid4">
+      <label>Descripción<input type="text" data-linea="${i}" data-k="descripcion" value="${esc(l.descripcion || '')}"></label>
+      <label>Medida<input type="text" data-linea="${i}" data-k="medida" value="${esc(l.medida || '')}"></label>
+      <label>Cantidad<input type="text" inputmode="decimal" data-linea="${i}" data-k="cantidad" value="${esc(l.cantidad || '')}"></label>
+      <label>Precio unidad (€)<input type="text" inputmode="decimal" data-linea="${i}" data-k="precio" value="${esc(l.precio || '')}"></label>
+    </div></div>`).join('') : `<p class="hint">${vacio}</p>`;
+}
+
+/** Actualiza una línea al escribir (sin redibujar, para no perder el foco). */
+function lineaInput(lineas, el) {
+  const i = Number(el.dataset.linea);
+  if (!lineas[i]) return;
+  lineas[i][el.dataset.k] = el.value;
+  const box = el.closest('.linea') && el.closest('.linea').querySelector('[data-linea-imp]');
+  if (box) box.textContent = lineaImporte(lineas[i]) ? fmtMoney(lineaImporte(lineas[i])) : '';
+}
+
+/** Copia de las líneas para guardar, con el importe calculado. */
+function lineasForSave(lineas) {
+  return (lineas || []).map(l => ({ articulo: l.articulo || '', descripcion: (l.descripcion || '').trim(),
+    medida: (l.medida || '').trim(), cantidad: (l.cantidad || '').trim(), precio: (l.precio || '').trim(),
+    importe: String(lineaImporte(l)) }));
 }
 
 function vallaByCode(code) {
@@ -734,12 +780,26 @@ function precioValla(b) {
   return Math.round((alquilerValla(b) + parseMoney(b.precioMaterial)) * 100) / 100;
 }
 
-/** Total = (alquiler por valla + material por valla) × nº de vallas. */
-function budgetTotal(b) {
+/** Vallas = (alquiler por valla + material por valla) × nº de vallas. */
+function budgetVallasTotal(b) {
   b = b || budget;
   if (!b) return 0;
   const n = b.codes ? b.codes.length : (b.vallas || []).length;
   return Math.round(precioValla(b) * n * 100) / 100;
+}
+
+/** Total del presupuesto = vallas + artículos. */
+function budgetTotal(b) {
+  b = b || budget;
+  if (!b) return 0;
+  return Math.round((budgetVallasTotal(b) + ventaImporte(b.lineas)) * 100) / 100;
+}
+
+/** "2 vallas · 3 artículos" */
+function budgetCuenta(p) {
+  const n = p.codes ? p.codes.length : (p.vallas || []).length;
+  const a = (p.lineas || []).length;
+  return [n ? `${n} valla${n > 1 ? 's' : ''}` : '', a ? `${a} artículo${a > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
 }
 
 function addMonthsISO(iso, months) {
@@ -759,13 +819,14 @@ function loadBudget(p) {
       budget.precioMes = String(Math.round(parseMoney(p.precioPeriodo) / m * 100) / 100).replace('.', ',');
     }
     for (const v of p.vallas || []) { budget.codes.push(v.codigo); budget.snap[v.codigo] = v; }
+    budget.lineas = (p.lineas || []).map(l => Object.assign({}, l));
   }
   renderBudget();
 }
 
 function budgetVisible() {
   const pide = $$('#situacion-chips .chip.active').some(c => /presupuesto/i.test(c.dataset.value));
-  return pide || (budget && budget.codes.length > 0);
+  return pide || (budget && (budget.codes.length > 0 || budget.lineas.length > 0));
 }
 
 function renderBudget() {
@@ -792,12 +853,15 @@ function renderBudget() {
   form.elements.b_hasta.readOnly = budget.periodo !== 'Fechas';
   form.elements.b_precioMes.value = budget.precioMes;
   form.elements.b_precioMaterial.value = budget.precioMaterial;
+  $('#b-campana').hidden = !budget.codes.length;
+  $('#b-lineas').innerHTML = lineasEditorHtml(budget.lineas, 'data-b-dellinea',
+    'Si además le interesa comprar algo, añádelo con los botones de abajo.');
   renderBudgetTotal();
 }
 
 function renderBudgetTotal() {
   const n = budget.codes.length;
-  const t = budgetTotal();
+  const t = budgetVallasTotal();
   const pm = parseMoney(budget.precioMes), mat = parseMoney(budget.precioMaterial);
   const m = budgetMeses(budget);
   let detalle = '';
@@ -807,14 +871,19 @@ function renderBudgetTotal() {
     detalle = ` · ${n} × (${partes.join(' + ')})`;
   }
   $('#presupuesto-total').textContent = n
-    ? `${n} valla${n > 1 ? 's' : ''}${t ? ` · Total: ${fmtMoney(t)} sin IVA` : ''}${detalle}`
+    ? `${n} valla${n > 1 ? 's' : ''}${t ? ` · ${fmtMoney(t)} sin IVA` : ''}${detalle}`
     : '';
+  const a = ventaImporte(budget.lineas);
+  $('#b-lineas-total').textContent = a ? `Artículos: ${fmtMoney(a)} sin IVA` : '';
+  const tot = budgetTotal();
+  $('#b-gran-total').hidden = !(t && a);
+  $('#b-gran-total').textContent = `Total presupuesto: ${fmtMoney(tot)} sin IVA`;
 }
 
 function budgetForSave() {
   if (!budget || !budgetVisible()) return null;
   const b = budget;
-  if (!b.codes.length && !b.periodo && !b.material && !b.precioMes && !b.precioMaterial) return null;
+  if (!b.codes.length && !b.lineas.length && !b.periodo && !b.material && !b.precioMes && !b.precioMaterial) return null;
   return {
     vallas: b.codes.map(code => {
       const v = vallaByCode(code) || { codigo: code };
@@ -826,10 +895,18 @@ function budgetForSave() {
     precioMes: b.precioMes, meses: String(budgetMeses(b)), precioMaterial: b.precioMaterial,
     precioPeriodo: String(alquilerValla(b)),          // alquiler por valla de toda la campaña
     total: String(precioValla(b)),                    // por valla (alquiler + material)
+    lineas: lineasForSave(b.lineas),                  // artículos vendidos en la visita
+    importeArticulos: String(ventaImporte(b.lineas)),
   };
 }
 
+/** La visita tiene presupuesto con vallas o con artículos. */
 function hasBudget(lead) {
+  const p = lead && lead.presupuesto;
+  return !!(p && ((p.vallas && p.vallas.length) || (p.lineas && p.lineas.length)));
+}
+
+function hasBudgetVallas(lead) {
   return !!(lead && lead.presupuesto && lead.presupuesto.vallas && lead.presupuesto.vallas.length);
 }
 
@@ -854,24 +931,38 @@ function budgetPriceRows(p) {
   if (alq) rows.push(['Alquiler por valla (campaña)', fmtMoney(alq)]);
   if (mat) rows.push(['Material por valla', fmtMoney(mat)]);
   if (alq && mat) rows.push(['Precio por valla', fmtMoney(alq + mat)]);
+  const tv = budgetVallasTotal(p), ta = ventaImporte(p.lineas);
+  if (tv && ta) rows.push([`Vallas (${n})`, fmtMoney(tv)]);
+  if (ta && (tv || n)) rows.push([`Artículos (${p.lineas.length})`, fmtMoney(ta)]);
   const t = budgetTotal(p);
-  if (t) rows.push([`Total ${n} valla${n > 1 ? 's' : ''} (sin IVA)`, fmtMoney(t)]);
+  if (t) rows.push([ta && n ? 'Total presupuesto (sin IVA)' : ta ? `Total ${p.lineas.length} artículo${p.lineas.length > 1 ? 's' : ''} (sin IVA)` : `Total ${n} valla${n > 1 ? 's' : ''} (sin IVA)`, fmtMoney(t)]);
   return rows;
 }
 
 /** Resumen completo para el texto del email / WhatsApp. */
 function budgetDetail(p) {
-  if (!p || !p.vallas || !p.vallas.length) return '';
+  if (!p || !((p.vallas && p.vallas.length) || (p.lineas && p.lineas.length))) return '';
   const out = [];
-  p.vallas.forEach((v, i) => {
+  (p.vallas || []).forEach((v, i) => {
     out.push(`${i + 1}. ${v.codigo} – ${v.direccion}${v.municipio ? ` (${v.municipio})` : ''}`);
     const meta = [v.medida && `Medida ${v.medida}`, v.categoria && `Categoría ${v.categoria}`].filter(Boolean).join(' · ');
     if (meta) out.push(`   ${meta}`);
     if (mapsUrl(v)) out.push(`   Ubicación: ${mapsUrl(v)}`);
   });
+  if (p.lineas && p.lineas.length) {
+    if (out.length) out.push('');
+    out.push('Artículos:');
+    for (const l of p.lineas) {
+      const desc = [l.descripcion, l.medida && `medida ${l.medida}`].filter(Boolean).join(', ');
+      const imp = lineaImporte(l);
+      out.push(`- ${l.articulo}${desc ? ` (${desc})` : ''}${parseMoney(l.cantidad) !== 1 ? ` × ${l.cantidad}` : ''}${imp ? `: ${fmtMoney(imp)}` : ''}`);
+    }
+  }
   const extra = [];
-  if (periodoText(p)) extra.push(`Periodo: ${periodoText(p)}`);
-  if (p.material) extra.push(`Material: ${p.material}`);
+  if (p.vallas && p.vallas.length) {
+    if (periodoText(p)) extra.push(`Periodo: ${periodoText(p)}`);
+    if (p.material) extra.push(`Material: ${p.material}`);
+  }
   for (const [k, v] of budgetPriceRows(p)) extra.push(`${k}: ${v}`);
   if (extra.length) out.push('', ...extra);
   return out.join('\n');
@@ -880,7 +971,8 @@ function budgetDetail(p) {
 /** Contenido del PDF de la propuesta (lo maqueta BudgetPdf.java). */
 function budgetDoc(lead) {
   const p = lead.presupuesto;
-  const n = p.vallas.length;
+  const n = (p.vallas || []).length;
+  const lineas = p.lineas || [];
   const porValla = precioValla(p);
   const safe = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
@@ -888,7 +980,7 @@ function budgetDoc(lead) {
   return {
     fichero: `Presupuesto_${safe(lead.razonSocial) || 'cliente'}_${(lead.fecha || todayISO()).slice(0, 10)}.pdf`,
     logo: 'logo.png',
-    titulo: 'Propuesta de campaña publicitaria',
+    titulo: n ? 'Propuesta de campaña publicitaria' : 'Presupuesto',
     subtitulo: [settings.miEmpresa, fmtDate(todayISO())].filter(Boolean).join(' · '),
     datos: [
       ['Cliente', lead.razonSocial || ''],
@@ -896,16 +988,23 @@ function budgetDoc(lead) {
       ['Población', [lead.poblacion, lead.provincia].filter(Boolean).join(' (') + (lead.provincia && lead.poblacion ? ')' : '') || '—'],
       ['Preparado por', preparado || '—'],
     ],
-    tituloResumen: 'Resumen de la campaña',
+    tituloResumen: n ? 'Resumen de la campaña' : 'Resumen',
     resumen: [
-      ['Vallas', String(n)],
-      ...(periodoText(p) ? [['Periodo', periodoText(p)]] : []),
-      ...(p.material ? [['Material', p.material]] : []),
+      ...(n ? [['Vallas', String(n)]] : []),
+      ...(n && periodoText(p) ? [['Periodo', periodoText(p)]] : []),
+      ...(n && p.material ? [['Material', p.material]] : []),
+      ...(lineas.length ? [['Artículos', String(lineas.length)]] : []),
       ...budgetPriceRows(p),
     ],
     ultimoEsTotal: budgetTotal(p) > 0,
     tituloVallas: `Vallas seleccionadas (${n})`,
-    vallas: p.vallas.map(v => ({
+    tituloArticulos: `Artículos (${lineas.length})`,
+    articulos: lineas.map(l => ({
+      articulo: l.articulo || '', descripcion: l.descripcion || '', medida: l.medida || '',
+      cantidad: l.cantidad || '1', precio: parseMoney(l.precio) ? fmtMoney(parseMoney(l.precio)) : '',
+      importe: lineaImporte(l) ? fmtMoney(lineaImporte(l)) : '',
+    })),
+    vallas: (p.vallas || []).map(v => ({
       codigo: v.codigo,
       direccion: v.direccion || '',
       lineas: [
@@ -917,7 +1016,7 @@ function budgetDoc(lead) {
       foto: v.foto || '',
       precio: porValla ? `${fmtMoney(porValla)} / valla (sin IVA)` : '',
     })),
-    nota: 'Precios sin IVA. Propuesta sujeta a disponibilidad de las vallas en las fechas indicadas.',
+    nota: n ? 'Precios sin IVA. Propuesta sujeta a disponibilidad de las vallas en las fechas indicadas.' : 'Precios sin IVA.',
     pie: [settings.miEmpresa, settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · '),
   };
 }
@@ -932,7 +1031,7 @@ function generarPdfPresupuesto(lead) {
   try { info = JSON.parse(window.Android.lastPdfInfo() || '{}'); } catch (e) { info = {}; }
   const cli = lead.clienteId ? clienteById(lead.clienteId) : clienteByNombre(lead.razonSocial);
   return registrarDocumento({
-    tipo: 'Presupuesto', titulo: `Presupuesto ${lead.razonSocial} · ${lead.presupuesto.vallas.length} valla${lead.presupuesto.vallas.length > 1 ? 's' : ''}`
+    tipo: 'Presupuesto', titulo: `Presupuesto ${lead.razonSocial} · ${budgetCuenta(lead.presupuesto)}`
       + (budgetTotal(lead.presupuesto) ? ` · ${fmtMoney(budgetTotal(lead.presupuesto))}` : ''),
     fichero: info.name || doc.fichero, uri: info.uri || '', leadId: lead.id, clienteId: cli ? cli.id : '',
     empresa: lead.razonSocial || '',
@@ -947,10 +1046,12 @@ function budgetVallasText(p) {
 function budgetSummary(p) {
   if (!p) return '';
   const periodo = p.periodo === 'Fechas' ? `del ${fmtDate(p.desde)} al ${fmtDate(p.hasta)}` : (p.periodo || '').toLowerCase();
+  const hayVallas = p.vallas && p.vallas.length;
   const parts = [
-    p.vallas && p.vallas.length ? `${p.vallas.length} valla${p.vallas.length > 1 ? 's' : ''}` : '',
-    periodo ? `campaña ${periodo}` : '',
-    p.material ? `material: ${p.material.toLowerCase()}` : '',
+    hayVallas ? `${p.vallas.length} valla${p.vallas.length > 1 ? 's' : ''}` : '',
+    hayVallas && periodo ? `campaña ${periodo}` : '',
+    hayVallas && p.material ? `material: ${p.material.toLowerCase()}` : '',
+    p.lineas && p.lineas.length ? p.lineas.map(l => l.articulo.toLowerCase()).join(', ') : '',
     budgetTotal(p) ? `total ${fmtMoney(budgetTotal(p))} sin IVA` : '',
   ].filter(Boolean);
   return parts.join(', ');
@@ -998,7 +1099,7 @@ function renderPicker() {
     (!q || q.split(/\s+/).every(w =>
       [v.codigo, v.direccion, v.municipio, v.zona, v.medida].join(' ').toLowerCase().includes(w))));
   $('#vallas-stats').textContent = `${items.length} vallas · ${pickerSel.size} seleccionada${pickerSel.size === 1 ? '' : 's'}`;
-  $('#vallas-done').textContent = `Listo (${pickerSel.size})`;
+  $('#vallas-count').textContent = pickerSel.size || '';
   $('#vallas-grid').innerHTML = items.length ? items.map(v => `
     <article class="valla${pickerSel.has(v.codigo) ? ' sel' : ''}" data-valla="${esc(v.codigo)}">
       ${v.foto ? `<img src="${esc(v.foto)}" alt="" loading="lazy">` : '<div class="nofoto">Sin foto</div>'}
@@ -1026,7 +1127,7 @@ function openBudgetPicker() {
   openPicker(budget.codes, codes => {
     budget.codes = codes;
     renderBudget();
-    setTimeout(() => $('#presupuesto-card').scrollIntoView({ block: 'start' }), 30);
+    setTimeout(() => $('#presupuesto-card').scrollIntoView({ block: 'start', behavior: 'instant' }), 30);
   }, 'form');
 }
 
@@ -1211,13 +1312,25 @@ document.addEventListener('click', e => {
     renderBudget();
     return;
   }
+  if (t.dataset.bAdd && budget) {
+    budget.lineas.push(nuevaLinea(t.dataset.bAdd));
+    renderBudget();
+    const ins = $$('#b-lineas [data-k="descripcion"]');
+    if (ins.length) ins[ins.length - 1].focus();
+    return;
+  }
+  if (t.dataset.bDellinea !== undefined && budget) {
+    budget.lineas.splice(Number(t.dataset.bDellinea), 1);
+    renderBudget();
+    return;
+  }
   if (t.matches('article.valla')) {
     const c = t.dataset.valla;
     if (pickerSel.has(c)) pickerSel.delete(c); else pickerSel.add(c);
     t.classList.toggle('sel', pickerSel.has(c));
     $('#vallas-stats').textContent = $('#vallas-stats').textContent.replace(/\d+ seleccionadas?$/,
       `${pickerSel.size} seleccionada${pickerSel.size === 1 ? '' : 's'}`);
-    $('#vallas-done').textContent = `Listo (${pickerSel.size})`;
+    $('#vallas-count').textContent = pickerSel.size || '';
     return;
   }
   if (t.dataset.zona) {
@@ -1275,7 +1388,7 @@ document.addEventListener('click', e => {
     case 'lead-photo-gallery': pickPhoto('gallery', 'lead'); break;
     case 'vallas-pick': openBudgetPicker(); break;
     case 'budget-pdf':
-      if (!budget || !budget.codes.length) { toast('Elige primero las vallas del presupuesto'); break; }
+      if (!budget || !(budget.codes.length || budget.lineas.length)) { toast('Elige vallas o añade artículos al presupuesto'); break; }
       saveForm(false, lead => {
         if (generarPdfPresupuesto(lead)) { window.Android.viewPdf(); toast('PDF guardado en el historial del cliente'); }
       });
@@ -1310,6 +1423,11 @@ $('#search').addEventListener('input', renderList);
 $('#vallas-search').addEventListener('input', renderPicker);
 $('#lead-form').addEventListener('input', e => {
   const k = e.target.name || '';
+  if (e.target.dataset.linea !== undefined && budget && e.target.closest('#b-lineas')) {
+    lineaInput(budget.lineas, e.target);
+    renderBudgetTotal();
+    return;
+  }
   if (k.startsWith('b_') && budget) {
     budget[k.slice(2)] = e.target.value.trim();
     if (k === 'b_desde') setBudgetField('desde', e.target.value);
@@ -1317,6 +1435,22 @@ $('#lead-form').addEventListener('input', e => {
   }
   if (e.target.name === 'poblacion' || e.target.name === 'provincia') syncFillChips();
 });
+
+/* ------------------------------------------------------------- teclado */
+
+/* Con el teclado abierto se ocultan la barra inferior y el botón flotante para dejar sitio. */
+let fullHeight = window.innerHeight;
+function keyboardCheck() {
+  const h = window.innerHeight;
+  if (h > fullHeight) fullHeight = h;
+  const el = document.activeElement;
+  const editing = el && el.matches('input:not([type=checkbox]):not([type=radio]):not([type=date]), textarea');
+  document.body.classList.toggle('typing', !!editing && h < fullHeight * 0.8);
+}
+window.addEventListener('resize', keyboardCheck);
+document.addEventListener('focusin', () => setTimeout(keyboardCheck, 300));
+document.addEventListener('focusout', () => setTimeout(keyboardCheck, 100));
+window.addEventListener('orientationchange', () => setTimeout(() => { fullHeight = window.innerHeight; keyboardCheck(); }, 500));
 
 /* ------------------------------------------------------------- inicio */
 

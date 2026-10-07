@@ -588,23 +588,42 @@ public class MainActivity extends Activity {
         return list;
     }
 
-    /** Una fila por valla presupuestada: datos de la visita + valla + campaña. */
+    /** Una fila por valla presupuestada (datos de la visita + valla + campaña) y otra por artículo vendido. */
     private static List<Map<String, String>> parseBudgets(String json) throws Exception {
         JSONArray arr = new JSONArray(json);
         List<Map<String, String>> rows = new ArrayList<>();
         for (int i = 0; i < arr.length(); i++) {
             JSONObject lead = arr.getJSONObject(i);
             JSONObject p = lead.optJSONObject("presupuesto");
-            JSONArray vallas = p == null ? null : p.optJSONArray("vallas");
-            if (vallas == null) continue;
+            if (p == null) continue;
             Map<String, String> base = flat(lead);
-            base.putAll(flat(p));
-            for (int k = 0; k < vallas.length(); k++) {
-                JSONObject v = vallas.optJSONObject(k);
-                if (v == null) continue;
-                Map<String, String> row = new HashMap<>(base);
-                row.putAll(flat(v));
-                rows.add(row);
+            JSONArray vallas = p.optJSONArray("vallas");
+            if (vallas != null) {
+                Map<String, String> campaign = new HashMap<>(base);
+                campaign.putAll(flat(p));
+                for (int k = 0; k < vallas.length(); k++) {
+                    JSONObject v = vallas.optJSONObject(k);
+                    if (v == null) continue;
+                    Map<String, String> row = new HashMap<>(campaign);
+                    row.putAll(flat(v));
+                    rows.add(row);
+                }
+            }
+            JSONArray lineas = p.optJSONArray("lineas");
+            if (lineas != null) {
+                for (int k = 0; k < lineas.length(); k++) {
+                    JSONObject l = lineas.optJSONObject(k);
+                    if (l == null) continue;
+                    Map<String, String> row = new HashMap<>(base);
+                    row.remove("foto");
+                    row.put("artArticulo", l.optString("articulo"));
+                    row.put("artDescripcion", l.optString("descripcion"));
+                    row.put("artMedida", l.optString("medida"));
+                    row.put("artCantidad", l.optString("cantidad"));
+                    row.put("artPrecio", l.optString("precio"));
+                    row.put("artImporte", l.optString("importe"));
+                    rows.add(row);
+                }
             }
         }
         return rows;

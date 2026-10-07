@@ -64,8 +64,12 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   dirección, municipio, medida, categoría, latitud, longitud, enlace *Ver mapa*, periodo,
   fechas, material, precios y la **foto** de la valla. En los mensajes se pueden usar
   `{vallas}` (lista de vallas) y `{presupuesto}` (resumen).
-- **Barra inferior** con todas las áreas: **Visitas · Clientes · Patrimonio · Trabajos ·
-  Vallas · Ajustes**. En la cabecera de cada área, **⇅** para **exportar** su Excel
+- **Diseño**: barra inferior **fija** (no se mueve con el scroll; cada pantalla se desplaza
+  por debajo) con todas las áreas: **Visitas · Clientes · Patrimonio · Trabajos · Vallas ·
+  Ajustes**. La cabecera solo lleva **iconos** (mantén pulsado para ver qué hace cada uno) y
+  los elementos nuevos se crean con el botón dorado **＋** de abajo a la derecha. Con el
+  teclado abierto se ocultan la barra inferior y el botón para dejar sitio.
+  En la cabecera de cada área, el icono **⇅** sirve para **exportar** su Excel
   (compartir o abrir) o **importarlo** (actualiza por ID/código/nº y añade los nuevos; no
   borra nada). Visitas admite también el Excel antiguo de seguimiento semanal.
 - **Clientes**: datos (nombre, CIF, contacto, teléfono, correo, dirección…), **vallas
@@ -76,9 +80,17 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   cuándo) o 🟡 Consultar. Un contrato en vigor de un cliente la marca como ocupada; si no,
   se marca a mano en la ficha de la valla. Filtro por disponibilidad en el catálogo y
   marca en el selector de vallas del presupuesto.
+- **Venta de artículos en la visita**: en el presupuesto de la visita, además del alquiler
+  de vallas, se pueden añadir **vinilos, lonas, rotulado de vehículos, estructuras de valla**
+  u otros artículos (descripción, medida, cantidad y precio). El total del presupuesto suma
+  vallas + artículos, y los artículos salen en el mensaje, en el PDF (tabla de artículos) y
+  en la hoja PRESUPUESTOS del Excel (una fila por artículo).
+  **🛠 Pasar a trabajos** (en el presupuesto o en la tarjeta de la visita) crea el trabajo
+  *Instalar lona* con las vallas y la **venta** con los artículos y el cliente. Si ya
+  existían no se duplican (la venta se puede actualizar con los artículos del presupuesto).
 - **Ventas** en Trabajos: además de trabajos en vallas, ventas de vinilos, lonas,
   rotulado de vehículos, estructuras de valla u otros artículos, con cliente, cantidad,
-  precio e importe.
+  precio e importe (también se pueden crear directamente desde Trabajos).
 - **Copia de seguridad** (Ajustes): todos los datos en un fichero JSON para pasarlos a otra
   tablet o restaurarlos.
 - **Email**: abre **Gmail** directamente (o Outlook / correo de Samsung) con el PDF adjunto.
@@ -108,15 +120,15 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   varias vallas, con fecha prevista, prioridad (urgente), persona o equipo asignado,
   cliente/campaña, material, instrucciones, estado (pendiente, en curso, hecho), fecha
   realizado y observaciones. Lista filtrable por estado y persona, con botón *✓ Hecho*.
-  **Desde un presupuesto**: en una visita con vallas, *🛠 Crear trabajo de instalación*
-  (en el presupuesto) o *🛠 Trabajo* (en la tarjeta de la visita) abre un trabajo
-  *Instalar lona* con las vallas, el cliente, el material, la fecha de inicio de la campaña
-  y las instrucciones ya puestos. Si ya existe, ofrece abrirlo.
-  **📤 Excel**: elige qué trabajos (pendientes o todos) y para quién, y se crea
+  **Desde un presupuesto**: *🛠 Pasar a trabajos* crea el trabajo *Instalar lona* con las
+  vallas, el cliente, el material, la fecha de inicio de la campaña y las instrucciones ya
+  puestos (y la venta, si hay artículos).
+  **Icono de enviar (Excel para el equipo)**: elige qué trabajos (pendientes o todos) y para quién, y se crea
   `Descargas/PortoValla/Trabajos/Trabajos_<persona>_<fecha>.xlsx` con una fila por
   valla (dirección, enlace al mapa, foto, instrucciones, estado con desplegable…) para
   **compartirlo** por WhatsApp, email, etc. o abrirlo.
-- **Botones** *Abrir Excel* y *Compartir* (enviarlo por correo, Drive, WhatsApp…).
+- **Iconos** de la cabecera de Visitas: *tabla* = abrir el Excel, *compartir* = enviarlo
+  por correo, Drive, WhatsApp…
 - **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos
   (variables `{contacto}`, `{empresa}`, `{poblacion}`, `{fecha}`, `{comercial}`,
   `{miEmpresa}`, `{miTelefono}`, `{miEmail}`), nombre del Excel y respuestas rápidas

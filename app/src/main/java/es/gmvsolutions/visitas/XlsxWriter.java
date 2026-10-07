@@ -364,6 +364,12 @@ public final class XlsxWriter {
         new Col("ALQUILER PERIODO SIN IVA", "precioPeriodo", Kind.MONEY, 14),
         new Col("PRECIO MATERIAL SIN IVA", "precioMaterial", Kind.MONEY, 14),
         new Col("TOTAL VALLA SIN IVA", "total", Kind.MONEY, 14),
+        new Col("ARTÍCULO", "artArticulo", Kind.TEXT, 18),
+        new Col("DESCRIPCIÓN ARTÍCULO", "artDescripcion", Kind.WRAP, 24),
+        new Col("MEDIDA ARTÍCULO", "artMedida", Kind.TEXT, 11),
+        new Col("CANTIDAD", "artCantidad", Kind.NUMBER, 9),
+        new Col("PRECIO UNIDAD SIN IVA", "artPrecio", Kind.MONEY, 13),
+        new Col("IMPORTE ARTÍCULO SIN IVA", "artImporte", Kind.MONEY, 14),
         new Col("FOTO", "foto", Kind.PHOTO, 26),
     };
 

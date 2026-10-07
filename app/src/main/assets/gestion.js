@@ -408,25 +408,8 @@ function markDone(id) {
 
 /* --- ficha de trabajo --- */
 
-function lineaImporte(l) {
-  return Math.round(parseMoney(l.cantidad || '1') * parseMoney(l.precio) * 100) / 100;
-}
-
-function ventaImporte(lineas) {
-  return Math.round((lineas || []).reduce((s, l) => s + lineaImporte(l), 0) * 100) / 100;
-}
-
 function renderTfLineas() {
-  $('#tf-lineas').innerHTML = tfLineas.length ? tfLineas.map((l, i) => `<div class="linea">
-    <div class="linea-head">${esc(l.articulo)}<span class="spacer"></span>
-      ${lineaImporte(l) ? `<span>${fmtMoney(lineaImporte(l))}</span>` : ''}
-      <button type="button" class="vsel-x" data-tf-dellinea="${i}" aria-label="Quitar">✕</button></div>
-    <div class="grid4">
-      <label>Descripción<input type="text" data-linea="${i}" data-k="descripcion" value="${esc(l.descripcion || '')}"></label>
-      <label>Medida<input type="text" data-linea="${i}" data-k="medida" value="${esc(l.medida || '')}"></label>
-      <label>Cantidad<input type="text" inputmode="decimal" data-linea="${i}" data-k="cantidad" value="${esc(l.cantidad || '')}"></label>
-      <label>Precio unidad (€)<input type="text" inputmode="decimal" data-linea="${i}" data-k="precio" value="${esc(l.precio || '')}"></label>
-    </div></div>`).join('') : '<p class="hint">Añade los artículos de la venta con los botones de abajo.</p>';
+  $('#tf-lineas').innerHTML = lineasEditorHtml(tfLineas, 'data-tf-dellinea', 'Añade los artículos de la venta con los botones de abajo.');
   renderTfImporte();
 }
 
@@ -503,7 +486,7 @@ function saveTrabajo() {
     clase: tfClase,
     clienteId: cli ? cli.id : '',
     clienteNombre: cli ? cli.nombre : clienteNombre,
-    lineas: venta ? tfLineas.map(l => Object.assign({}, l)) : [],
+    lineas: venta ? lineasForSave(tfLineas) : [],
     importe: venta ? String(ventaImporte(tfLineas)) : '',
     tipos,
     vallas: trCodes.map(code => {
@@ -540,35 +523,91 @@ function deleteTrabajo() {
   openTrabajos();
 }
 
-/* --- instalación desde un presupuesto --- */
+/* --- de la visita a trabajos: instalación de las vallas y venta de artículos --- */
 
-/** Abre un trabajo "Instalar lona" con las vallas, cliente y material del presupuesto de la visita. */
-function installFromLead(lead) {
-  if (!hasBudget(lead)) { toast('Esta visita no tiene vallas en el presupuesto'); return; }
-  const prev = trabajos.find(t => t.leadId === lead.id && t.tipos.includes('Instalar lona'));
-  if (prev && confirm(`Ya existe el trabajo #${prev.num} de instalación para ${lead.razonSocial}. ¿Abrirlo?`)) {
-    openTrabajoForm(prev.id);
-    return;
-  }
+/** Datos del trabajo "Instalar lona" con las vallas, cliente y material del presupuesto de la visita. */
+function installPreset(lead) {
   const p = lead.presupuesto;
   const contacto = [lead.contacto, lead.telefono].filter(Boolean).join(', ');
-  const descripcion = [
-    `Instalar lona de ${lead.razonSocial}${contacto ? ` (contacto: ${contacto})` : ''}.`,
-    periodoText(p) ? `Campaña: ${periodoText(p)}.` : '',
-    p.hasta ? `Retirar al terminar la campaña (${fmtDate(p.hasta)}).` : '',
-  ].filter(Boolean).join(' ');
   const hoy = todayISO();
-  openTrabajoForm(null, {
+  return {
+    clase: 'Trabajo',
     tipos: ['Instalar lona'],
     vallas: p.vallas.map(v => Object.assign({}, v)),
     campana: lead.razonSocial || '',
     material: p.material || '',
     fechaPrevista: p.desde && p.desde >= hoy ? p.desde : isoPlus(1),
-    descripcion,
+    descripcion: [
+      `Instalar lona de ${lead.razonSocial}${contacto ? ` (contacto: ${contacto})` : ''}.`,
+      periodoText(p) ? `Campaña: ${periodoText(p)}.` : '',
+      p.hasta ? `Retirar al terminar la campaña (${fmtDate(p.hasta)}).` : '',
+    ].filter(Boolean).join(' '),
     leadId: lead.id,
-  });
-  toast('Revisa los datos y guarda el trabajo');
+  };
 }
+
+/** Datos de la venta con los artículos del presupuesto de la visita. */
+function ventaPreset(lead) {
+  const p = lead.presupuesto;
+  const cli = lead.clienteId ? clienteById(lead.clienteId) : clienteByNombre(lead.razonSocial);
+  const contacto = [lead.contacto, lead.telefono].filter(Boolean).join(', ');
+  const lineas = lineasForSave(p.lineas);
+  return {
+    clase: 'Venta',
+    tipos: [],
+    vallas: [],
+    lineas,
+    importe: String(ventaImporte(lineas)),
+    clienteId: cli ? cli.id : '',
+    clienteNombre: cli ? cli.nombre : (lead.razonSocial || ''),
+    campana: lead.razonSocial || '',
+    fechaPrevista: isoPlus(1),
+    descripcion: `Venta a ${lead.razonSocial}${contacto ? ` (contacto: ${contacto})` : ''}.`,
+    leadId: lead.id,
+  };
+}
+
+function crearTrabajo(data) {
+  const now = new Date().toISOString();
+  const num = trabajos.reduce((m, x) => Math.max(m, x.num || 0), 0) + 1;
+  const t = Object.assign({ id: uid(), num, creado: now, modificado: now, prioridad: 'Normal', estado: 'Pendiente',
+    asignado: '', obs: '', fechaHecho: '' }, data);
+  trabajos.push(t);
+  return t;
+}
+
+/**
+ * Pasa el presupuesto de la visita a Trabajos: un trabajo de instalación con las vallas
+ * y una venta con los artículos. Si ya existían, no se duplican.
+ */
+function trabajosFromLead(lead) {
+  if (!lead || !hasBudget(lead)) { toast('Esta visita no tiene vallas ni artículos en el presupuesto'); return; }
+  const p = lead.presupuesto;
+  const hechos = [], tocados = [];
+  if (p.vallas && p.vallas.length) {
+    const prev = trabajos.find(t => t.leadId === lead.id && t.clase !== 'Venta' && (t.tipos || []).includes('Instalar lona'));
+    if (prev) { hechos.push(`la instalación #${prev.num} ya existía`); tocados.push(prev); }
+    else { const t = crearTrabajo(installPreset(lead)); hechos.push(`instalación #${t.num}`); tocados.push(t); }
+  }
+  if (p.lineas && p.lineas.length) {
+    const prev = trabajos.find(t => t.leadId === lead.id && t.clase === 'Venta');
+    const datos = ventaPreset(lead);
+    if (prev) {
+      if (confirm(`Ya existe la venta #${prev.num} de esta visita. ¿Actualizar sus artículos con los del presupuesto?`)) {
+        Object.assign(prev, { lineas: datos.lineas, importe: datos.importe, modificado: new Date().toISOString() });
+        hechos.push(`venta #${prev.num} actualizada`);
+      } else hechos.push(`la venta #${prev.num} ya existía`);
+      tocados.push(prev);
+    } else { const t = crearTrabajo(datos); hechos.push(`venta #${t.num}`); tocados.push(t); }
+  }
+  saveTrabajos();
+  toast('Trabajos: ' + hechos.join(' · '));
+  if (tocados.length === 1) openTrabajoForm(tocados[0].id);
+  else { trFilter = 'abiertos'; trClase = ''; openTrabajos(); }
+}
+
+/** Compatibilidad: botón de la tarjeta de visita. */
+function installFromLead(lead) { trabajosFromLead(lead); }
 
 /* --- Excel de trabajos --- */
 
@@ -691,7 +730,7 @@ document.addEventListener('click', e => {
     return;
   }
   if (t.dataset.tfAdd) {
-    tfLineas.push({ articulo: t.dataset.tfAdd, descripcion: '', medida: '', cantidad: '1', precio: '' });
+    tfLineas.push(nuevaLinea(t.dataset.tfAdd));
     renderTfLineas();
     return;
   }
@@ -763,9 +802,9 @@ document.addEventListener('click', e => {
     case 'vf-map': vfMap(); break;
     case 'tr-new': openTrabajoForm(null); break;
     case 'lead-install':
-      // Se guarda la visita (con su presupuesto) y se abre el trabajo de instalación
-      if (!budget || !budget.codes.length) { toast('Elige primero las vallas del presupuesto'); break; }
-      saveForm(false, lead => installFromLead(lead));
+      // Se guarda la visita (con su presupuesto) y se pasan las vallas y los artículos a Trabajos
+      if (!budget || !(budget.codes.length || budget.lineas.length)) { toast('Elige vallas o añade artículos al presupuesto'); break; }
+      saveForm(false, lead => trabajosFromLead(lead));
       break;
     case 'tr-save': saveTrabajo(); break;
     case 'tr-delete': deleteTrabajo(); break;
@@ -787,7 +826,7 @@ $('#trabajo-form').addEventListener('input', e => {
   if (e.target.name === 'asignado') renderTf();
   if (e.target.name === 'clienteNombre') { tfClienteId = ''; renderTf(); }
   if (e.target.dataset.linea !== undefined) {
-    tfLineas[Number(e.target.dataset.linea)][e.target.dataset.k] = e.target.value;
+    lineaInput(tfLineas, e.target);
     renderTfImporte();
   }
 });

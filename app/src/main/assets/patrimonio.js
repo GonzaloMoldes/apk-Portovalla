@@ -121,7 +121,7 @@ function renderNegs() {
       </div>
     </article>`;
   }).join('') : `<div class="empty">${negociaciones.length ? 'No hay negociaciones con este filtro.'
-    : 'Aún no hay negociaciones.<br>Pulsa <b>＋ Nueva negociación</b> o el botón <b>🏠 Negociación</b> de una visita a un propietario.'}</div>`;
+    : 'Aún no hay negociaciones.<br>Pulsa <b>＋ Negociación</b> o el botón <b>🏠 Negociación</b> de una visita a un propietario.'}</div>`;
 }
 
 /* ------------------------------------------------------------- ficha */
