@@ -101,7 +101,7 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   precio e importe (también se pueden crear directamente desde Trabajos).
 - **Copia de seguridad** (Ajustes): todos los datos en un fichero JSON para pasarlos a otra
   tablet o restaurarlos.
-- **Email**: abre **Gmail** directamente (o Outlook / correo de Samsung) con el PDF adjunto.
+- **Email**: abre **Gmail** directamente (o Outlook / correo de Samsung) con el destinatario, el asunto, el texto y, si lo hay, el PDF adjunto.
 - **Fotos en las visitas**: cualquier registro (lead, propietario, cliente…) puede llevar
   una o varias fotos (cámara o galería). La primera sale en la lista y en la columna FOTO
   del Excel.
@@ -137,6 +137,24 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   categorías A, B, C y D. Al elegir vallas en un presupuesto, cada una toma el precio de su
   categoría (campo *€/mes* de cada valla, que se puede cambiar) y el total se calcula valla
   a valla × meses del periodo + material.
+- **Agenda y avisos** (pestaña *Agenda* de la barra inferior, con el número de avisos):
+  lo atrasado, cada día de la semana y las próximas semanas: trabajos y ventas con fecha,
+  contratos que vencen, vallas que toca revisar, tráfico sin medir desde hace tiempo y
+  próximos contactos de patrimonio. Desde cada aviso se abre la ficha, se marca un trabajo
+  como hecho o se crea el trabajo de revisión. La app muestra además una **notificación
+  diaria** de Android (también con la app cerrada y tras reiniciar la tablet) con lo que
+  toca; en *Ajustes* (icono de la rueda en la Agenda) se elige la hora, los días de
+  antelación para los contratos, se desactivan o se prueban.
+- **Revisión periódica de cada valla**: cada mes, trimestre, semestre, año o nunca, y qué
+  hay que hacer (desbrozar, revisión, limpieza), con la fecha de la última revisión. Un
+  trabajo hecho de desbrozar, revisión o arreglo cuenta como revisión. En el catálogo,
+  *🌿 Desbrozar atrasado* y el filtro *Por revisar*.
+- **Tráfico rodado y a pie**: los impactos de cada valla se muestran separados (vehículos y
+  personas, con una barra de proporción) en la tarjeta, la ficha, el historial, los mensajes,
+  el PDF y el Excel.
+- **Vallas cerca de mí**: en el catálogo, *📍 Vallas cerca de mí* usa el GPS, filtra las
+  vallas a 2, 5, 10, 25 o 50 km, las ordena por cercanía y muestra la distancia en cada
+  tarjeta (también en el selector del presupuesto).
 - **Trabajos en vallas**: desbrozar, instalar lona, desinstalar lona, retirar lona, cambio
   de lona, arreglo / reparación, revisión u otro (se pueden marcar varios), sobre una o
   varias vallas, con fecha prevista, prioridad (urgente), persona o equipo asignado,

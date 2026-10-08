@@ -26,7 +26,8 @@ let tfState = {};          // selección única: prioridad, material, estado
 let trLeadId = '';         // visita de la que viene el trabajo (instalación de un presupuesto)
 let txEstado = 'abiertos';
 let catDispo = '';
-let catTrafico = '';      // '' · impactos (ordenar) · recontar · sinconteo
+let catTrafico = '';
+let catCerca = false;      // filtro «vallas cerca de mí» (agenda.js)      // '' · impactos (ordenar) · recontar · sinconteo
 let trClase = '';
 let tfClase = 'Trabajo';
 let tfClienteId = '';
@@ -45,6 +46,7 @@ function openTab(tab) {
   else if (tab === 'patrimonio') openPatrimonio();   // patrimonio.js
   else if (tab === 'clientes') openClientes();       // clientes.js
   else if (tab === 'ajustes') openSettings();
+  else if (tab === 'agenda') openAgenda();            // agenda.js
   else if (tab === 'trabajos') openTrabajos();
   else { show('list'); renderList(); }
 }
@@ -99,8 +101,12 @@ function renderCatalog() {
     (catZona === 'Todas' || v.zona === catZona) && (!catMuni || v.municipio === catMuni) &&
     (!catDispo || vallaDisponibilidad(v.codigo).estado === catDispo) &&
     (catTrafico !== 'recontar' || conteoVencido(v.codigo)) && (catTrafico !== 'sinconteo' || !ultimoConteo(v.codigo)) &&
+    (catTrafico !== 'revisar' || (proximaRevision(v.codigo) && diasHasta(proximaRevision(v.codigo)) <= 7)) &&
+    (!catCerca || (distanciaValla(v) !== null && distanciaValla(v) <= cercaKm)) &&
     (!q || q.split(/\s+/).every(w => [v.codigo, v.direccion, v.municipio, v.zona, v.medida].join(' ').toLowerCase().includes(w))));
   if (catTrafico === 'impactos') items.sort((a, b) => impactosValla(b.codigo) - impactosValla(a.codigo));
+  else if (catCerca) items.sort((a, b) => distanciaValla(a) - distanciaValla(b));
+  renderCercaUi();
   $$('#cat-trafico .chip').forEach(c => c.classList.toggle('active', c.dataset.catTrafico === catTrafico));
   const porRecontar = VALLAS_DB.filter(v => conteoVencido(v.codigo)).length;
   $('#cat-trafico [data-cat-trafico=recontar]').textContent = `⏱ Por recontar${porRecontar ? ` (${porRecontar})` : ''}`;
@@ -118,7 +124,8 @@ function renderCatalog() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="badges dispo-wrap">${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}</div>
+        <div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${revisionBadge(v.codigo)}</div>
+        ${traficoSplitHtml(v.codigo)}
         ${v.lat !== '' && v.lat != null ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
       </div>
     </div>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';
@@ -199,6 +206,7 @@ function openVallaForm(code) {
   form.elements.ocupadaHasta.value = d.hasta || '';
   renderVfDispo();
   traficoLoad(code || '');
+  mantLoad(code || '');
   show('valla-form');
 }
 
@@ -257,6 +265,7 @@ function saveValla() {
   }
   vallasUser[codigo] = rec;
   traficoSave(codigo, vallaEditing);
+  mantSave(codigo, vallaEditing);
   saveCatalog();
   // Disponibilidad
   if (!contratoActivo(codigo)) {
@@ -300,16 +309,19 @@ PHOTO_HANDLERS.valla = url => { vfFoto = url; renderVfPhoto(); toast('Foto añad
 const LOC_VALLA = { form: '#valla-form', btn: '#vf-location', hint: '#vf-coords-hint' };
 let locTarget = LOC_VALLA;
 
-window.onLocationStart = function () { $(locTarget.btn).textContent = '⏳ Buscando ubicación…'; };
+/* locTarget: { form, btn, hint } rellena las coordenadas de la ficha; { btn, done(r) } llama a done. */
+window.onLocationStart = function () { if ($(locTarget.btn)) $(locTarget.btn).textContent = '⏳ Buscando ubicación…'; };
 window.onLocation = function (json) {
   let r;
   try { r = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) { return; }
+  if (locTarget.done) { locTarget.done(r); return; }
   $(locTarget.btn).textContent = '📍 Usar mi ubicación';
   $(locTarget.form).elements.coords.value = `${r.lat}, ${r.lng}`;
   $(locTarget.hint).textContent = r.acc ? `Ubicación actual (precisión ±${r.acc} m)` : 'Ubicación actual';
 };
 window.onLocationError = function (msg) {
-  $(locTarget.btn).textContent = '📍 Usar mi ubicación';
+  if (locTarget.done) { catCerca = false; if (typeof renderCercaUi === 'function') renderCercaUi(); }
+  else $(locTarget.btn).textContent = '📍 Usar mi ubicación';
   toast('⚠ ' + (msg || 'No se pudo obtener la ubicación'));
 };
 
@@ -339,6 +351,7 @@ function vfMap() {
 
 function saveTrabajos() {
   if (!store.save('trabajos', trabajos)) toast('⚠ No se pudieron guardar los trabajos');
+  if (typeof mantSyncTrabajos === 'function') mantSyncTrabajos();   // agenda.js
 }
 
 function personas() {

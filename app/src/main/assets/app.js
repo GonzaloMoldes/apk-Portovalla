@@ -290,7 +290,7 @@ function syncExcel(silent) {
 const VIEW_TAB = {
   list: 'list', form: 'list', clientes: 'clientes', 'cliente-form': 'clientes',
   patrimonio: 'patrimonio', 'neg-form': 'patrimonio', trabajos: 'trabajos', 'trabajo-form': 'trabajos',
-  catalogo: 'catalogo', 'valla-form': 'catalogo', settings: 'ajustes',
+  catalogo: 'catalogo', 'valla-form': 'catalogo', settings: 'agenda', agenda: 'agenda',
 };
 
 function show(view) {
@@ -299,6 +299,7 @@ function show(view) {
   if (tab) $$('#bottom-nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   const v = $('#view-' + view);
   if (v) v.scrollTop = 0;
+  if (typeof agendaTick === 'function') agendaTick();   // agenda.js: número de avisos y notificaciones
 }
 
 function currentView() {
@@ -930,7 +931,9 @@ function budgetForSave() {
         precioMes: it.precioMes,                        // precio por mes de esta valla
         precioPeriodo: String(alquilerItem(b, it)),     // alquiler de toda la campaña
         total: String(precioItem(b, it)),               // alquiler + material
-        impactos: imp ? String(imp) : '' };
+        impactos: imp ? String(imp) : '',
+        impactosVeh: imp ? String(impactosSplit(ultimoConteo(it.codigo)).veh) : '',
+        impactosPie: imp ? String(impactosSplit(ultimoConteo(it.codigo)).pie) : '' };
     }),
     periodo: b.periodo, desde: b.desde, hasta: b.hasta, material: b.material,
     meses: String(budgetMeses(b)), precioMaterial: b.precioMaterial,
@@ -991,8 +994,8 @@ function budgetDetail(p) {
     out.push(`${i + 1}. ${v.codigo} – ${v.direccion}${v.municipio ? ` (${v.municipio})` : ''}`);
     const meta = [v.medida && `Medida ${v.medida}`, v.categoria && `Categoría ${v.categoria}`].filter(Boolean).join(' · ');
     if (meta) out.push(`   ${meta}`);
-    const imp = Number(v.impactos) || (typeof impactosValla === 'function' ? impactosValla(v.codigo) : 0);
-    if (imp) out.push(`   Impactos estimados: ${fmtInt(imp)} al día`);
+    const impTxt = typeof impactosTextoValla === 'function' ? impactosTextoValla(v) : '';
+    if (impTxt) out.push(`   ${impTxt}`);
     const it = budgetItems(p)[i];
     if (it && parseMoney(it.precioMes)) out.push(`   Precio: ${fmtMoney(parseMoney(it.precioMes))}/mes`);
     if (mapsUrl(v)) out.push(`   Ubicación: ${mapsUrl(v)}`);
@@ -1054,14 +1057,13 @@ function budgetDoc(lead) {
     })),
     vallas: (p.vallas || []).map((v, i) => {
       const it = items[i], total = precioItem(p, it), pm = parseMoney(it.precioMes);
-      const imp = Number(v.impactos) || (typeof impactosValla === 'function' ? impactosValla(v.codigo) : 0);
       return {
         codigo: v.codigo,
         direccion: v.direccion || '',
         lineas: [
           [v.municipio, v.provincia && v.provincia !== v.municipio ? v.provincia : ''].filter(Boolean).join(', '),
           [v.medida && `Medida: ${v.medida}`, v.categoria && `Categoría: ${v.categoria}`].filter(Boolean).join('   '),
-          imp ? `Impactos estimados: ${fmtInt(imp)} al día` : '',
+          typeof impactosTextoValla === 'function' ? impactosTextoValla(v) : '',
           v.lat !== '' && v.lat != null ? `Coordenadas: ${v.lat}, ${v.lng}` : '',
         ].filter(Boolean),
         mapa: mapsUrl(v) ? `Ubicación: ${mapsUrl(v)}` : '',
@@ -1160,7 +1162,7 @@ function renderPicker() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
-        ${typeof dispoBadge === 'function' ? `<div class="badges dispo-wrap">${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${precioCategoria(v.categoria) ? `<span class="badge">${fmtMoney(parseMoney(precioCategoria(v.categoria)))}/mes</span>` : ''}</div>` : ''}
+        ${typeof dispoBadge === 'function' ? `<div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${precioCategoria(v.categoria) ? `<span class="badge">${fmtMoney(parseMoney(precioCategoria(v.categoria)))}/mes</span>` : ''}</div>` : ''}
         ${v.lat ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
       </div>
     </article>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';

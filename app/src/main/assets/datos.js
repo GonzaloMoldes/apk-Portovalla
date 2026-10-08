@@ -24,7 +24,11 @@ const VALLA_COLS = [
   ['MAPA', 'mapa', 'link', 11], ['DISPONIBILIDAD', 'disponibilidad', 'text', 13, 'Disponible,Ocupada,Consultar'],
   ['CLIENTE / OCUPADA POR', 'ocupadaPor', 'text', 22], ['OCUPADA HASTA', 'ocupadaHasta', 'date', 12],
   ['VEHÍCULOS / MIN', 'vehiculosMin', 'number', 10], ['PERSONAS / MIN', 'personasMin', 'number', 10],
-  ['IMPACTOS / DÍA (estim.)', 'impactos', 'number', 12], ['FECHA CONTEO', 'fechaConteo', 'date', 12],
+  ['IMPACTOS / DÍA (estim.)', 'impactos', 'number', 12], ['IMPACTOS RODADO', 'impactosVeh', 'number', 11],
+  ['IMPACTOS A PIE', 'impactosPie', 'number', 11], ['FECHA CONTEO', 'fechaConteo', 'date', 12],
+  ['REVISAR CADA', 'revCada', 'text', 12, 'Mensual,Trimestral,Semestral,Anual,Nunca'],
+  ['QUÉ HACER', 'revMotivo', 'text', 12, 'Desbrozar,Revisión,Limpieza'], ['ÚLTIMA REVISIÓN', 'revUltima', 'date', 12],
+  ['PRÓXIMA REVISIÓN', 'revProxima', 'date', 12],
   ['PRECIO MES (categoría)', 'precioCat', 'money', 12],
   ['FOTO', 'foto', 'photo', 26],
 ];
@@ -176,6 +180,11 @@ const IMPORTERS = {
         hist.sort((a, b) => a.fecha.localeCompare(b.fecha));
         vallasTrafico[codigo] = hist;
       }
+      // Revisión periódica
+      if (o.revCada && REV_MESES[o.revCada] !== undefined) {
+        vallasMant[codigo] = { cada: o.revCada, motivo: REV_MOTIVOS.includes(o.revMotivo) ? o.revMotivo : 'Desbrozar',
+          ultima: o.revUltima || (vallasMant[codigo] || {}).ultima || '' };
+      }
       if (o.disponibilidad && !contratoActivo(codigo)) {
         const c = o.ocupadaPor && clienteByNombre(o.ocupadaPor);
         if (o.disponibilidad === 'Ocupada' && c) contratoDesdeValla(codigo, c.id, o.ocupadaHasta);
@@ -186,6 +195,7 @@ const IMPORTERS = {
     saveCatalog();
     saveDispo();
     saveTrafico();
+    saveMant();
     return res;
   },
 
@@ -322,6 +332,9 @@ function vallaRows() {
     const c = ultimoConteo(v.codigo) || {};
     return Object.assign({}, v, { disponibilidad: d.estado, ocupadaPor: d.cliente || '', ocupadaHasta: d.hasta || '',
       vehiculosMin: c.vehiculosMin || '', personasMin: c.personasMin || '', impactos: c.impactos || '', fechaConteo: c.fecha || '',
+      impactosVeh: c.fecha ? String(impactosSplit(c).veh) : '', impactosPie: c.fecha ? String(impactosSplit(c).pie) : '',
+      revCada: (vallasMant[v.codigo] || {}).cada || '', revMotivo: (vallasMant[v.codigo] || {}).motivo || '',
+      revUltima: (vallasMant[v.codigo] || {}).ultima || '', revProxima: proximaRevision(v.codigo),
       precioCat: precioCategoria(v.categoria) });
   });
 }
@@ -402,7 +415,7 @@ window.onImportError = function (msg) { toast('⚠ ' + (msg || 'No se pudo impor
 /* ------------------------------------------------------------- copia de seguridad completa */
 
 const BACKUP_KEYS = ['leads', 'settings', 'trabajos', 'negociaciones', 'clientes', 'contratos', 'documentos',
-  'vallas_user', 'vallas_dispo', 'vallas_trafico'];
+  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant'];
 
 function exportarCopia() {
   const data = {};

@@ -370,3 +370,46 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .vs-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .visita-snap .ocr-summary { margin: 8px 0 4px; font-size: 14px; }
 .visita-snap .ocr-summary dd { font-weight: 500; }
+
+/* ---------- agenda ---------- */
+.nav-ico { position: relative; }
+.nav-count:empty { display: none; }
+.nav-count {
+  position: absolute; top: -4px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--danger); color: #fff; font-size: 11px; font-weight: 800; line-height: 18px; text-align: center;
+}
+.agenda-item {
+  display: flex; gap: 12px; align-items: center; background: var(--card); border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow); cursor: pointer; border-left: 5px solid var(--border);
+}
+.agenda-item .ri-main { flex: 1; min-width: 0; font-size: 14px; }
+.agenda-item .ri-main b { display: block; font-size: 15px; }
+.agenda-item .ri-main span { display: block; color: var(--muted); overflow-wrap: anywhere; }
+.agenda-item .ag-cuando { color: var(--primary-dark) !important; font-weight: 600; font-size: 13px; margin-top: 2px; }
+.ag-ico { font-size: 24px; width: 34px; text-align: center; flex: none; }
+.ag-trabajo { border-left-color: var(--primary); }
+.ag-contrato { border-left-color: var(--gold); }
+.ag-revision { border-left-color: var(--ok); }
+.ag-trafico { border-left-color: #7b61c4; }
+.ag-patrimonio { border-left-color: #8a5300; }
+.agenda-item.atrasado { background: #fff6f5; }
+.agenda-item.atrasado .ag-cuando { color: var(--danger) !important; }
+.week.atrasado-h { color: var(--danger); }
+.ag-libre { margin: 0 2px 6px; }
+
+/* ---------- cerca de mí, revisiones, tráfico rodado / a pie ---------- */
+.cerca-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.cerca-row .chips { margin: 0; }
+.chip.cerca { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+.chip.cerca.active { background: var(--primary); color: #fff; }
+.badge.dist { background: var(--primary); color: #fff; font-weight: 700; }
+.vm-btns { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding-top: 10px; }
+.vm-btns .btn { padding: 10px 14px; font-size: 15px; }
+.split { margin-top: 8px; }
+.split-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: #e3eaf2; }
+.sb-veh { background: var(--primary); }
+.sb-pie { background: var(--gold); }
+.split-txt { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 3px; }
+.split.big .split-bar { height: 10px; border-radius: 5px; }
+.split.big .split-txt { font-size: 13px; font-weight: 600; }
+.split.big { margin: 8px 0 4px; }

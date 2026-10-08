@@ -66,6 +66,7 @@ public class MainActivity extends Activity {
     private static final int REQ_GALLERY = 3;
     private static final int REQ_LOCATION = 4;
     private static final int REQ_IMPORT = 5;
+    private static final int REQ_NOTIF = 6;
     private static final int PHOTO_MAX_SIDE = 1280;   // fotos de vallas añadidas desde la app
     private static final int OCR_MAX_SIDE = 2048;
 
@@ -109,6 +110,8 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient());
         web.addJavascriptInterface(new Bridge(), "Android");
         web.loadUrl("file:///android_asset/index.html");
+        openAgendaIfAsked(getIntent());
+        Alerts.schedule(this);
 
         // Android 9 o anterior: hace falta permiso para escribir en Descargas
         if (Build.VERSION.SDK_INT < 29
@@ -116,6 +119,33 @@ public class MainActivity extends Activity {
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE);
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        openAgendaIfAsked(intent);
+    }
+
+    /** Al tocar la notificación se abre la agenda. */
+    private void openAgendaIfAsked(Intent intent) {
+        if (intent != null && intent.getBooleanExtra(Alerts.EXTRA_AGENDA, false)) {
+            intent.removeExtra(Alerts.EXTRA_AGENDA);
+            callJs("openAgenda", "");
+        }
+    }
+
+    private boolean notifPermissionAsked;
+
+    /** Android 13+: pide permiso para mostrar notificaciones (una vez por sesión). */
+    private boolean ensureNotifPermission() {
+        if (Build.VERSION.SDK_INT < 33) return true;
+        if (checkSelfPermission("android.permission.POST_NOTIFICATIONS") == PackageManager.PERMISSION_GRANTED) return true;
+        if (!notifPermissionAsked) {
+            notifPermissionAsked = true;
+            runOnUiThread(() -> requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, REQ_NOTIF));
+        }
+        return false;
     }
 
     @Override
@@ -487,30 +517,50 @@ public class MainActivity extends Activity {
      * Va directa a Gmail si está instalado; si no, a otra app de correo conocida y,
      * como último recurso, al selector "Enviar con…".
      */
+    /**
+     * Abre el correo (Gmail si está instalado) con destinatario, asunto, texto y, si lo hay,
+     * el PDF adjunto. Gmail ignora EXTRA_SUBJECT/EXTRA_TEXT en los "mailto:" sin parámetros
+     * y, si el ClipData solo lleva el adjunto, también descarta el texto; por eso se usa
+     * ACTION_SEND con el texto dentro del ClipData y, como último recurso, un mailto: con
+     * ?subject=…&body=… en la propia dirección.
+     */
     private void openEmail(String to, String subject, String body, Uri attachment) {
-        final Intent i;
-        if (attachment != null) {
-            i = new Intent(Intent.ACTION_SEND);
-            i.setType("application/pdf");
-            i.putExtra(Intent.EXTRA_STREAM, attachment);
-            i.setClipData(ClipData.newRawUri("", attachment));
-            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        } else {
-            i = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(to)));
-        }
-        i.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
-        i.putExtra(Intent.EXTRA_SUBJECT, subject);
-        i.putExtra(Intent.EXTRA_TEXT, body);
+        String mailPkg = null;
         for (String pkg : MAIL_APPS) {
-            if (isInstalled(pkg)) { i.setPackage(pkg); break; }
+            if (isInstalled(pkg)) { mailPkg = pkg; break; }
         }
+        final Intent send = new Intent(Intent.ACTION_SEND);
+        send.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
+        send.putExtra(Intent.EXTRA_SUBJECT, subject);
+        send.putExtra(Intent.EXTRA_TEXT, body);
+        if (attachment != null) {
+            send.setType("application/pdf");
+            send.putExtra(Intent.EXTRA_STREAM, attachment);
+            send.setClipData(new ClipData(subject, new String[]{"application/pdf"},
+                    new ClipData.Item(body, null, attachment)));
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } else {
+            send.setType("text/plain");
+        }
+        if (mailPkg != null) send.setPackage(mailPkg);
+
+        final Intent mailto = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(to)
+                + "?subject=" + Uri.encode(subject) + "&body=" + Uri.encode(body)));
+        mailto.putExtra(Intent.EXTRA_EMAIL, new String[]{to});
+        mailto.putExtra(Intent.EXTRA_SUBJECT, subject);
+        mailto.putExtra(Intent.EXTRA_TEXT, body);
+        final boolean direct = mailPkg != null;
         runOnUiThread(() -> {
             try {
-                startActivity(i);
+                if (direct || attachment != null) {
+                    startActivity(direct ? send : Intent.createChooser(send, "Enviar con…"));
+                } else {
+                    startActivity(mailto);
+                }
             } catch (ActivityNotFoundException e) {
-                i.setPackage(null);
                 try {
-                    startActivity(Intent.createChooser(i, "Enviar con…"));
+                    send.setPackage(null);
+                    startActivity(attachment != null ? Intent.createChooser(send, "Enviar con…") : mailto);
                 } catch (ActivityNotFoundException e2) {
                     Toast.makeText(this, "No hay ninguna app de correo configurada", Toast.LENGTH_LONG).show();
                 }
@@ -846,6 +896,27 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void getLocation() {
             runOnUiThread(MainActivity.this::requestLocation);
+        }
+
+        /** Avisos de la agenda: [{id, fecha (cuándo avisar), titulo, texto}], hora del aviso diario. */
+        @JavascriptInterface
+        public void setAlerts(String json, int hour, boolean enabled) {
+            try {
+                Alerts.save(MainActivity.this, json, hour, enabled);
+                if (enabled) ensureNotifPermission();
+            } catch (IOException e) {
+                // sin avisos: no es grave
+            }
+        }
+
+        /** Muestra ahora la notificación con los avisos pendientes (botón de Ajustes). */
+        @JavascriptInterface
+        public void testAlert() {
+            if (!ensureNotifPermission()) {
+                toast("Permite las notificaciones de PortoValla y vuelve a probar");
+                return;
+            }
+            Alerts.notifyDue(MainActivity.this, true);
         }
 
         /**

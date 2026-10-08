@@ -28,6 +28,44 @@ function mesesDesde(iso) {
   return d ? (Date.now() - d) / (86400000 * 30.44) : Infinity;
 }
 
+/** Impactos al día separados: tráfico rodado (vehículos × ocupación) y a pie (personas). */
+function impactosSplit(c) {
+  if (!c) return { veh: 0, pie: 0, total: 0 };
+  const veh = Math.round(parseMoney(c.vehiculosMin) * OCUPACION * 60 * HORAS_DIA);
+  const pie = Math.round(parseMoney(c.personasMin) * 60 * HORAS_DIA);
+  return { veh, pie, total: veh + pie };
+}
+
+/** "32.760 en vehículos (83 %) · 6.720 a pie (17 %)" */
+function splitTexto(s, corto) {
+  if (!s.total) return '';
+  const pct = x => Math.round(x / s.total * 100);
+  return corto
+    ? `🚗 ${fmtInt(s.veh)} · 🚶 ${fmtInt(s.pie)}`
+    : `${fmtInt(s.veh)} en vehículos (${pct(s.veh)} %) · ${fmtInt(s.pie)} a pie (${pct(s.pie)} %)`;
+}
+
+/** Línea para las tarjetas de valla: impactos rodados y a pie con una barra de proporción. */
+function traficoSplitHtml(code) {
+  const s = impactosSplit(ultimoConteo(code));
+  if (!s.total) return '';
+  const pv = Math.round(s.veh / s.total * 100);
+  return `<div class="split" title="Tráfico rodado / a pie">
+    <div class="split-bar"><span class="sb-veh" style="width:${pv}%"></span><span class="sb-pie" style="width:${100 - pv}%"></span></div>
+    <div class="split-txt"><span>🚗 ${fmtInt(s.veh)} rodado</span><span>🚶 ${fmtInt(s.pie)} a pie</span></div>
+  </div>`;
+}
+
+/** Texto de impactos para mensajes y PDF (de la valla guardada en el presupuesto o del último conteo). */
+function impactosTextoValla(v) {
+  let s = { veh: Number(v.impactosVeh) || 0, pie: Number(v.impactosPie) || 0 };
+  s.total = s.veh + s.pie;
+  if (!s.total) s = impactosSplit(ultimoConteo(v.codigo));
+  const total = Number(v.impactos) || s.total;
+  if (!total) return '';
+  return `Impactos estimados: ${fmtInt(total)} al día` + (s.total ? ` (${fmtInt(s.veh)} en vehículos, ${fmtInt(s.pie)} a pie)` : '');
+}
+
 /** Hay conteo pero es más antiguo que el plazo de Ajustes → toca recontar. */
 function conteoVencido(code) {
   const c = ultimoConteo(code);
@@ -85,11 +123,14 @@ function renderTrafico() {
   const form = $('#valla-form');
   const t = traficoForm();
   const imp = impactosDia(t);
+  const sp = impactosSplit(t);
   const cat = form.elements.categoria.value;
   const precio = precioCategoria(cat);
   const cpm = cpmValla(precio, imp);
   $('#vf-impactos').innerHTML = imp
     ? `≈ ${fmtInt(imp)} impactos al día · ${fmtInt(imp * 30)} al mes`
+      + `<div class="split big"><div class="split-bar"><span class="sb-veh" style="width:${Math.round(sp.veh / sp.total * 100)}%"></span><span class="sb-pie" style="width:${100 - Math.round(sp.veh / sp.total * 100)}%"></span></div>`
+      + `<div class="split-txt"><span>🚗 Tráfico rodado: ${fmtInt(sp.veh)} (${Math.round(sp.veh / sp.total * 100)} %)</span><span>🚶 A pie: ${fmtInt(sp.pie)} (${100 - Math.round(sp.veh / sp.total * 100)} %)</span></div></div>`
       + (cpm ? `<br><span class="hint-inline">Precio categoría ${esc(cat)}: ${fmtMoney(parseMoney(precio))}/mes → ${fmtCpm(cpm)} por 1.000 impactos</span>` : '')
     : '';
   const last = vtHist[vtHist.length - 1];
@@ -111,7 +152,7 @@ function renderTrafico() {
     return `<div class="row-item">
       <div class="ri-main"><b>${esc(fmtDate(c.fecha))} · ${fmtInt(Number(c.impactos) || 0)} impactos/día
         ${dif !== null ? `<span class="trend ${dif >= 0 ? 'up' : 'down'}">${dif >= 0 ? '▲' : '▼'} ${Math.abs(dif)}%</span>` : ''}</b>
-        <span>🚗 ${esc(c.vehiculosMin || '0')}/min · 🚶 ${esc(c.personasMin || '0')}/min</span></div>
+        <span>🚗 ${esc(c.vehiculosMin || '0')}/min (${fmtInt(impactosSplit(c).veh)} rodado) · 🚶 ${esc(c.personasMin || '0')}/min (${fmtInt(impactosSplit(c).pie)} a pie)</span></div>
       <button type="button" class="vsel-x" data-vt-del="${i}" aria-label="Borrar conteo" title="Borrar conteo">${icon('close')}</button>
     </div>`;
   }).join('') : '';

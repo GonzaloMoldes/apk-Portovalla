@@ -632,7 +632,20 @@
       <button class="chip" data-cat-trafico="impactos">👁 Más impactos primero</button>
       <button class="chip" data-cat-trafico="recontar">⏱ Por recontar</button>
       <button class="chip" data-cat-trafico="sinconteo">Sin conteo de tráfico</button>
+      <button class="chip" data-cat-trafico="revisar">🌿 Por revisar</button>
     </div>
+    <div class="cerca-row">
+      <button class="chip cerca" id="cat-cerca-btn">📍 Vallas cerca de mí</button>
+      <div class="chips small" id="cat-radios" hidden>
+        <button class="chip" data-km="2">2 km</button>
+        <button class="chip" data-km="5">5 km</button>
+        <button class="chip" data-km="10">10 km</button>
+        <button class="chip" data-km="25">25 km</button>
+        <button class="chip" data-km="50">50 km</button>
+        <button class="chip" id="cat-cerca-refresh">↻ Actualizar</button>
+      </div>
+    </div>
+    <p class="hint" id="cat-cerca-info"></p>
     <p class="stats" id="cat-stats"></p>
   </div>
   <main id="cat-grid" class="vallas-grid"></main>
@@ -723,6 +736,35 @@
       </div>
       <p class="budget-total" id="vf-impactos"></p>
       <div id="vf-trafico-hist"></div>
+    </div>
+
+    <div class="card">
+      <h2>Revisión periódica</h2>
+      <p class="hint">Cada cuánto hay que ir a revisar la valla (por ejemplo, desbrozar para que la maleza no la tape).</p>
+      <div class="chips" data-vm-cada>
+        <button type="button" class="chip" data-value="Mensual">Cada mes</button>
+        <button type="button" class="chip" data-value="Trimestral">Cada trimestre</button>
+        <button type="button" class="chip" data-value="Semestral">Cada semestre</button>
+        <button type="button" class="chip" data-value="Anual">Cada año</button>
+        <button type="button" class="chip" data-value="Nunca">Nunca</button>
+      </div>
+      <div id="vm-detalle" hidden>
+        <label class="lbl">¿Qué hay que hacer?</label>
+        <div class="chips small" data-vm-motivo>
+          <button type="button" class="chip" data-value="Desbrozar">🌿 Desbrozar</button>
+          <button type="button" class="chip" data-value="Revisión">🔍 Revisión</button>
+          <button type="button" class="chip" data-value="Limpieza">🧽 Limpieza</button>
+        </div>
+        <div class="grid">
+          <label>Última revisión<input type="date" name="vm_ultima"></label>
+          <div class="vm-btns">
+            <button type="button" class="btn" data-vm="hoy">✓ Revisada hoy</button>
+            <button type="button" class="btn" data-vm="trabajo">🛠 Crear trabajo</button>
+          </div>
+        </div>
+        <p id="vm-proxima" class="hint"></p>
+        <p class="hint">Al marcar como hecho un trabajo de desbrozar, revisión o arreglo de esta valla, se apunta como última revisión.</p>
+      </div>
     </div>
 
     <div class="card">
@@ -904,6 +946,21 @@
   </div>
 </div>
 
+<!-- ======================= AGENDA ======================= -->
+<section id="view-agenda" class="view">
+  <header class="bar">
+    <h1>Agenda</h1>
+    <div class="bar-actions">
+      <button class="btn-bar icon" data-action="settings" title="Ajustes" aria-label="Ajustes"><i data-icon="ajustes"></i></button>
+    </div>
+  </header>
+  <div class="toolbar">
+    <div class="chips small" id="ag-tipos"></div>
+    <p class="stats" id="agenda-stats"></p>
+  </div>
+  <main id="agenda-list" class="list-main"></main>
+</section>
+
 <!-- ======================= AJUSTES ======================= -->
 <section id="view-settings" class="view">
   <header class="bar">
@@ -924,6 +981,17 @@
         <label>Mi teléfono<input type="tel" name="miTelefono"></label>
         <label>Mi correo<input type="email" name="miEmail"></label>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Avisos y agenda</h2>
+      <p class="hint">La app avisa una vez al día (notificación de Android) de los trabajos con fecha cercana, contratos que vencen, vallas que toca revisar, tráfico sin medir y contactos de patrimonio.</p>
+      <div class="grid">
+        <label>Hora del aviso diario (0–23)<input type="text" name="avisoHora" inputmode="numeric" placeholder="9"></label>
+        <label>Avisar de los contratos con (días de antelación)<input type="text" name="avisoContratoDias" inputmode="numeric" placeholder="30"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="avisosOff"> Desactivar las notificaciones</label>
+      <button type="button" class="btn" data-action="test-alert">🔔 Probar el aviso ahora</button>
     </div>
 
     <div class="card">
@@ -1045,7 +1113,7 @@
   <button data-tab="patrimonio"><span class="nav-ico"><i data-icon="patrimonio"></i></span>Patrimonio</button>
   <button data-tab="trabajos"><span class="nav-ico"><i data-icon="trabajos"></i></span>Trabajos</button>
   <button data-tab="catalogo"><span class="nav-ico"><i data-icon="vallas"></i></span>Vallas</button>
-  <button data-tab="ajustes"><span class="nav-ico"><i data-icon="ajustes"></i></span>Ajustes</button>
+  <button data-tab="agenda"><span class="nav-ico"><i data-icon="agenda"></i><b class="nav-count" id="nav-agenda-count"></b></span>Agenda</button>
 </nav>
 
 <div class="toast" id="toast" hidden></div>
@@ -1059,5 +1127,6 @@
 <script src="clientes.js"></script>
 <script src="trafico.js"></script>
 <script src="datos.js"></script>
+<script src="agenda.js"></script>
 </body>
 </html>
