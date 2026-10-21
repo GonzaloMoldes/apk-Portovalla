@@ -34,6 +34,7 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
@@ -328,6 +329,7 @@ public class MainActivity extends Activity {
     /** Errores de cámara/galería: van a la tarjeta (OCR) o a la foto de la valla. */
     private void captureError(String msg) {
         if ("ocr".equals(pendingPurpose)) callJs("onOcrError", msg);
+        else if ("ticket".equals(pendingPurpose)) callJs("onTicketError", msg);
         else callJs("onPhotoError", msg);
     }
 
@@ -339,12 +341,14 @@ public class MainActivity extends Activity {
                 pick.setType("image/*");
                 pick.addCategory(Intent.CATEGORY_OPENABLE);
                 startActivityForResult(Intent.createChooser(pick,
-                        "ocr".equals(pendingPurpose) ? "Foto de la tarjeta" : "Foto de la valla"), REQ_GALLERY);
+                        "ocr".equals(pendingPurpose) ? "Foto de la tarjeta"
+                                : "ticket".equals(pendingPurpose) ? "Foto del ticket" : "Foto"), REQ_GALLERY);
                 return;
             }
             ContentValues v = new ContentValues();
             v.put(MediaStore.MediaColumns.DISPLAY_NAME,
-                    ("ocr".equals(pendingPurpose) ? "tarjeta_" : "valla_") + System.currentTimeMillis() + ".jpg");
+                    ("ocr".equals(pendingPurpose) ? "tarjeta_" : "ticket".equals(pendingPurpose) ? "ticket_" : "foto_")
+                            + System.currentTimeMillis() + ".jpg");
             v.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
             if (Build.VERSION.SDK_INT >= 29) {
                 v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/" + FOLDER);
@@ -393,6 +397,10 @@ public class MainActivity extends Activity {
             if (fromCamera) discardPendingPhoto();
             return;
         }
+        if ("ticket".equals(pendingPurpose)) {
+            processTicket(uri, fromCamera);
+            return;
+        }
         if (!"ocr".equals(pendingPurpose)) {
             savePhotoForJs(uri, pendingPurpose, fromCamera);
             return;
@@ -425,6 +433,84 @@ public class MainActivity extends Activity {
     }
 
     /** Carga la imagen reducida (lado mayor ≤ OCR_MAX_SIDE) y girada según su EXIF. */
+    /**
+     * Ticket de gasto: guarda la foto en la app (filesDir/tickets) y lee el texto con su
+     * posición para poder reconstruir las filas (concepto … importe).
+     * Resultado en JS: onTicketResult({url, text, lines: [{t, x, y, w, h}]}).
+     */
+    private void processTicket(Uri uri, boolean fromCamera) {
+        callJs("onTicketStart", "");
+        new Thread(() -> {
+            Bitmap bmp;
+            String url;
+            try {
+                bmp = loadScaledBitmap(uri, OCR_MAX_SIDE);
+                File dir = new File(getFilesDir(), "tickets");
+                if (!dir.exists() && !dir.mkdirs()) throw new IOException("No se pudo crear la carpeta de tickets");
+                File f = new File(dir, "ticket_" + System.currentTimeMillis() + ".jpg");
+                float k = Math.min(1f, 1600f / Math.max(bmp.getWidth(), bmp.getHeight()));
+                Bitmap small = k < 1f ? Bitmap.createScaledBitmap(bmp, Math.round(bmp.getWidth() * k), Math.round(bmp.getHeight() * k), true) : bmp;
+                try (OutputStream out = new FileOutputStream(f)) {
+                    small.compress(Bitmap.CompressFormat.JPEG, 80, out);
+                }
+                if (small != bmp) small.recycle();
+                url = "file://" + f.getAbsolutePath();
+            } catch (Exception e) {
+                if (fromCamera) runOnUiThread(this::discardPendingPhoto);
+                callJs("onTicketError", "No se pudo leer la foto: " + e.getMessage());
+                return;
+            }
+            final Bitmap image = bmp;
+            final String photoUrl = url;
+            runOnUiThread(() -> {
+                TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+                recognizer.process(InputImage.fromBitmap(image, 0))
+                        .addOnSuccessListener(text -> {
+                            try {
+                                JSONObject r = new JSONObject();
+                                r.put("url", photoUrl);
+                                r.put("text", text.getText());
+                                JSONArray lines = new JSONArray();
+                                if (text.getTextBlocks() != null) {
+                                    for (Text.TextBlock b : text.getTextBlocks()) {
+                                        if (b.getLines() == null) continue;
+                                        for (Text.Line l : b.getLines()) {
+                                            android.graphics.Rect bb = l.getBoundingBox();
+                                            JSONObject o = new JSONObject();
+                                            o.put("t", l.getText());
+                                            if (bb != null) {
+                                                o.put("x", bb.left);
+                                                o.put("y", bb.top);
+                                                o.put("w", bb.width());
+                                                o.put("h", bb.height());
+                                            }
+                                            lines.put(o);
+                                        }
+                                    }
+                                }
+                                r.put("lines", lines);
+                                callJs("onTicketResult", r.toString());
+                            } catch (Exception e) {
+                                callJs("onTicketError", "No se pudo leer el ticket: " + e.getMessage());
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            // Sin texto: se guarda igualmente la foto para rellenar a mano
+                            try {
+                                callJs("onTicketResult", new JSONObject().put("url", photoUrl).put("text", "").toString());
+                            } catch (Exception ignored) {
+                                callJs("onTicketError", "No se pudo reconocer el texto");
+                            }
+                        })
+                        .addOnCompleteListener(t -> {
+                            recognizer.close();
+                            image.recycle();
+                            if (fromCamera) discardPendingPhoto();
+                        });
+            });
+        }).start();
+    }
+
     /** Guarda la foto (reducida) en la app y se la pasa a JS: onPhotoResult({tag, url}). */
     private void savePhotoForJs(Uri uri, String tag, boolean fromCamera) {
         new Thread(() -> {
@@ -998,6 +1084,27 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void scanCard(String source) {
             runOnUiThread(() -> startScan(source));
+        }
+
+        /** Ticket de gasto (cámara o galería): foto guardada + texto. Resultado en onTicketResult. */
+        @JavascriptInterface
+        public void scanTicket(String source) {
+            runOnUiThread(() -> startCapture(source, "ticket"));
+        }
+
+        /** Borra una foto guardada por la app (solo dentro de filesDir). */
+        @JavascriptInterface
+        public void deletePhoto(String url) {
+            if (url == null || !url.startsWith("file://")) return;
+            File f = new File(url.substring("file://".length()));
+            try {
+                if (f.getCanonicalPath().startsWith(getFilesDir().getCanonicalPath())) {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }
+            } catch (IOException ignored) {
+                // no se pudo borrar: no es grave
+            }
         }
 
         /** Abre la ubicación en Google Maps (o la app de mapas instalada). */

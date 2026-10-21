@@ -47,6 +47,7 @@ function openTab(tab) {
   else if (tab === 'clientes') openClientes();       // clientes.js
   else if (tab === 'ajustes') openSettings();
   else if (tab === 'agenda') openAgenda();            // agenda.js
+  else if (tab === 'gastos') openGastos();            // gastos.js
   else if (tab === 'trabajos') openTrabajos();
   else { show('list'); renderList(); }
 }
@@ -215,7 +216,7 @@ function renderVfDispo() {
   const info = $('#vf-contrato');
   if (ct) {
     const c = clienteById(ct.clienteId);
-    info.innerHTML = `🔴 Ocupada por <b>${esc(c ? c.nombre : '?')}</b>${ct.hasta ? ` hasta ${fmtDate(ct.hasta)}` : ''}
+    info.innerHTML = `🔴 Ocupada por <b>${esc(c ? c.nombre : '?')}</b>${ct.pvs ? ` · PVS ${esc(ct.pvs)}` : ''}${ct.hasta ? ` hasta ${fmtDate(ct.hasta)}` : ''}
       <button type="button" class="act" data-vf-vercliente="${esc(ct.clienteId)}">Ver cliente</button>
       <button type="button" class="act" data-vf-liberar="${esc(ct.id)}">Liberar hoy</button>`;
   } else {

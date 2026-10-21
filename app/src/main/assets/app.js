@@ -92,7 +92,7 @@ DEFAULT_PLANTILLAS.push({
     'Le adjunto el PDF con las fotos y la ubicación de cada valla. Cualquier duda, me dice.',
 });
 
-const FIELDS = ['tipo', 'pvs', 'fecha', 'fechaFirma', 'razonSocial', 'contacto', 'telefono',
+const FIELDS = ['tipo', 'fecha', 'fechaFirma', 'razonSocial', 'contacto', 'telefono',
   'poblacion', 'provincia', 'correo', 'situacion', 'pvpEntrada', 'pvpTotal', 'volver',
   'porcentaje', 'fechaTrabajo'];
 
@@ -278,10 +278,22 @@ function persist() {
 
 function syncExcel(silent) {
   if (!NATIVE) return '';
-  const err = window.Android.exportExcel(JSON.stringify(leads), settings.fichero || 'Visitas_Leads');
+  const err = window.Android.exportExcel(leadsExcelJson(), settings.fichero || 'Visitas_Leads');
   if (err) toast('⚠ Excel: ' + err);
   else if (!silent) toast('Excel actualizado');
   return err;
+}
+
+/**
+ * Visitas para el Excel. El PVS identifica el contrato de un cliente con una valla, así que
+ * la columna PVS se rellena con los PVS de los contratos del cliente de la visita
+ * (o con el que se apuntó en la visita en versiones anteriores).
+ */
+function leadsExcelJson() {
+  return JSON.stringify(leads.map(l => {
+    const cts = typeof contratos !== 'undefined' && l.clienteId ? contratos.filter(ct => ct.clienteId === l.clienteId && ct.pvs) : [];
+    return cts.length ? Object.assign({}, l, { pvs: cts.map(ct => ct.pvs).join(', ') }) : l;
+  }));
 }
 
 /* ------------------------------------------------------------- navegación */
@@ -290,7 +302,7 @@ function syncExcel(silent) {
 const VIEW_TAB = {
   list: 'list', form: 'list', clientes: 'clientes', 'cliente-form': 'clientes',
   patrimonio: 'patrimonio', 'neg-form': 'patrimonio', trabajos: 'trabajos', 'trabajo-form': 'trabajos',
-  catalogo: 'catalogo', 'valla-form': 'catalogo', settings: 'agenda', agenda: 'agenda',
+  catalogo: 'catalogo', 'valla-form': 'catalogo', settings: 'agenda', agenda: 'agenda', gastos: 'gastos', 'gasto-form': 'gastos',
 };
 
 function show(view) {
@@ -1439,7 +1451,7 @@ document.addEventListener('click', e => {
   }
   if (t.matches('article.lead')) { openForm(t.dataset.id); return; }
 
-  const exportArgs = () => [JSON.stringify(leads), settings.fichero || 'Visitas_Leads'];
+  const exportArgs = () => [leadsExcelJson(), settings.fichero || 'Visitas_Leads'];
   switch (t.dataset.action) {
     case 'new': openForm(null); break;
     case 'lead-photo-camera': pickPhoto('camera', 'lead'); break;

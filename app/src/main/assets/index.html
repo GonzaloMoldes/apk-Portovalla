@@ -70,15 +70,12 @@
       </div>
       <input type="hidden" name="tipo">
 
-      <div class="grid">
-        <div>
-          <label>Fecha<input type="date" name="fecha" required></label>
-          <div class="chips small" data-date="fecha">
-            <button type="button" class="chip" data-offset="0">Hoy</button>
-            <button type="button" class="chip" data-offset="-1">Ayer</button>
-          </div>
+      <div>
+        <label>Fecha<input type="date" name="fecha" required></label>
+        <div class="chips small" data-date="fecha">
+          <button type="button" class="chip" data-offset="0">Hoy</button>
+          <button type="button" class="chip" data-offset="-1">Ayer</button>
         </div>
-        <label>PVS<input type="text" name="pvs"></label>
       </div>
     </div>
 
@@ -240,7 +237,7 @@
     </div>
   </header>
   <div class="toolbar">
-    <input id="cli-search" type="search" placeholder="Buscar cliente, contacto, población, valla…" autocomplete="off">
+    <input id="cli-search" type="search" placeholder="Buscar cliente, contacto, población, valla, PVS…" autocomplete="off">
     <div class="chips" id="cli-filtros">
       <button class="chip active" data-cli-filtro="todos">Todos</button>
       <button class="chip" data-cli-filtro="activos">Con vallas contratadas</button>
@@ -329,6 +326,8 @@
   <div class="sheet">
     <h2 id="ct-title">Contratar vallas</h2>
     <p class="hint" id="ct-vallas"></p>
+    <label class="lbl">PVS <span class="hint-inline">(número del contrato de cada valla)</span></label>
+    <div class="ct-pvs" id="ct-pvs"></div>
     <div class="grid">
       <div>
         <label>Desde<input type="date" id="ct-desde"></label>
@@ -946,6 +945,145 @@
   </div>
 </div>
 
+<!-- ======================= GASTOS ======================= -->
+<section id="view-gastos" class="view">
+  <header class="bar">
+    <h1>Gastos</h1>
+    <div class="bar-actions">
+      <button class="btn-bar icon" data-gx="export" title="Enviar el informe de gastos (Excel) del periodo" aria-label="Enviar el informe de gastos"><i data-icon="send"></i></button>
+      <button class="btn-bar icon" data-gx="export-open" title="Abrir el informe de gastos (Excel) del periodo" aria-label="Abrir el informe de gastos"><i data-icon="table"></i></button>
+      <button class="btn-bar icon" data-io="gastos" title="Importar / exportar gastos" aria-label="Importar / exportar gastos"><i data-icon="sync"></i></button>
+    </div>
+  </header>
+  <div class="toolbar">
+    <input id="g-search" type="search" placeholder="Buscar local, CIF, motivo, matrícula…" autocomplete="off">
+    <div class="chips" id="g-periodos">
+      <button class="chip" data-g-periodo="mes">Este mes</button>
+      <button class="chip" data-g-periodo="mesAnt">Mes anterior</button>
+      <button class="chip" data-g-periodo="trimestre">Este trimestre</button>
+      <button class="chip" data-g-periodo="ano">Este año</button>
+      <button class="chip" data-g-periodo="todo">Todo</button>
+      <button class="chip" data-g-periodo="rango">📅 Fechas…</button>
+    </div>
+    <div class="grid" id="g-rango" hidden>
+      <label>Desde<input type="date" id="g-desde"></label>
+      <label>Hasta<input type="date" id="g-hasta"></label>
+    </div>
+    <div class="chips small" id="g-tipos"></div>
+    <div class="card g-resumen" id="g-resumen"></div>
+  </div>
+  <main id="g-list" class="list-main"></main>
+  <button class="fab" data-gx="nuevo" aria-label="Nuevo ticket de gasto"><i data-icon="add"></i><span>Ticket</span></button>
+</section>
+
+<!-- ======================= FICHA DE GASTO ======================= -->
+<section id="view-gasto-form" class="view">
+  <header class="bar">
+    <button class="btn-bar icon" data-action="back" title="Volver" aria-label="Volver"><i data-icon="back"></i></button>
+    <h1 id="gasto-form-title">Nuevo gasto</h1>
+    <div class="bar-actions"></div>
+  </header>
+  <form id="gasto-form" autocomplete="off" novalidate>
+    <div class="card">
+      <div class="g-foto" id="gf-foto"></div>
+      <div class="scan-row">
+        <button type="button" class="btn scan" data-gx="scan-camara">📷 Escanear ticket</button>
+        <button type="button" class="btn" data-gx="scan-galeria">🖼 Desde galería</button>
+        <button type="button" class="btn danger" data-gx="foto-quitar" id="gf-foto-quitar">Quitar foto</button>
+      </div>
+      <p class="hint">La foto del ticket se guarda en la app y sale en el Excel del informe.</p>
+    </div>
+
+    <div class="card">
+      <label class="lbl">Tipo de gasto *</label>
+      <div class="chips" id="gf-tipos">
+        <button type="button" class="chip" data-value="Combustible">⛽ Combustible</button>
+        <button type="button" class="chip" data-value="Comida">🍽 Comida</button>
+        <button type="button" class="chip" data-value="Parking / peaje">🅿 Parking / peaje</button>
+        <button type="button" class="chip" data-value="Alojamiento">🏨 Alojamiento</button>
+        <button type="button" class="chip" data-value="Otro">🧾 Otro</button>
+      </div>
+      <div class="grid">
+        <div>
+          <label>Fecha *<input type="date" name="fecha"></label>
+          <div class="chips small" data-gf-date>
+            <button type="button" class="chip" data-offset="0">Hoy</button>
+            <button type="button" class="chip" data-offset="-1">Ayer</button>
+          </div>
+        </div>
+        <label>Total (€, IVA incluido) *<input type="text" name="total" inputmode="decimal" class="g-total"></label>
+      </div>
+      <div class="grid3">
+        <div>
+          <label>% IVA<input type="text" name="ivaPct" inputmode="decimal"></label>
+          <div class="chips small" id="gf-ivas">
+            <button type="button" class="chip" data-value="21">21</button>
+            <button type="button" class="chip" data-value="10">10</button>
+            <button type="button" class="chip" data-value="4">4</button>
+            <button type="button" class="chip" data-value="0">0</button>
+          </div>
+        </div>
+        <label>IVA (€)<input type="text" name="iva" inputmode="decimal"></label>
+        <label>Base (€)<input type="text" name="base" inputmode="decimal"></label>
+      </div>
+      <div id="gf-combustible" hidden>
+        <div class="grid4">
+          <label>Litros<input type="text" name="litros" inputmode="decimal"></label>
+          <label>€ / litro<input type="text" name="precioLitro" inputmode="decimal"></label>
+          <label>Matrícula<input type="text" name="matricula" autocapitalize="characters"></label>
+          <label>Km del vehículo<input type="text" name="km" inputmode="numeric"></label>
+        </div>
+      </div>
+      <label class="lbl">Forma de pago</label>
+      <div class="chips small" id="gf-pago">
+        <button type="button" class="chip" data-value="Tarjeta">💳 Tarjeta</button>
+        <button type="button" class="chip" data-value="Efectivo">💶 Efectivo</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Establecimiento</h2>
+      <label>Nombre del local<input type="text" name="local"></label>
+      <div class="grid">
+        <label>Razón social<input type="text" name="empresa"></label>
+        <label>CIF / NIF<input type="text" name="cif" autocapitalize="characters"></label>
+      </div>
+      <label>Dirección<input type="text" name="direccion"></label>
+      <label>Motivo / cliente / ruta<input type="text" name="motivo" placeholder="Ej.: visitas zona Lugo, comida con cliente Gadis…"></label>
+      <label>Notas<textarea name="notas" rows="2"></textarea></label>
+    </div>
+
+    <details class="card" id="gf-ocr" hidden>
+      <summary>Texto leído del ticket</summary>
+      <pre class="ocr-raw" id="gf-ocr-texto"></pre>
+      <button type="button" class="btn" data-gx="releer">↻ Volver a rellenar con lo leído</button>
+    </details>
+
+    <div class="form-actions">
+      <button type="button" class="btn danger" data-gx="delete" id="gf-delete">Eliminar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-gx="save">Guardar gasto</button>
+    </div>
+  </form>
+</section>
+
+<div class="modal" id="ticket-modal" hidden>
+  <div class="sheet">
+    <h2>Nuevo gasto</h2>
+    <p class="hint">Haz una foto al ticket (bien plano y con luz) o elígelo de la galería: se leerán el local, el CIF, la dirección, la fecha, el total y el IVA.</p>
+    <div class="io-btns">
+      <button type="button" class="btn primary" data-gx="nuevo-camara">📷 Escanear ticket con la cámara</button>
+      <button type="button" class="btn" data-gx="nuevo-galeria">🖼 Elegir foto del ticket</button>
+      <button type="button" class="btn" data-gx="nuevo-manual">✍ Sin ticket (escribir a mano)</button>
+    </div>
+    <div class="form-actions"><span class="spacer"></span><button type="button" class="btn" data-gx="ticket-cerrar">Cancelar</button></div>
+  </div>
+</div>
+
+<div class="modal foto-grande" id="foto-grande" hidden>
+  <img alt="Ticket">
+</div>
+
 <!-- ======================= AGENDA ======================= -->
 <section id="view-agenda" class="view">
   <header class="bar">
@@ -1113,6 +1251,7 @@
   <button data-tab="patrimonio"><span class="nav-ico"><i data-icon="patrimonio"></i></span>Patrimonio</button>
   <button data-tab="trabajos"><span class="nav-ico"><i data-icon="trabajos"></i></span>Trabajos</button>
   <button data-tab="catalogo"><span class="nav-ico"><i data-icon="vallas"></i></span>Vallas</button>
+  <button data-tab="gastos"><span class="nav-ico"><i data-icon="gastos"></i></span>Gastos</button>
   <button data-tab="agenda"><span class="nav-ico"><i data-icon="agenda"></i><b class="nav-count" id="nav-agenda-count"></b></span>Agenda</button>
 </nav>
 
@@ -1127,6 +1266,8 @@
 <script src="clientes.js"></script>
 <script src="trafico.js"></script>
 <script src="datos.js"></script>
+<script src="ticket.js"></script>
+<script src="gastos.js"></script>
 <script src="agenda.js"></script>
 </body>
 </html>

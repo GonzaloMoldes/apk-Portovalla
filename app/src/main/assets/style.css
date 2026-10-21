@@ -296,7 +296,7 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 8;
   height: calc(var(--nav-h) + env(safe-area-inset-bottom));
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: repeat(7, 1fr);
   background: #fff; border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(16,34,60,.08);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -413,3 +413,33 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .split.big .split-bar { height: 10px; border-radius: 5px; }
 .split.big .split-txt { font-size: 13px; font-weight: 600; }
 .split.big { margin: 8px 0 4px; }
+
+/* ---------- PVS de los contratos ---------- */
+.ct-pvs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; }
+.ct-pvs-item { margin-top: 4px; }
+.pvs-tag { font-size: 12px; font-weight: 700; color: #fff; background: var(--primary); border-radius: 6px; padding: 1px 6px; }
+
+/* ---------- gastos ---------- */
+.g-resumen { margin: 12px 0 0; padding: 14px 16px; }
+.g-res-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; color: var(--muted); font-size: 14px; }
+.g-res-head b { font-size: 26px; color: var(--primary); white-space: nowrap; }
+.g-res-tipos { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px 16px; margin: 10px 0 6px; font-size: 14px; }
+.g-res-tipos div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 3px 0; }
+.g-res-pie { color: var(--muted); font-size: 13px; }
+.g-mes { margin: 20px 2px 10px; }
+.g-mes-head { display: flex; justify-content: space-between; text-transform: capitalize; color: var(--primary-dark); font-size: 16px; }
+.g-mes-tipos { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.gasto { align-items: center; }
+.g-ico { width: 56px; height: 56px; border-radius: 10px; background: #eef2f6; display: flex; align-items: center; justify-content: center; font-size: 28px; flex: none; }
+.g-importe { font-size: 18px; font-weight: 800; color: var(--text); text-align: right; white-space: nowrap; }
+.g-importe span { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+.g-foto { min-height: 120px; max-height: 420px; border-radius: 10px; overflow: hidden; background: #eef2f6; display: flex;
+  align-items: center; justify-content: center; color: var(--muted); }
+.g-foto img { max-width: 100%; max-height: 420px; object-fit: contain; cursor: zoom-in; }
+.g-total { font-size: 22px !important; font-weight: 800; color: var(--primary); }
+.ocr-raw { white-space: pre-wrap; font-size: 13px; background: #f6f8fa; border-radius: 8px; padding: 10px; max-height: 280px; overflow: auto; }
+.foto-grande { align-items: center; background: rgba(0,0,0,.88); z-index: 30; }
+.foto-grande img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
+#gasto-form .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 12px; }
+@media (max-width: 560px) { #gasto-form .grid4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 440px) { .bottom-nav button { font-size: 9px; } .nav-ico { width: 40px; } }

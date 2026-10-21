@@ -73,7 +73,8 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   (compartir o abrir) o **importarlo** (actualiza por ID/código/nº y añade los nuevos; no
   borra nada). Visitas admite también el Excel antiguo de seguimiento semanal.
 - **Clientes**: datos (nombre, CIF, contacto, teléfono, correo, dirección…), **vallas
-  contratadas** (contratos con desde/hasta, precio por mes, campaña), **historial de
+  contratadas** (contratos con **PVS** —el número que identifica el contrato del cliente con
+  cada valla—, desde/hasta, precio por mes, campaña; se puede buscar por PVS), **historial de
   documentos** (cada PDF de presupuesto generado queda guardado con su cliente para
   abrirlo o reenviarlo) y sus visitas, trabajos y ventas. Desde una visita, *👤 Cliente*.
   **Las visitas marcadas como *Cliente* o con *100 %* de avance se copian solas a
@@ -137,6 +138,17 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   categorías A, B, C y D. Al elegir vallas en un presupuesto, cada una toma el precio de su
   categoría (campo *€/mes* de cada valla, que se puede cambiar) y el total se calcula valla
   a valla × meses del periodo + material.
+- **Gastos** (pestaña *Gastos*): combustible, comida, parking / peaje, alojamiento u otros.
+  Con *＋ Ticket* se fotografía el ticket (o se elige de la galería): la foto se guarda en la
+  app y se leen el nombre del local, la razón social, el CIF, la dirección, la fecha, el
+  total, el IVA (tipo y cuota) y la base, y en el combustible los litros, el precio por litro
+  y la matrícula; también se propone el tipo de gasto y la forma de pago. Todo se puede
+  corregir (al cambiar el total o el % de IVA se recalculan cuota y base). La lista se agrupa
+  **por meses** con su total y el reparto por tipo; se filtra por este mes, mes anterior,
+  trimestre, año, todo o unas fechas, y por tipo. El icono de enviar/tabla crea el
+  **Excel para dirección** del periodo filtrado: hoja RESUMEN (un mes por fila con los totales
+  por tipo, base, IVA y litros) y hoja GASTOS (una fila por ticket con su **foto**), en
+  `Descargas/PortoValla/Gastos`.
 - **Agenda y avisos** (pestaña *Agenda* de la barra inferior, con el número de avisos):
   lo atrasado, cada día de la semana y las próximas semanas: trabajos y ventas con fecha,
   contratos que vencen, vallas que toca revisar, tráfico sin medir desde hace tiempo y

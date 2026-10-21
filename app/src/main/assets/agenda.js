@@ -194,7 +194,7 @@ function agendaItems() {
     if (!ct.hasta || contratoEstado(ct, hoy) !== 'Activo') continue;
     const c = clienteById(ct.clienteId);
     out.push({ fecha: ct.hasta, aviso: isoAddDays(ct.hasta, -diasAvisoContrato()), tipo: 'contrato', icono: '📄',
-      titulo: `Vence el contrato de ${ct.codigo}`, texto: [c ? c.nombre : '', ct.campana, ct.precioMes && `${fmtMoney(parseMoney(ct.precioMes))}/mes`].filter(Boolean).join(' · '),
+      titulo: `Vence el contrato de ${ct.codigo}`, texto: [c ? c.nombre : '', ct.pvs && `PVS ${ct.pvs}`, ct.campana, ct.precioMes && `${fmtMoney(parseMoney(ct.precioMes))}/mes`].filter(Boolean).join(' · '),
       abrir: ['cliente', ct.clienteId] });
   }
   // Revisiones periódicas de vallas

@@ -43,7 +43,7 @@ const CLIENTE_COLS = [
 ];
 
 const CONTRATO_COLS = [
-  ['CLIENTE', 'clienteNombre', 'text', 26], ['VALLA', 'codigo', 'text', 12], ['DIRECCIÓN VALLA', 'direccion', 'wrap', 34],
+  ['CLIENTE', 'clienteNombre', 'text', 26], ['PVS', 'pvs', 'text', 10], ['VALLA', 'codigo', 'text', 12], ['DIRECCIÓN VALLA', 'direccion', 'wrap', 34],
   ['MUNICIPIO', 'municipio', 'text', 14], ['DESDE', 'desde', 'date', 12], ['HASTA', 'hasta', 'date', 12],
   ['PRECIO MES', 'precioMes', 'money', 12], ['CAMPAÑA', 'campana', 'text', 20], ['NOTAS', 'notas', 'wrap', 26],
   ['ESTADO', 'estado', 'text', 10], ['FOTO', 'foto', 'photo', 26], ['ID', 'id', 'text', 14], ['ID CLIENTE', 'clienteId', 'text', 14],
@@ -222,8 +222,9 @@ const IMPORTERS = {
         if (!cli) continue;
         const codigo = normCodigo(o.codigo);
         const datos = { clienteId: cli.id, codigo, desde: o.desde || '', hasta: o.hasta || '', precioMes: o.precioMes || '',
-          campana: o.campana || '', notas: o.notas || '' };
+          campana: o.campana || '', notas: o.notas || '', pvs: String(o.pvs || '').trim() };
         let x = (o.id && contratos.find(k => k.id === o.id))
+          || (datos.pvs && contratos.find(k => k.pvs === datos.pvs))
           || contratos.find(k => k.clienteId === cli.id && k.codigo === codigo && (k.desde || '') === datos.desde);
         if (x) { Object.assign(x, datos, { modificado: now }); res.actualizados++; }
         else { contratos.push(Object.assign({ id: o.id || uid(), creado: now }, datos)); res.nuevos++; }
@@ -310,7 +311,7 @@ function clienteRows() {
   return clientes.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(c => {
     const r = clienteResumen(c);
     const v0 = (c.visitas || [])[0] || {};
-    return Object.assign({}, c, { vallasActivas: r.activos.map(ct => ct.codigo).join(', '), mensual: r.mensual ? String(r.mensual) : '',
+    return Object.assign({}, c, { vallasActivas: r.activos.map(ct => ct.codigo + (ct.pvs ? ` (PVS ${ct.pvs})` : '')).join(', '), mensual: r.mensual ? String(r.mensual) : '',
       vallasInteresTxt: [...new Set((c.vallasInteres || []).map(v => v.codigo))].join(', '),
       articulosTxt: (c.articulosInteres || []).map(a => a.articulo + (a.descripcion ? ` (${a.descripcion})` : '')).join(', '),
       ultimaVisita: v0.fecha || '', situacionVisita: v0.situacion || '' });
@@ -343,7 +344,7 @@ const EXPORTERS = {
   visitas(mode) {
     if (!NATIVE) { toast('El Excel solo se genera en la tablet'); return; }
     const fn = mode === 'open' ? 'openExcel' : 'shareExcel';
-    const err = window.Android[fn](JSON.stringify(leads), settings.fichero || 'Visitas_Leads');
+    const err = window.Android[fn](leadsExcelJson(), settings.fichero || 'Visitas_Leads');
     if (err) toast('⚠ ' + err);
   },
   vallas(mode) {
@@ -385,7 +386,7 @@ function openIo(area) {
 
 function refrescarArea(area) {
   ({ visitas: renderList, vallas: () => { renderCatFilters(); renderCatalog(); }, clientes: renderClientes,
-    trabajos: renderTrabajos, patrimonio: renderNegs })[area]();
+    trabajos: renderTrabajos, patrimonio: renderNegs, gastos: () => renderGastos() })[area]();
 }
 
 /* ------------------------------------------------------------- respuestas de Android */
@@ -415,7 +416,7 @@ window.onImportError = function (msg) { toast('⚠ ' + (msg || 'No se pudo impor
 /* ------------------------------------------------------------- copia de seguridad completa */
 
 const BACKUP_KEYS = ['leads', 'settings', 'trabajos', 'negociaciones', 'clientes', 'contratos', 'documentos',
-  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant'];
+  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant', 'gastos'];
 
 function exportarCopia() {
   const data = {};

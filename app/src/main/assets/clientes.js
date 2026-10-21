@@ -117,7 +117,7 @@ function renderClientes() {
   const q = $('#cli-search').value.trim().toLowerCase();
   const items = clientes.map(c => ({ c, r: clienteResumen(c) })).filter(({ c, r }) =>
     (cliFiltro !== 'activos' || r.activos.length) && (cliFiltro !== 'vencen' || r.vencen.length) &&
-    (!q || q.split(/\s+/).every(w => [c.nombre, c.contacto, c.poblacion, c.cif, c.telefono, ...r.cts.map(ct => ct.codigo)]
+    (!q || q.split(/\s+/).every(w => [c.nombre, c.contacto, c.poblacion, c.cif, c.telefono, ...r.cts.map(ct => `${ct.codigo} ${ct.pvs || ""}`)]
       .join(' ').toLowerCase().includes(w))))
     .sort((a, b) => (a.c.nombre || '').localeCompare(b.c.nombre || '', 'es'));
   const conVallas = clientes.filter(c => clienteResumen(c).activos.length).length;
@@ -175,7 +175,7 @@ function renderCf() {
     const est = contratoEstado(ct, hoy);
     return `<div class="row-item" data-ct="${ct.id}">
       ${v.foto ? `<img src="${esc(v.foto)}" alt="">` : ''}
-      <div class="ri-main"><b>${esc(ct.codigo)} · ${esc(v.direccion || '')}</b>
+      <div class="ri-main"><b>${ct.pvs ? `<span class="pvs-tag">PVS ${esc(ct.pvs)}</span> ` : ''}${esc(ct.codigo)} · ${esc(v.direccion || '')}</b>
         <span>${[ct.desde && `desde ${fmtDate(ct.desde)}`, ct.hasta ? `hasta ${fmtDate(ct.hasta)}` : 'sin fecha de fin',
           ct.precioMes && `${fmtMoney(parseMoney(ct.precioMes))}/mes`, ct.campana].filter(Boolean).map(esc).join(' · ')}</span></div>
       <span class="badge ${est === 'Activo' ? 'dispo-Ocupada' : est === 'Futuro' ? 'budget-b' : ''}">${est}</span>
@@ -212,7 +212,7 @@ function renderCf() {
         ${v.porcentaje ? `<span class="badge">${esc(v.porcentaje)}%</span>` : ''}
         ${v.envio ? `<span class="badge ok">✓ ${esc(v.envio)}</span>` : ''}</div>
       <dl class="ocr-summary">
-        ${[['Situación', v.situacion], ['Nota', v.nota], ['Presupuesto', v.presupuesto], ['PVS', v.pvs],
+        ${[['Situación', v.situacion], ['Nota', v.nota], ['Presupuesto', v.presupuesto], ['PVS (apuntado en la visita)', v.pvs],
           ['PVP entrada', v.pvpEntrada && fmtMoney(parseMoney(v.pvpEntrada))], ['PVP total', v.pvpTotal && fmtMoney(parseMoney(v.pvpTotal))],
           ['Fecha firma', v.fechaFirma && fmtDate(v.fechaFirma)], ['Trabajo realizado', v.fechaTrabajo && fmtDate(v.fechaTrabajo)],
           ['Volver', v.volver]].filter(x => x[1]).map(([k, val]) => `<dt>${k}</dt><dd>${esc(val)}</dd>`).join('')}
@@ -301,6 +301,8 @@ function openContrato(codes, id) {
     const otro = d.estado === 'Ocupada' && d.clienteId !== cliEditing;
     return code + (otro ? ` (⚠ ocupada${d.cliente ? ' por ' + d.cliente : ''})` : '');
   }).join(', ');
+  $('#ct-pvs').innerHTML = ctCtx.codes.map((code, i) => `<label class="ct-pvs-item">${ctCtx.codes.length > 1 ? esc(code) : 'PVS'}
+    <input type="text" data-ct-pvs="${i}" value="${esc(ct ? ct.pvs || '' : '')}" placeholder="Nº de contrato" autocapitalize="characters"></label>`).join('');
   $('#ct-desde').value = ct ? ct.desde || '' : todayISO();
   $('#ct-hasta').value = ct ? ct.hasta || '' : '';
   $('#ct-precio').value = ct ? ct.precioMes || '' : '';
@@ -319,12 +321,15 @@ function saveContrato() {
   };
   if (data.hasta && data.desde && data.hasta < data.desde) { toast('La fecha de fin es anterior a la de inicio'); return; }
   const now = new Date().toISOString();
+  const pvs = $$('[data-ct-pvs]').map(el => el.value.trim().toUpperCase());
+  const rep = pvs.find(p => p && contratos.some(x => x.pvs === p && x.id !== ctCtx.id));
+  if (rep && !confirm(`El PVS ${rep} ya está en otro contrato. ¿Guardar igualmente?`)) return;
   if (ctCtx.id) {
-    Object.assign(contratos.find(x => x.id === ctCtx.id), data, { modificado: now });
+    Object.assign(contratos.find(x => x.id === ctCtx.id), data, { pvs: pvs[0] || '', modificado: now });
   } else {
-    for (const codigo of ctCtx.codes) {
-      contratos.push(Object.assign({ id: uid(), clienteId: cliEditing, codigo, creado: now, modificado: now }, data));
-    }
+    ctCtx.codes.forEach((codigo, i) => {
+      contratos.push(Object.assign({ id: uid(), clienteId: cliEditing, codigo, creado: now, modificado: now }, data, { pvs: pvs[i] || '' }));
+    });
   }
   saveContratos();
   $('#contrato-modal').hidden = true;
