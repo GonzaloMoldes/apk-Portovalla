@@ -242,6 +242,7 @@
       <button class="chip active" data-cli-filtro="todos">Todos</button>
       <button class="chip" data-cli-filtro="activos">Con vallas contratadas</button>
       <button class="chip" data-cli-filtro="vencen">Contratos que vencen en 30 días</button>
+      <button class="chip" data-cli-filtro="renovaciones">🔁 Renovaciones</button>
     </div>
     <p class="stats" id="cli-stats"></p>
   </div>
@@ -315,6 +316,7 @@
 
     <div class="form-actions">
       <button type="button" class="btn danger" data-c="cli-delete" id="cf-delete">Eliminar</button>
+      <button type="button" class="btn" data-rv="fusion">🔀 Fusionar con otro cliente</button>
       <span class="spacer"></span>
       <button type="button" class="btn primary" data-c="cli-save">Guardar cliente</button>
     </div>
@@ -945,6 +947,88 @@
   </div>
 </div>
 
+<!-- ======================= RENOVACIONES ======================= -->
+<div class="modal" id="renov-import-modal" hidden>
+  <div class="sheet">
+    <h2>Importar renovaciones</h2>
+    <p class="hint" id="ri-info"></p>
+    <label class="lbl">Comercial</label>
+    <div class="chips small" id="ri-comerciales"></div>
+    <p class="hint">Para cada cliente elige si se fusiona con uno que ya tienes o se crea nuevo. Los contratos con el mismo PVS, o la misma valla y vencimiento, se actualizan en lugar de duplicarse.</p>
+    <div id="ri-clientes"></div>
+    <div class="form-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-rv="import-cancel">Cancelar</button>
+      <button type="button" class="btn primary" data-rv="import-ok">Importar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="renov-modal" hidden>
+  <div class="sheet">
+    <h2 id="rv-title">Renovación</h2>
+    <p class="rv-info" id="rv-info"></p>
+    <label class="lbl">Estilo de renovación</label>
+    <div class="chips small" id="rv-estilos">
+      <button type="button" class="chip" data-value="TACITA">Tácita</button>
+      <button type="button" class="chip" data-value="NO TACITA">No tácita</button>
+      <button type="button" class="chip" data-value="CONFIRMAR RENOVACION">Confirmar renovación</button>
+      <button type="button" class="chip" data-value="CONFIRMAR FIRMA">Confirmar firma</button>
+      <button type="button" class="chip" data-value="NO RENUEVA">No renueva</button>
+    </div>
+    <label>Observaciones<textarea id="rv-obs" rows="3"></textarea></label>
+    <label class="lbl">¿Cómo ha ido?</label>
+    <div class="scan-row" id="rv-acciones">
+      <button type="button" class="btn" data-rv-accion="Renovado">✅ Renovado</button>
+      <button type="button" class="btn" data-rv-accion="No renueva">✖ No renueva</button>
+      <button type="button" class="btn" data-rv-accion="Pendiente">⏳ Sigue pendiente</button>
+    </div>
+    <div id="rv-renovado" hidden>
+      <div class="grid">
+        <div>
+          <label>Nueva fecha de fin<input type="date" id="rv-nuevo-hasta"></label>
+          <div class="chips small">
+            <button type="button" class="chip" data-rv-meses="3">+3 meses</button>
+            <button type="button" class="chip" data-rv-meses="6">+6 meses</button>
+            <button type="button" class="chip" data-rv-meses="12">+1 año</button>
+          </div>
+        </div>
+        <label>Nuevo PVS<input type="text" id="rv-nuevo-pvs" autocapitalize="characters" placeholder="Si cambia"></label>
+      </div>
+      <label>Precio por mes (€ sin IVA)<input type="text" id="rv-nuevo-precio" inputmode="decimal"></label>
+      <p class="hint">Se crea el nuevo contrato a continuación del actual y este queda como renovado.</p>
+    </div>
+    <div id="rv-norenueva" hidden>
+      <label class="check"><input type="checkbox" id="rv-retirar" checked> Crear el trabajo «Retirar lona» para el día siguiente al vencimiento</label>
+    </div>
+    <div id="rv-pendiente" hidden>
+      <label>Volver a avisarme el<input type="date" id="rv-avisar"></label>
+      <div class="chips small">
+        <button type="button" class="chip" data-rv-avisar-dias="2">En 2 días</button>
+        <button type="button" class="chip" data-rv-avisar-dias="7">En una semana</button>
+        <button type="button" class="chip" data-rv-avisar-dias="14">En 2 semanas</button>
+      </div>
+    </div>
+    <label>Nota de la gestión<input type="text" id="rv-nota" placeholder="Ej.: llamado, envío propuesta, firma el lunes…"></label>
+    <details class="rv-hist-box"><summary>Historial</summary><div id="rv-hist"></div></details>
+    <div class="form-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-rv="cancel">Cancelar</button>
+      <button type="button" class="btn primary" data-rv="save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="fusion-modal" hidden>
+  <div class="sheet">
+    <h2>Fusionar clientes</h2>
+    <p class="hint">Elige el duplicado que quieres juntar con <b id="fu-actual"></b>: sus contratos, visitas, trabajos y documentos pasarán a este cliente.</p>
+    <input id="fu-search" type="search" placeholder="Buscar cliente…" autocomplete="off">
+    <div id="fu-lista"></div>
+    <div class="form-actions"><span class="spacer"></span><button type="button" class="btn" data-rv="fusion-cancel">Cerrar</button></div>
+  </div>
+</div>
+
 <!-- ======================= GASTOS ======================= -->
 <section id="view-gastos" class="view">
   <header class="bar">
@@ -1119,6 +1203,10 @@
         <label>Mi teléfono<input type="tel" name="miTelefono"></label>
         <label>Mi correo<input type="email" name="miEmail"></label>
       </div>
+      <div class="grid">
+        <label>Mi código de comercial<input type="text" name="miComercial" placeholder="GAL-GON" autocapitalize="characters"></label>
+        <p class="hint">Al importar el Excel de renovaciones se cogen las filas de este código.</p>
+      </div>
     </div>
 
     <div class="card">
@@ -1126,7 +1214,7 @@
       <p class="hint">La app avisa una vez al día (notificación de Android) de los trabajos con fecha cercana, contratos que vencen, vallas que toca revisar, tráfico sin medir y contactos de patrimonio.</p>
       <div class="grid">
         <label>Hora del aviso diario (0–23)<input type="text" name="avisoHora" inputmode="numeric" placeholder="9"></label>
-        <label>Avisar de los contratos con (días de antelación)<input type="text" name="avisoContratoDias" inputmode="numeric" placeholder="30"></label>
+        <label>Avisar de las renovaciones y fin de contratos con (días de antelación)<input type="text" name="avisoContratoDias" inputmode="numeric" placeholder="30"></label>
       </div>
       <label class="check"><input type="checkbox" name="avisosOff"> Desactivar las notificaciones</label>
       <button type="button" class="btn" data-action="test-alert">🔔 Probar el aviso ahora</button>
@@ -1268,6 +1356,7 @@
 <script src="datos.js"></script>
 <script src="ticket.js"></script>
 <script src="gastos.js"></script>
+<script src="renovaciones.js"></script>
 <script src="agenda.js"></script>
 </body>
 </html>

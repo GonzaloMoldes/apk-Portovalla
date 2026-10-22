@@ -443,3 +443,13 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 #gasto-form .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 12px; }
 @media (max-width: 560px) { #gasto-form .grid4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 440px) { .bottom-nav button { font-size: 9px; } .nav-ico { width: 40px; } }
+
+/* ---------- renovaciones ---------- */
+.ri-cliente { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
+.ri-filas { display: flex; flex-direction: column; font-size: 13px; color: var(--muted); margin: 4px 0; }
+.rv-info { font-size: 14px; line-height: 1.5; background: #f3f6fa; border-radius: 10px; padding: 10px 12px; }
+#rv-acciones .btn { flex: 1; min-width: 140px; }
+.rv-hist-box { margin-top: 10px; }
+.renov-btn { padding: 4px 8px; background: none; }
+.renov-btn .badge { margin: 0; }
+.renov-item .g-importe { font-size: 15px; }

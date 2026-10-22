@@ -46,7 +46,10 @@ const CONTRATO_COLS = [
   ['CLIENTE', 'clienteNombre', 'text', 26], ['PVS', 'pvs', 'text', 10], ['VALLA', 'codigo', 'text', 12], ['DIRECCIÓN VALLA', 'direccion', 'wrap', 34],
   ['MUNICIPIO', 'municipio', 'text', 14], ['DESDE', 'desde', 'date', 12], ['HASTA', 'hasta', 'date', 12],
   ['PRECIO MES', 'precioMes', 'money', 12], ['CAMPAÑA', 'campana', 'text', 20], ['NOTAS', 'notas', 'wrap', 26],
-  ['ESTADO', 'estado', 'text', 10], ['FOTO', 'foto', 'photo', 26], ['ID', 'id', 'text', 14], ['ID CLIENTE', 'clienteId', 'text', 14],
+  ['ESTADO', 'estado', 'text', 10],
+  ['ESTILO RENOVACIÓN', 'renovEstilo', 'text', 16, 'TACITA,NO TACITA,CONFIRMAR RENOVACION,CONFIRMAR FIRMA,NO RENUEVA'],
+  ['GESTIÓN RENOVACIÓN', 'renovEstado', 'text', 14, 'Pendiente,Renovado,No renueva'], ['AVISAR EL', 'renovAvisar', 'date', 12],
+  ['OBSERVACIONES RENOVACIÓN', 'renovObs', 'wrap', 40], ['COMERCIAL', 'comercial', 'text', 10], ['FOTO', 'foto', 'photo', 26], ['ID', 'id', 'text', 14], ['ID CLIENTE', 'clienteId', 'text', 14],
 ];
 
 /* ------------------------------------------------------------- utilidades de importación */
@@ -64,7 +67,7 @@ function fromCell(kind, v) {
   switch (kind) {
     case 'date': {
       if (isNum) {
-        const d = new Date(Date.UTC(1899, 11, 30) + Math.round(Number(s)) * 86400000);
+        const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(s) + 1e-6) * 86400000);   // sin la hora
         return d.toISOString().slice(0, 10);
       }
       const m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
@@ -223,6 +226,8 @@ const IMPORTERS = {
         const codigo = normCodigo(o.codigo);
         const datos = { clienteId: cli.id, codigo, desde: o.desde || '', hasta: o.hasta || '', precioMes: o.precioMes || '',
           campana: o.campana || '', notas: o.notas || '', pvs: String(o.pvs || '').trim() };
+        for (const k of ['renovEstilo', 'renovAvisar', 'renovObs', 'comercial']) if (o[k]) datos[k] = o[k];
+        if (o.renovEstado) datos.renovEstado = o.renovEstado === 'Pendiente' ? '' : o.renovEstado;
         let x = (o.id && contratos.find(k => k.id === o.id))
           || (datos.pvs && contratos.find(k => k.pvs === datos.pvs))
           || contratos.find(k => k.clienteId === cli.id && k.codigo === codigo && (k.desde || '') === datos.desde);
@@ -323,7 +328,8 @@ function contratoRows() {
     const c = clienteById(ct.clienteId) || {};
     const v = VALLAS_DB.find(x => x.codigo === ct.codigo) || {};
     return Object.assign({}, ct, { clienteNombre: c.nombre || '', direccion: v.direccion || '', municipio: v.municipio || '',
-      lat: v.lat, lng: v.lng, foto: v.foto || '', estado: contratoEstado(ct) });
+      lat: v.lat, lng: v.lng, foto: v.foto || '', estado: contratoEstado(ct),
+      renovEstado: typeof renovEstado === 'function' && ct.hasta ? renovEstado(ct) : ct.renovEstado || '' });
   }).sort((a, b) => a.clienteNombre.localeCompare(b.clienteNombre, 'es') || (a.desde || '').localeCompare(b.desde || ''));
 }
 
@@ -397,6 +403,7 @@ window.onImportBook = function (json) {
   if (!IMPORTERS[r.area]) { toast('⚠ Este fichero no se puede importar aquí'); return; }
   try {
     const res = IMPORTERS[r.area](r.sheets || {});
+    if (!res) { $('#io-modal').hidden = true; return; }   // se abre una vista previa (renovaciones)
     refrescarArea(r.area);
     toast(`Importado: ${res.nuevos} nuevo${res.nuevos === 1 ? '' : 's'} y ${res.actualizados} actualizado${res.actualizados === 1 ? '' : 's'}`);
   } catch (e) {

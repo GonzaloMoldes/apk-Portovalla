@@ -189,12 +189,20 @@ function agendaItems() {
         t.prioridad === 'Urgente' && '⚠ Urgente'].filter(Boolean).join(' · '),
       abrir: ['trabajo', t.id] });
   }
-  // Contratos en vigor que terminan
-  for (const ct of contratos) {
-    if (!ct.hasta || contratoEstado(ct, hoy) !== 'Activo') continue;
+  // Renovaciones pendientes (renovaciones.js) y contratos que terminan sin renovar
+  for (const ct of renovacionesPendientes()) {
     const c = clienteById(ct.clienteId);
-    out.push({ fecha: ct.hasta, aviso: isoAddDays(ct.hasta, -diasAvisoContrato()), tipo: 'contrato', icono: '📄',
-      titulo: `Vence el contrato de ${ct.codigo}`, texto: [c ? c.nombre : '', ct.pvs && `PVS ${ct.pvs}`, ct.campana, ct.precioMes && `${fmtMoney(parseMoney(ct.precioMes))}/mes`].filter(Boolean).join(' · '),
+    out.push({ fecha: ct.hasta, aviso: renovAviso(ct), tipo: 'contrato', icono: '🔁',
+      titulo: `Renovar ${ct.codigo} · ${c ? c.nombre : ''}`,
+      texto: [ct.renovEstilo && (RENOV_ESTILO_TXT[ct.renovEstilo] || ct.renovEstilo), ct.pvs, ct.campana,
+        ct.precioMes && `${fmtMoney(parseMoney(ct.precioMes))}/mes`, ct.renovAvisar && `aviso pospuesto al ${fmtDate(ct.renovAvisar)}`].filter(Boolean).join(' · '),
+      abrir: ['cliente', ct.clienteId], extra: 'renov', ctId: ct.id });
+  }
+  for (const ct of contratos) {
+    if (!ct.hasta || ct.hasta < hoy || renovEstado(ct) !== 'No renueva') continue;
+    const c = clienteById(ct.clienteId);
+    out.push({ fecha: ct.hasta, aviso: isoAddDays(ct.hasta, -7), tipo: 'contrato', icono: '📄',
+      titulo: `Fin de contrato (no renueva) ${ct.codigo}`, texto: [c ? c.nombre : '', ct.pvs, 'liberar la valla / retirar lona'].filter(Boolean).join(' · '),
       abrir: ['cliente', ct.clienteId] });
   }
   // Revisiones periódicas de vallas
@@ -248,13 +256,14 @@ function agendaItemHtml(i) {
       <span class="ag-cuando">${esc(fmtDate(i.fecha))} · ${esc(cuandoText(i.fecha))}</span></div>
     ${i.tipo === 'trabajo' ? `<button type="button" class="act" data-tr-done="${esc(i.abrir[1])}">✓ Hecho</button>` : ''}
     ${i.extra === 'revision' ? `<button type="button" class="act" data-ag-rev="${esc(i.abrir[1])}">🛠 Crear trabajo</button>` : ''}
+    ${i.extra === 'renov' ? `<button type="button" class="act" data-ag-renov="${esc(i.ctId)}">🔁 Gestionar</button>` : ''}
   </div>`;
 }
 
 function renderAgenda() {
   const hoy = todayISO();
   const all = agendaItems();
-  const tipos = { trabajo: 'Trabajos', contrato: 'Contratos', revision: 'Revisiones', trafico: 'Tráfico', patrimonio: 'Patrimonio' };
+  const tipos = { trabajo: 'Trabajos', contrato: 'Renovaciones', revision: 'Revisiones', trafico: 'Tráfico', patrimonio: 'Patrimonio' };
   const pend = agendaPendientes(all);
   $('#ag-tipos').innerHTML = [['', `Todo (${pend.length})`], ...Object.entries(tipos).map(([k, v]) => [k, `${v} (${pend.filter(i => i.tipo === k).length})`])]
     .map(([k, label]) => `<button class="chip${agendaFiltro === k ? ' active' : ''}" data-ag-tipo="${k}">${esc(label)}</button>`).join('');

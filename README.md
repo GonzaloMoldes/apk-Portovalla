@@ -85,6 +85,21 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   **artículos** del presupuesto. Con *✍ Contratar estas vallas* se crea el contrato con las
   fechas y el precio de la propuesta. En el Excel de clientes salen las vallas y artículos de
   interés y la última visita.
+- **Renovaciones** (Clientes → *🔁 Renovaciones*): con el icono ⇅ de Clientes se importa el
+  Excel de renovaciones de la oficina (COMERCIAL, INICIO CONT., VENCIMIENTO, CLIENTE - CAMPAÑA,
+  ESTADO RENOVACION, OBSERVACIONES, DISPO, OOH, ZONA, EMPLAZAMIENTO, SOPORTE, TAMAÑO,
+  COORDENADAS). Se abre una vista previa con las filas de *mi código de comercial* (Ajustes,
+  p. ej. GAL-GON; se puede elegir otro o todos) y, para cada cliente, si se **fusiona** con uno
+  que ya existe (mismo nombre o parecido) o se crea nuevo. De cada fila se crea o actualiza el
+  contrato (cliente, valla, desde, vencimiento, campaña, estilo de renovación, observaciones y
+  el PVS y precio que vengan en ellas); las vallas que no estén en el catálogo se añaden. La
+  lista de renovaciones muestra lo que hay que gestionar ya (según los días de aviso), lo que
+  viene después y lo ya gestionado. Al gestionar una renovación: **Renovado** (nueva fecha de
+  fin, PVS y precio: crea el nuevo contrato), **No renueva** (y crea el trabajo *Retirar lona*)
+  o **Sigue pendiente** (con fecha para volver a avisar); todo queda en el historial del
+  contrato y en la ficha del cliente. Las renovaciones salen en la Agenda y en la notificación
+  diaria con los días de antelación de Ajustes. En la ficha del cliente, *🔀 Fusionar con otro
+  cliente* junta dos clientes duplicados.
 - **Disponibilidad de las vallas**: 🟢 Disponible, 🔴 Ocupada (con qué cliente y hasta
   cuándo) o 🟡 Consultar. Un contrato en vigor de un cliente la marca como ocupada; si no,
   se marca a mano en la ficha de la valla. Filtro por disponibilidad en el catálogo y

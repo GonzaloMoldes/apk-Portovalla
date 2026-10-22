@@ -114,6 +114,11 @@ function clienteResumen(c) {
 
 function renderClientes() {
   $$('#cli-filtros .chip').forEach(ch => ch.classList.toggle('active', ch.dataset.cliFiltro === cliFiltro));
+  if (typeof renovacionesPendientes === 'function') {
+    const n = renovacionesPendientes().filter(ct => renovAviso(ct) <= todayISO()).length;
+    $('[data-cli-filtro=renovaciones]').textContent = `🔁 Renovaciones${n ? ` (${n})` : ''}`;
+  }
+  if (cliFiltro === 'renovaciones') { renderRenovaciones(); return; }   // renovaciones.js
   const q = $('#cli-search').value.trim().toLowerCase();
   const items = clientes.map(c => ({ c, r: clienteResumen(c) })).filter(({ c, r }) =>
     (cliFiltro !== 'activos' || r.activos.length) && (cliFiltro !== 'vencen' || r.vencen.length) &&
@@ -128,6 +133,9 @@ function renderClientes() {
       r.activos.length ? `<span class="badge dispo-Ocupada">🪧 ${r.activos.length} valla${r.activos.length > 1 ? 's' : ''}</span>` : '',
       r.mensual ? `<span class="badge budget-b">${fmtMoney(r.mensual)}/mes</span>` : '',
       r.vencen.length ? `<span class="badge pend">${r.vencen.length} vence${r.vencen.length > 1 ? 'n' : ''} pronto</span>` : '',
+      ...(typeof renovacionesPendientes === 'function' ? renovacionesPendientes().filter(ct => ct.clienteId === c.id && renovAviso(ct) <= todayISO())
+        .slice(0, 2).map(ct => `<span class="badge volver">🔁 Renovar ${esc(ct.codigo)} · ${esc(fmtDate(ct.hasta))}</span>`) : []),
+      c.comercial ? `<span class="badge">${esc(c.comercial)}</span>` : '',
       docs ? `<span class="badge">📄 ${docs} PDF</span>` : '',
     ].join('');
     return `<article class="job" data-cli="${c.id}">
@@ -179,6 +187,7 @@ function renderCf() {
         <span>${[ct.desde && `desde ${fmtDate(ct.desde)}`, ct.hasta ? `hasta ${fmtDate(ct.hasta)}` : 'sin fecha de fin',
           ct.precioMes && `${fmtMoney(parseMoney(ct.precioMes))}/mes`, ct.campana].filter(Boolean).map(esc).join(' · ')}</span></div>
       <span class="badge ${est === 'Activo' ? 'dispo-Ocupada' : est === 'Futuro' ? 'budget-b' : ''}">${est}</span>
+      ${ct.hasta ? `<button type="button" class="act renov-btn" data-ct-renov="${ct.id}">${renovBadge(ct) || '🔁 Renovación'}</button>` : ''}
     </div>`;
   }).join('') : '<p class="hint">Sin vallas contratadas.</p>';
   const r = c ? clienteResumen(c) : { activos: [], mensual: 0 };
