@@ -85,6 +85,11 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   **artículos** del presupuesto. Con *✍ Contratar estas vallas* se crea el contrato con las
   fechas y el precio de la propuesta. En el Excel de clientes salen las vallas y artículos de
   interés y la última visita.
+- **Filtros de Clientes**: todos, con vallas contratadas, contratos que vencen, renovaciones,
+  **con trabajos pendientes** (trabajos o ventas sin terminar) y **datos incompletos** (falta
+  CIF, contacto, teléfono, correo o dirección; se indica qué falta en la tarjeta y en la
+  ficha). Cada cliente puede llevar **imágenes** (logo, fachada, su lona…): la primera sale
+  en la lista.
 - **Renovaciones** (Clientes → *🔁 Renovaciones*): con el icono ⇅ de Clientes se importa el
   Excel de renovaciones de la oficina (COMERCIAL, INICIO CONT., VENCIMIENTO, CLIENTE - CAMPAÑA,
   ESTADO RENOVACION, OBSERVACIONES, DISPO, OOH, ZONA, EMPLAZAMIENTO, SOPORTE, TAMAÑO,

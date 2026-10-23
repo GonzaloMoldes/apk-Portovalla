@@ -259,6 +259,8 @@
       <button class="chip" data-cli-filtro="activos">Con vallas contratadas</button>
       <button class="chip" data-cli-filtro="vencen">Contratos que vencen en 30 días</button>
       <button class="chip" data-cli-filtro="renovaciones">🔁 Renovaciones</button>
+      <button class="chip" data-cli-filtro="trabajos">🛠 Con trabajos pendientes</button>
+      <button class="chip" data-cli-filtro="incompletos">⚠ Datos incompletos</button>
     </div>
     <p class="stats" id="cli-stats"></p>
   </div>
@@ -276,6 +278,7 @@
   <form id="cli-form" autocomplete="off" novalidate>
     <div class="card">
       <h2>Datos del cliente</h2>
+      <p class="aviso" id="cf-faltan" hidden></p>
       <label>Nombre / razón social *<input type="text" name="nombre" autocapitalize="characters"></label>
       <div class="grid">
         <label>CIF / NIF<input type="text" name="cif" autocapitalize="characters"></label>
@@ -300,6 +303,15 @@
       </div>
       <label>Notas<textarea name="notas" rows="2"></textarea></label>
       <div id="cf-contacto"></div>
+    </div>
+
+    <div class="card">
+      <label class="lbl">Imagen del cliente <span class="hint-inline">(logo, fachada, la lona de su campaña…; la primera sale en la lista)</span></label>
+      <div class="photo-strip" id="cf-fotos"></div>
+      <div class="scan-row">
+        <button type="button" class="btn scan" data-c="cf-foto-camara">📷 Hacer foto</button>
+        <button type="button" class="btn" data-c="cf-foto-galeria">🖼 Desde galería</button>
+      </div>
     </div>
 
     <div class="card">

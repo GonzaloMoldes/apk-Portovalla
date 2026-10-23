@@ -456,7 +456,7 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 
 /* ---------- contacto rápido, cliente de la visita, cronómetro, fotos de valla ---------- */
 .qa-row { flex-basis: 100%; }
-.job .qa-row { border-top: 1px solid #e6ebf1; padding-top: 10px; margin-top: 2px; }
+.job .lead-actions.qa-row { flex-basis: 100%; border-top: 1px solid #e6ebf1; padding-top: 10px; margin-top: 2px; }
 #cf-contacto .qa-row, #nf-contacto .qa-row { border: 0; padding-top: 4px; margin-top: 8px; }
 .lc-box { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #f3f6fa; }
 .lc-elegido { margin: 0 0 8px; font-size: 14px; }
@@ -483,3 +483,6 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 
 /* ---------- visitas de tipo Valla ---------- */
 .badge.t-Valla { background: #fde9cf; color: #8a4b00; }
+
+/* ---------- imagen del cliente ---------- */
+.cli-thumb { object-fit: contain; background: #fff; border: 1px solid var(--border); }

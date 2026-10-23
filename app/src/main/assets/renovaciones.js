@@ -389,7 +389,7 @@ function fusionarClientes(otroId) {
   if (!confirm(`¿Fusionar «${o.nombre}» dentro de «${c.nombre}»? Sus contratos, visitas, trabajos y documentos pasarán a «${c.nombre}» y se borrará el duplicado.`)) return;
   for (const k of ['cif', 'contacto', 'telefono', 'correo', 'direccion', 'poblacion', 'provincia', 'comercial']) if (!c[k] && o[k]) c[k] = o[k];
   if (o.notas) c.notas = [c.notas, o.notas].filter(Boolean).join('\n');
-  for (const k of ['visitas', 'vallasInteres', 'articulosInteres']) c[k] = (c[k] || []).concat(o[k] || []);
+  for (const k of ['visitas', 'vallasInteres', 'articulosInteres', 'fotos']) c[k] = (c[k] || []).concat(o[k] || []);
   contratos.forEach(ct => { if (ct.clienteId === o.id) ct.clienteId = c.id; });
   leads.forEach(l => { if (l.clienteId === o.id) l.clienteId = c.id; });
   trabajos.forEach(t => { if (t.clienteId === o.id) { t.clienteId = c.id; t.clienteNombre = c.nombre; } });

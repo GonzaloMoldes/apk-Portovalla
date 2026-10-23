@@ -112,6 +112,22 @@ function clienteResumen(c) {
   return { cts, activos, mensual, vencen };
 }
 
+/** Trabajos y ventas sin terminar de un cliente (por ficha o por nombre). */
+function trabajosPendientesCliente(c) {
+  const n = normName(c.nombre);
+  return trabajos.filter(t => t.estado !== 'Hecho' && (t.clienteId === c.id || (!t.clienteId && n && normName(t.clienteNombre || t.campana) === n)));
+}
+
+/** Datos que le faltan a la ficha del cliente. */
+function datosQueFaltan(c) {
+  return [[!c.cif, 'CIF'], [!c.contacto, 'contacto'], [!c.telefono, 'teléfono'], [!c.correo, 'correo'],
+    [!c.direccion && !c.poblacion, 'dirección']].filter(x => x[0]).map(x => x[1]);
+}
+
+let cfFotos = [];          // fotos / logo del cliente que se edita
+function renderCfFotos() { $('#cf-fotos').innerHTML = photoStrip(cfFotos, 'cliente'); }
+PHOTO_HANDLERS.cliente = url => { cfFotos.push(url); renderCfFotos(); toast('Imagen añadida (se guarda con el cliente)'); };
+
 function renderClientes() {
   $$('#cli-filtros .chip').forEach(ch => ch.classList.toggle('active', ch.dataset.cliFiltro === cliFiltro));
   if (typeof renovacionesPendientes === 'function') {
@@ -120,14 +136,19 @@ function renderClientes() {
   }
   if (cliFiltro === 'renovaciones') { renderRenovaciones(); return; }   // renovaciones.js
   const q = $('#cli-search').value.trim().toLowerCase();
-  const items = clientes.map(c => ({ c, r: clienteResumen(c) })).filter(({ c, r }) =>
+  const nTr = clientes.filter(c => trabajosPendientesCliente(c).length).length;
+  const nInc = clientes.filter(c => datosQueFaltan(c).length).length;
+  $('[data-cli-filtro=trabajos]').textContent = `🛠 Con trabajos pendientes${nTr ? ` (${nTr})` : ''}`;
+  $('[data-cli-filtro=incompletos]').textContent = `⚠ Datos incompletos${nInc ? ` (${nInc})` : ''}`;
+  const items = clientes.map(c => ({ c, r: clienteResumen(c), tp: trabajosPendientesCliente(c), faltan: datosQueFaltan(c) })).filter(({ c, r, tp, faltan }) =>
     (cliFiltro !== 'activos' || r.activos.length) && (cliFiltro !== 'vencen' || r.vencen.length) &&
+    (cliFiltro !== 'trabajos' || tp.length) && (cliFiltro !== 'incompletos' || faltan.length) &&
     (!q || q.split(/\s+/).every(w => [c.nombre, c.contacto, c.poblacion, c.cif, c.telefono, ...r.cts.map(ct => `${ct.codigo} ${ct.pvs || ""}`)]
       .join(' ').toLowerCase().includes(w))))
     .sort((a, b) => (a.c.nombre || '').localeCompare(b.c.nombre || '', 'es'));
   const conVallas = clientes.filter(c => clienteResumen(c).activos.length).length;
   $('#cli-stats').textContent = `${items.length} de ${clientes.length} clientes · ${conVallas} con vallas contratadas`;
-  $('#cli-list').innerHTML = items.length ? items.map(({ c, r }) => {
+  $('#cli-list').innerHTML = items.length ? items.map(({ c, r, tp, faltan }) => {
     const docs = docsDeCliente(c).length;
     const badges = [
       r.activos.length ? `<span class="badge dispo-Ocupada">🪧 ${r.activos.length} valla${r.activos.length > 1 ? 's' : ''}</span>` : '',
@@ -137,8 +158,11 @@ function renderClientes() {
         .slice(0, 2).map(ct => `<span class="badge volver">🔁 Renovar ${esc(ct.codigo)} · ${esc(fmtDate(ct.hasta))}</span>`) : []),
       c.comercial ? `<span class="badge">${esc(c.comercial)}</span>` : '',
       docs ? `<span class="badge">📄 ${docs} PDF</span>` : '',
+      tp.length ? `<span class="badge estado-En">🛠 ${tp.length} trabajo${tp.length > 1 ? 's' : ''} pendiente${tp.length > 1 ? 's' : ''}</span>` : '',
+      faltan.length ? `<span class="badge volver">⚠ Falta: ${esc(faltan.join(', '))}</span>` : '',
     ].join('');
     return `<article class="job" data-cli="${c.id}">
+      ${c.fotos && c.fotos.length ? `<img class="lead-thumb cli-thumb" src="${esc(c.fotos[0])}" alt="">` : ''}
       <div class="job-main">
         <div class="job-title">${esc(c.nombre)}</div>
         <div class="job-meta">${[c.contacto, c.telefono, c.correo, c.poblacion].filter(Boolean).map(esc).join(' · ')}</div>
@@ -163,6 +187,8 @@ function openClienteForm(id, preset) {
   for (const k of CF_FIELDS) form.elements[k].value = c[k] || '';
   $('#cli-form-title').textContent = id ? c.nombre : 'Nuevo cliente';
   $('#cf-delete').hidden = !id;
+  cfFotos = (c.fotos || []).slice();
+  renderCfFotos();
   renderFichaContacto('#cli-form', '#cf-contacto');
   renderCf();
   show('cliente-form');
@@ -170,6 +196,9 @@ function openClienteForm(id, preset) {
 
 function renderCf() {
   const form = $('#cli-form');
+  const faltan = datosQueFaltan(readCf());
+  $('#cf-faltan').textContent = faltan.length ? `⚠ Faltan datos: ${faltan.join(', ')}.` : '';
+  $('#cf-faltan').hidden = !faltan.length;
   $$('#cli-form [data-cf-fill]').forEach(g => {
     const v = (form.elements[g.dataset.cfFill].value || '').trim().toLowerCase();
     $$('.chip', g).forEach(ch => ch.classList.toggle('active', !!v && ch.dataset.value.toLowerCase() === v));
@@ -258,6 +287,7 @@ function readCf() {
   d.nombre = d.nombre.toUpperCase();
   d.cif = d.cif.toUpperCase();
   d.correo = d.correo.toLowerCase();
+  d.fotos = cfFotos.slice();
   return d;
 }
 
@@ -520,6 +550,8 @@ document.addEventListener('click', e => {
     }
     case 'cli-delete': deleteCliente(); break;
     case 'cf-contratar': contratar(); break;
+    case 'cf-foto-camara': pickPhoto('camera', 'cliente'); break;
+    case 'cf-foto-galeria': pickPhoto('gallery', 'cliente'); break;
     case 'cf-contratar-interes': contratarInteres(); break;
     case 'ct-save': saveContrato(); break;
     case 'ct-cancel': $('#contrato-modal').hidden = true; ctCtx = null; break;
@@ -536,5 +568,9 @@ document.addEventListener('click', e => {
 });
 
 $('#cli-search').addEventListener('input', renderClientes);
-$('#cli-form').addEventListener('input', e => { if (e.target.name === 'provincia') renderCf(); });
+$('#cli-form').addEventListener('input', e => { if (['provincia', 'cif', 'contacto', 'telefono', 'correo', 'direccion', 'poblacion'].includes(e.target.name)) renderCf(); });
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-foto-x]');
+  if (t && t.dataset.fotoX.startsWith('cliente:')) { cfFotos.splice(Number(t.dataset.fotoX.split(':')[1]), 1); renderCfFotos(); }
+});
 $('#contrato-modal').addEventListener('click', e => { if (e.target.id === 'contrato-modal') e.target.hidden = true; });
