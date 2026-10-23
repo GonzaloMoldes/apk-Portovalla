@@ -145,6 +145,51 @@
     return res;
   }
 
+  /* ---------------------------------------------------------------------
+   * Valla publicitaria (anuncio de otra empresa): el anunciante, su teléfono,
+   * email y web. No hay persona de contacto; el nombre se busca cruzando el
+   * texto con el dominio de la web o del correo, y si no, por el sector.
+   * --------------------------------------------------------------------- */
+  const SECTOR = /\b(cl[ií]nica|dental|inmobiliaria|autos?|motor|taller|concesionario|restaurante|hotel|muebles|[oó]ptica|farmacia|gimnasio|academia|colegio|escuela|supermercado|construcciones|seguros|abogados|asesor[ií]a|peluquer[ií]a|cafeter[ií]a|pizzer[ií]a|centro|ferreter[ií]a|electrodom[eé]sticos|cocinas|reformas|grupo|tienda|bodega|veterinari[oa])\b/i;
+  const ESLOGAN = /^(vende|vendo|alquila|alquilo|se vende|se alquila|rebajas|oferta|ofertas|promoci[oó]n|ll[aá]ma(nos|me)?|gratis|nuevo|nueva|ahora|desde|hasta|tu |te |ven |visita|descubre|abierto|pr[oó]xima apertura|primera visita)/i;
+  const sinAcentos = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const clave = s => sinAcentos(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  function parseValla(text) {
+    const r = parseCard(text);
+    const lines = r.lines;
+    const textual = lines.filter(l => !/@|www\.|https?:/i.test(l) && l.replace(/\D/g, '').length < 5
+      && !/\.(com|es|gal|net|org|eu|info)\b/i.test(l) && /\p{L}{3,}/u.test(l) && !/%/.test(l) && !ESLOGAN.test(l));
+    const dom = r.correo ? r.correo.split('@')[1] : r.web.replace(/^www\./, '');
+    let key = dom ? clave(dom.split('.')[0]) : '';
+    if (/^(gmail|hotmail|yahoo|outlook|live|icloud|info|mail|correo)$/.test(key)) key = '';
+    let best = '', bestScore = 0;
+    if (key) {
+      textual.forEach((l, i) => {
+        for (const cand of [l, textual[i + 1] ? l + ' ' + textual[i + 1] : null]) {
+          if (!cand) continue;
+          const k = clave(cand);
+          let score = k.length >= 3 && (key.includes(k) || k.includes(key)) ? Math.min(k.length, key.length) + 2 : 0;
+          if (!score) {
+            const w = sinAcentos(cand).toLowerCase().split(/[^a-z0-9]+/).filter(x => x.length >= 4 && key.includes(x));
+            score = w.reduce((a, x) => a + x.length, 0);
+          }
+          if (score > bestScore) { bestScore = score; best = cand; }
+        }
+      });
+    }
+    if (!best) best = textual.find(l => LEGAL.test(l)) || textual.find(l => SECTOR.test(l) && !ESLOGAN.test(l)) || '';
+    if (!best) best = textual.filter(l => !ESLOGAN.test(l) && l === l.toUpperCase()).sort((a, b) => b.length - a.length)[0] || '';
+    if (!best && key) best = dom.split('.')[0].replace(/-/g, ' ');
+    // «CLÍNICA DENTAL» + «SONRISAS»: si la línea anterior es el sector, se une
+    const i = lines.indexOf(best);
+    if (i > 0 && SECTOR.test(lines[i - 1]) && !SECTOR.test(best) && !ESLOGAN.test(lines[i - 1]) && lines[i - 1].replace(/\D/g, '').length < 3) {
+      best = lines[i - 1] + ' ' + best;
+    }
+    return Object.assign({}, r, { razonSocial: best.toUpperCase().replace(/\s{2,}/g, ' ').trim(), contacto: '', cargo: '' });
+  }
+
   global.parseCard = parseCard;
-  if (typeof module !== 'undefined') module.exports = { parseCard };
+  global.parseValla = parseValla;
+  if (typeof module !== 'undefined') module.exports = { parseCard, parseValla };
 })(typeof window !== 'undefined' ? window : globalThis);

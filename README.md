@@ -139,6 +139,12 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   galería*; para las coordenadas: *Usar mi ubicación* (GPS), escribirlas o pegar un enlace
   de Google Maps. Las vallas del catálogo original se pueden eliminar o *Volver al
   original*. Los cambios se guardan en la tablet y se usan en presupuestos y trabajos.
+- **Visitas de tipo «Valla»** (anunciantes vistos en vallas de otros): el escáner pasa a
+  *Escanear valla*: lee del cartel el nombre del anunciante (cruzándolo con su web o email),
+  el teléfono, el email y la web, guarda la foto del cartel en la visita y la posición GPS
+  donde se vio, con la descripción del sitio. Queda como lead para llamar, enviar WhatsApp o
+  email; se propone el **Modelo 5 «Anuncio en valla»** (variable `{ubicacion}`), editable en
+  Ajustes. En la tarjeta, *📍 Valla* abre el sitio en el mapa.
 - **Tiempo de visión (cronómetro)**: en la ficha de la valla y en la negociación de
   patrimonio, *Cronometrar el tiempo de visión*: se pulsa cuando un vehículo empieza a ver la
   valla y otra vez cuando la ha pasado; se toman varias pasadas y se guarda la media. Con la

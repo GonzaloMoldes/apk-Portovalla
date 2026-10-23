@@ -11,7 +11,7 @@ const VISITA_COLS = [
   ['CLIENTE LLAMADAS VISITA PROPIETARIO', 'tipo', 'text'], ['PVS', 'pvs', 'text'], ['FECHA', 'fecha', 'date'],
   ['FECHA FIRMA', 'fechaFirma', 'date'], ['RAZÓN SOCIAL', 'razonSocial', 'text'], ['PERSONA CONTACTO', 'contacto', 'text'],
   ['TELÉFONO', 'telefono', 'text'], ['POBLACIÓN', 'poblacion', 'text'], ['PROVINCIA', 'provincia', 'text'],
-  ['CORREO', 'correo', 'text'], ['SITUACIÓN', 'situacion', 'wrap'], ['PVP ENTRADA SIN IVA', 'pvpEntrada', 'money'],
+  ['CORREO', 'correo', 'text'], ['SITUACIÓN', 'situacion', 'wrap'], ['VALLA DONDE SE VIO EL ANUNCIO', 'vallaUbic', 'wrap'], ['PVP ENTRADA SIN IVA', 'pvpEntrada', 'money'],
   ['PVP TOTAL SIN IVA', 'pvpTotal', 'money'], ['VOLVER (SI/NO)', 'volver', 'text'], ['%', 'porcentaje', 'percent'],
   ['FECHA DE TRABAJO REALIZADO', 'fechaTrabajo', 'date'], ['SEGUIMIENTO ENVIADO', 'envio', 'text'], ['ID', 'id', 'text'],
 ];

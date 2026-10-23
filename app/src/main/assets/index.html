@@ -47,8 +47,8 @@
 
   <form id="lead-form" autocomplete="off" novalidate>
     <div class="scan-row">
-      <button type="button" class="btn scan" data-action="scan-camera">📷 Escanear tarjeta</button>
-      <button type="button" class="btn" data-action="scan-gallery">🖼 Tarjeta desde galería</button>
+      <button type="button" class="btn scan" data-action="scan-camera" id="btn-scan-camera">📷 Escanear tarjeta</button>
+      <button type="button" class="btn" data-action="scan-gallery" id="btn-scan-gallery">🖼 Tarjeta desde galería</button>
     </div>
 
     <div class="card">
@@ -67,8 +67,18 @@
         <button type="button" class="chip" data-value="Propietario">Propietario</button>
         <button type="button" class="chip" data-value="Cliente">Cliente</button>
         <button type="button" class="chip" data-value="Visita Patrimonio">Visita Patrimonio</button>
+        <button type="button" class="chip" data-value="Valla">🪧 Valla</button>
       </div>
       <input type="hidden" name="tipo">
+      <div id="lead-valla" class="lc-box" hidden>
+        <p class="lc-elegido">Anunciante visto en una valla publicitaria: escanea el cartel para sacar su nombre, teléfono, email y web, y guárdalo como lead para llamarle o escribirle.</p>
+        <label>¿Dónde está la valla?<input type="text" name="vallaUbic" placeholder="Ej.: AC-552 entrada Arteixo, rotonda Marineda…"></label>
+        <label>Coordenadas<input type="text" name="vallaCoords" placeholder="Se rellenan con el GPS al escanear"></label>
+        <div class="scan-row">
+          <button type="button" class="btn" data-action="lv-gps" id="lv-gps">📍 Usar mi ubicación</button>
+          <button type="button" class="btn" data-action="lv-map">🗺 Ver en mapa</button>
+        </div>
+      </div>
       <input type="hidden" name="clienteId">
       <div id="lead-cli-pick" class="lc-box" hidden>
         <p class="lc-elegido" id="lc-elegido"></p>
@@ -1338,6 +1348,15 @@
       <label>Asunto del email<input type="text" name="tpl2_emailAsunto"></label>
       <label>Texto del email<textarea name="tpl2_emailCuerpo" rows="9"></textarea></label>
       <label>Texto de WhatsApp<textarea name="tpl2_whatsapp" rows="4"></textarea></label>
+    </div>
+
+    <div class="card">
+      <h2>Modelo 5 (anunciante visto en una valla)</h2>
+      <p class="hint">Se propone en las visitas de tipo «Valla». <code>{ubicacion}</code> pone « en …» con el sitio donde viste la valla.</p>
+      <label>Nombre del modelo<input type="text" name="tpl4_nombre"></label>
+      <label>Asunto del email<input type="text" name="tpl4_emailAsunto"></label>
+      <label>Texto del email<textarea name="tpl4_emailCuerpo" rows="9"></textarea></label>
+      <label>Texto de WhatsApp<textarea name="tpl4_whatsapp" rows="4"></textarea></label>
     </div>
 
     <div class="card">

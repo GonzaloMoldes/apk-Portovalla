@@ -92,9 +92,23 @@ DEFAULT_PLANTILLAS.push({
     'Le adjunto el PDF con las fotos y la ubicación de cada valla. Cualquier duda, me dice.',
 });
 
+DEFAULT_PLANTILLAS.push({
+  nombre: 'Anuncio en valla',
+  emailAsunto: 'Su publicidad en vallas – {miEmpresa}',
+  emailCuerpo:
+    'Buenos días:\n\n' +
+    'He visto su anuncio en una valla publicitaria{ubicacion} y me gustaría presentarles {miEmpresa}. ' +
+    'Tenemos vallas en muy buenas ubicaciones de Galicia, con mucho tráfico y visibilidad, y podemos ' +
+    'prepararles sin compromiso una propuesta para su próxima campaña.\n\n' +
+    '¿Les parece que les llame para comentarlo?' + FIRMA,
+  whatsapp:
+    'Hola, soy {comercial} de {miEmpresa}. He visto su anuncio en una valla{ubicacion} y me gustaría ' +
+    'ofrecerles nuestras vallas en Galicia para su próxima campaña. ¿Le puedo llamar para contárselo?',
+});
+
 const FIELDS = ['tipo', 'clienteId', 'fecha', 'fechaFirma', 'razonSocial', 'contacto', 'telefono',
   'poblacion', 'provincia', 'correo', 'situacion', 'pvpEntrada', 'pvpTotal', 'volver',
-  'porcentaje', 'fechaTrabajo'];
+  'porcentaje', 'fechaTrabajo', 'vallaUbic', 'vallaCoords'];
 
 /* ------------------------------------------------------------- almacenamiento */
 
@@ -231,6 +245,7 @@ function fillTemplate(tpl, lead) {
     vallas: budgetVallasText(lead.presupuesto),
     presupuesto: budgetSummary(lead.presupuesto),
     detalle: budgetDetail(lead.presupuesto),
+    ubicacion: (lead.vallaUbic || '').trim() ? ` en ${(lead.vallaUbic || '').trim()}` : '',
   };
   return String(tpl || '')
     .replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
@@ -374,7 +389,7 @@ function renderList() {
     if (group !== lastGroup) { html += `<div class="week">${esc(group)}</div>`; lastGroup = group; }
 
     const ch = channelsFor(l);
-    const sub = [l.contacto, l.poblacion, l.telefono, l.correo].filter(Boolean).map(esc).join(' · ');
+    const sub = [l.contacto, l.poblacion, l.telefono, l.correo, l.tipo === 'Valla' && l.vallaUbic && '🪧 ' + l.vallaUbic].filter(Boolean).map(esc).join(' · ');
     const badges = [
       `<span class="badge t-${esc((l.tipo || '').replace(/\s/g, ''))}">${esc(l.tipo || 'Lead')}</span>`,
       `<span class="badge">${esc(fmtDate(l.fecha))}</span>`,
@@ -390,6 +405,7 @@ function renderList() {
       ch.includes('email') ? `<button class="act mail" data-send="email" data-id="${l.id}">✉ Email</button>` : '',
       ch.includes('whatsapp') ? `<button class="act wa" data-send="whatsapp" data-id="${l.id}">WhatsApp</button>` : '',
       normPhone(l.telefono) ? `<button class="act" data-call="${l.id}">☎ Llamar</button>` : '',
+      l.tipo === 'Valla' && parseCoords(l.vallaCoords || '') ? (c => `<button class="act" data-qa="map" data-lat="${c.lat}" data-lng="${c.lng}" data-label="${esc(l.razonSocial || '')}">📍 Valla</button>`)(parseCoords(l.vallaCoords)) : '',
       hasBudget(l) ? `<button class="act" data-g-install="${l.id}">🛠 A trabajos</button>` : '',
       l.tipo === 'Propietario' ? `<button class="act" data-neg-lead="${l.id}">🏠 Negociación</button>` : '',
       l.tipo === 'Cliente' || hasBudget(l) || l.clienteId ? `<button class="act" data-lead-cliente="${l.id}">👤 Cliente</button>` : '',
@@ -418,6 +434,32 @@ function setChipGroup(name, value) {
   $$('.chip', group).forEach(c => c.classList.toggle('active', c.dataset.value === value));
   $(`#lead-form [name="${name}"]`).value = value || '';
   if (name === 'tipo' && typeof renderLeadCliPick === 'function') renderLeadCliPick();   // contacto.js
+  if (name === 'tipo') renderLeadValla();
+}
+
+/* ------------------------------------------------------------- visita de tipo «Valla» */
+
+/** Anunciante visto en una valla: datos del sitio y escáner del cartel en lugar de la tarjeta. */
+function esVisitaValla() { return $('#lead-form').elements.tipo.value === 'Valla'; }
+
+function renderLeadValla() {
+  const valla = esVisitaValla();
+  $('#lead-valla').hidden = !valla;
+  $('#btn-scan-camera').textContent = valla ? '📷 Escanear valla' : '📷 Escanear tarjeta';
+  $('#btn-scan-gallery').textContent = valla ? '🖼 Valla desde galería' : '🖼 Tarjeta desde galería';
+}
+
+/** GPS: posición donde se ve la valla. */
+function vallaVistaGps(silencioso) {
+  const btn = $('#lv-gps');
+  requestLocationFor({
+    btn: '#lv-gps',
+    done: r => {
+      btn.textContent = '📍 Usar mi ubicación';
+      $('#lead-form').elements.vallaCoords.value = `${r.lat}, ${r.lng}`;
+      if (!silencioso) toast(`Ubicación guardada${r.acc ? ` (±${r.acc} m)` : ''}`);
+    },
+  });
 }
 
 /** Marca el botón de población/provincia que coincide con lo escrito en el campo. */
@@ -583,6 +625,7 @@ let sending = null; // { id, channel, modelo }
 /** Modelo sugerido: si no hay persona de contacto se dejaron los datos; si no, agradecimiento. */
 function suggestedModel(lead) {
   if (hasBudget(lead)) return 3;
+  if (lead.tipo === 'Valla') return 4;
   const sit = (lead.situacion || '').toLowerCase();
   if (/presupuesto|propuesta|precio|enviar info|mandar info/.test(sit)) return 2;
   if (/hablado con/.test(sit)) return 0;
@@ -1216,29 +1259,33 @@ let ocrData = null;
 function scanCard(source) {
   if (!NATIVE) { toast('El escáner solo funciona en la tablet'); return; }
   $('#ocr-modal').hidden = true;
-  window.Android.scanCard(source);
+  if (currentView() === 'form' && esVisitaValla() && window.Android.scanValla) window.Android.scanValla(source);
+  else window.Android.scanCard(source);
 }
 
-window.onOcrStart = function () { toast('Leyendo la tarjeta…'); };
+window.onOcrStart = function () { toast(currentView() === 'form' && esVisitaValla() ? 'Leyendo la valla…' : 'Leyendo la tarjeta…'); };
 window.onOcrError = function (msg) { if (msg) toast('⚠ ' + msg); };
 
 /** Llamado desde Android con el texto reconocido. */
 window.onOcrResult = function (text) {
   if (currentView() !== 'form') openForm(null);
-  const r = window.parseCard(text);
-  if (!r.lines.length) { toast('No se ha podido leer texto. Prueba con más luz y la tarjeta recta.'); return; }
   const form = $('#lead-form');
+  const valla = esVisitaValla();
+  const r = valla ? window.parseValla(text) : window.parseCard(text);
+  if (!r.lines.length) { toast(valla ? 'No se ha podido leer texto del cartel. Acércate o haz zoom al teléfono y la web.' : 'No se ha podido leer texto. Prueba con más luz y la tarjeta recta.'); return; }
   const put = (field, value, overwrite) => {
     if (value && (overwrite || !form.elements[field].value.trim())) form.elements[field].value = value;
   };
   put('razonSocial', r.razonSocial, true);
-  put('contacto', r.contacto, true);
+  if (!valla) put('contacto', r.contacto, true);
   put('telefono', r.telefono, true);
   put('correo', r.correo, true);
   put('poblacion', r.poblacion, true);
   put('provincia', r.provincia, true);
-  const extra = [r.cargo && `Cargo: ${r.cargo}`, r.telefono2 && `Otro tel.: ${r.telefono2}`, r.web && `Web: ${r.web}`]
+  const extra = [valla && 'Anuncio visto en una valla', r.cargo && `Cargo: ${r.cargo}`, r.telefono2 && `Otro tel.: ${r.telefono2}`, r.web && `Web: ${r.web}`]
     .filter(Boolean).join('. ');
+  if (valla && !form.elements.vallaCoords.value.trim()) vallaVistaGps(true);   // dónde se vio la valla
+  $('#ocr-modal h2').textContent = valla ? 'Datos de la valla' : 'Datos de la tarjeta';
   if (extra) {
     const nota = form.elements.nota;
     if (!nota.value.includes(extra)) nota.value = [nota.value.trim(), extra].filter(Boolean).join('. ');
@@ -1466,6 +1513,14 @@ document.addEventListener('click', e => {
       break;
     case 'vallas-done': closePicker(); break;
     case 'scan-camera': scanCard('camera'); break;
+    case 'lv-gps': vallaVistaGps(false); break;
+    case 'lv-map': {
+      const c = parseCoords($('#lead-form').elements.vallaCoords.value);
+      if (!c) { toast('Pon primero la ubicación de la valla'); break; }
+      if (NATIVE) window.Android.openMap(String(c.lat), String(c.lng), $('#lead-form').elements.razonSocial.value || 'Valla');
+      else window.open(`https://www.google.com/maps?q=${c.lat},${c.lng}`);
+      break;
+    }
     case 'scan-gallery': scanCard('gallery'); break;
     case 'ocr-done': $('#ocr-modal').hidden = true; break;
     case 'back': window.handleBack(); break;

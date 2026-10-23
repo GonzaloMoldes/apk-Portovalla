@@ -49,7 +49,7 @@ public final class XlsxWriter {
 
     private static final Col[] COLS = {
         new Col("CLIENTE LLAMADAS VISITA PROPIETARIO", "tipo", Kind.TEXT, 20)
-                .withList("Visita Patrimonio,Lead,Propietario,Cliente"),
+                .withList("Visita Patrimonio,Lead,Propietario,Cliente,Valla"),
         new Col("PVS", "pvs", Kind.TEXT, 8),
         new Col("FECHA", "fecha", Kind.DATE, 12),
         new Col("FECHA FIRMA", "fechaFirma", Kind.DATE, 12),
@@ -60,6 +60,7 @@ public final class XlsxWriter {
         new Col("PROVINCIA", "provincia", Kind.TEXT, 12).withList("Coruña,Lugo"),
         new Col("CORREO", "correo", Kind.TEXT, 28),
         new Col("SITUACIÓN", "situacion", Kind.WRAP, 40),
+        new Col("VALLA DONDE SE VIO EL ANUNCIO", "vallaUbic", Kind.WRAP, 26),
         new Col("PVP ENTRADA SIN IVA", "pvpEntrada", Kind.MONEY, 14),
         new Col("PVP TOTAL SIN IVA", "pvpTotal", Kind.MONEY, 14),
         new Col("VOLVER (SI/NO)", "volver", Kind.TEXT, 10).withList("Si,No"),

@@ -328,7 +328,7 @@ public class MainActivity extends Activity {
 
     /** Errores de cámara/galería: van a la tarjeta (OCR) o a la foto de la valla. */
     private void captureError(String msg) {
-        if ("ocr".equals(pendingPurpose)) callJs("onOcrError", msg);
+        if ("ocr".equals(pendingPurpose) || "ocrvalla".equals(pendingPurpose)) callJs("onOcrError", msg);
         else if ("ticket".equals(pendingPurpose)) callJs("onTicketError", msg);
         else callJs("onPhotoError", msg);
     }
@@ -342,12 +342,14 @@ public class MainActivity extends Activity {
                 pick.addCategory(Intent.CATEGORY_OPENABLE);
                 startActivityForResult(Intent.createChooser(pick,
                         "ocr".equals(pendingPurpose) ? "Foto de la tarjeta"
+                                : "ocrvalla".equals(pendingPurpose) ? "Foto de la valla"
                                 : "ticket".equals(pendingPurpose) ? "Foto del ticket" : "Foto"), REQ_GALLERY);
                 return;
             }
             ContentValues v = new ContentValues();
             v.put(MediaStore.MediaColumns.DISPLAY_NAME,
-                    ("ocr".equals(pendingPurpose) ? "tarjeta_" : "ticket".equals(pendingPurpose) ? "ticket_" : "foto_")
+                    ("ocr".equals(pendingPurpose) ? "tarjeta_" : "ticket".equals(pendingPurpose) ? "ticket_"
+                            : "ocrvalla".equals(pendingPurpose) ? "valla_" : "foto_")
                             + System.currentTimeMillis() + ".jpg");
             v.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
             if (Build.VERSION.SDK_INT >= 29) {
@@ -399,6 +401,10 @@ public class MainActivity extends Activity {
         }
         if ("ticket".equals(pendingPurpose)) {
             processTicket(uri, fromCamera);
+            return;
+        }
+        if ("ocrvalla".equals(pendingPurpose)) {
+            processVallaAnuncio(uri, fromCamera);
             return;
         }
         if (!"ocr".equals(pendingPurpose)) {
@@ -502,6 +508,49 @@ public class MainActivity extends Activity {
                                 callJs("onTicketError", "No se pudo reconocer el texto");
                             }
                         })
+                        .addOnCompleteListener(t -> {
+                            recognizer.close();
+                            image.recycle();
+                            if (fromCamera) discardPendingPhoto();
+                        });
+            });
+        }).start();
+    }
+
+    /**
+     * Valla publicitaria de otro anunciante (visita de tipo «Valla»): guarda la foto como foto
+     * de la visita (onPhotoResult con tag "lead") y lee el texto del cartel (onOcrResult).
+     */
+    private void processVallaAnuncio(Uri uri, boolean fromCamera) {
+        callJs("onOcrStart", "");
+        new Thread(() -> {
+            Bitmap bmp;
+            try {
+                bmp = loadScaledBitmap(uri, OCR_MAX_SIDE);
+                File dir = new File(getFilesDir(), "vallas");
+                if (!dir.exists() && !dir.mkdirs()) throw new IOException("No se pudo crear la carpeta de fotos");
+                File f = new File(dir, "anuncio_" + System.currentTimeMillis() + ".jpg");
+                float k = Math.min(1f, (float) PHOTO_MAX_SIDE / Math.max(bmp.getWidth(), bmp.getHeight()));
+                Bitmap small = k < 1f ? Bitmap.createScaledBitmap(bmp, Math.round(bmp.getWidth() * k), Math.round(bmp.getHeight() * k), true) : bmp;
+                try (OutputStream out = new FileOutputStream(f)) {
+                    small.compress(Bitmap.CompressFormat.JPEG, 78, out);
+                }
+                if (small != bmp) small.recycle();
+                JSONObject r = new JSONObject();
+                r.put("tag", "lead");
+                r.put("url", "file://" + f.getAbsolutePath());
+                callJs("onPhotoResult", r.toString());
+            } catch (Exception e) {
+                if (fromCamera) runOnUiThread(this::discardPendingPhoto);
+                callJs("onOcrError", "No se pudo leer la foto: " + e.getMessage());
+                return;
+            }
+            final Bitmap image = bmp;
+            runOnUiThread(() -> {
+                TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+                recognizer.process(InputImage.fromBitmap(image, 0))
+                        .addOnSuccessListener(text -> callJs("onOcrResult", text.getText()))
+                        .addOnFailureListener(e -> callJs("onOcrError", "No se pudo reconocer el texto: " + e.getMessage()))
                         .addOnCompleteListener(t -> {
                             recognizer.close();
                             image.recycle();
@@ -1084,6 +1133,12 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void scanCard(String source) {
             runOnUiThread(() -> startScan(source));
+        }
+
+        /** Valla publicitaria de otro anunciante: foto a la visita + texto (onPhotoResult y onOcrResult). */
+        @JavascriptInterface
+        public void scanValla(String source) {
+            runOnUiThread(() -> startCapture(source, "ocrvalla"));
         }
 
         /** Ticket de gasto (cámara o galería): foto guardada + texto. Resultado en onTicketResult. */
