@@ -29,6 +29,8 @@ const VALLA_COLS = [
   ['REVISAR CADA', 'revCada', 'text', 12, 'Mensual,Trimestral,Semestral,Anual,Nunca'],
   ['QUÉ HACER', 'revMotivo', 'text', 12, 'Desbrozar,Revisión,Limpieza'], ['ÚLTIMA REVISIÓN', 'revUltima', 'date', 12],
   ['PRÓXIMA REVISIÓN', 'revProxima', 'date', 12],
+  ['TIEMPO DE VISIÓN (s)', 'tiempoVision', 'number', 11], ['DISTANCIA DE VISIÓN (m)', 'distanciaVision', 'number', 12],
+  ['Nº FOTOS', 'nFotos', 'number', 8],
   ['PRECIO MES (categoría)', 'precioCat', 'money', 12],
   ['FOTO', 'foto', 'photo', 26],
 ];
@@ -183,6 +185,12 @@ const IMPORTERS = {
         hist.sort((a, b) => a.fecha.localeCompare(b.fecha));
         vallasTrafico[codigo] = hist;
       }
+      // Visión
+      if (o.tiempoVision || o.distanciaVision) {
+        const pv = vallasVision[codigo] || {};
+        vallasVision[codigo] = { tiempoVision: parseMoney(o.tiempoVision) || pv.tiempoVision || '', distancia: Math.round(parseMoney(o.distanciaVision)) || pv.distancia || '',
+          fecha: pv.fecha || todayISO(), medidas: pv.medidas || [] };
+      }
       // Revisión periódica
       if (o.revCada && REV_MESES[o.revCada] !== undefined) {
         vallasMant[codigo] = { cada: o.revCada, motivo: REV_MOTIVOS.includes(o.revMotivo) ? o.revMotivo : 'Desbrozar',
@@ -199,6 +207,7 @@ const IMPORTERS = {
     saveDispo();
     saveTrafico();
     saveMant();
+    saveVision();
     return res;
   },
 
@@ -342,6 +351,8 @@ function vallaRows() {
       impactosVeh: c.fecha ? String(impactosSplit(c).veh) : '', impactosPie: c.fecha ? String(impactosSplit(c).pie) : '',
       revCada: (vallasMant[v.codigo] || {}).cada || '', revMotivo: (vallasMant[v.codigo] || {}).motivo || '',
       revUltima: (vallasMant[v.codigo] || {}).ultima || '', revProxima: proximaRevision(v.codigo),
+      tiempoVision: String((vallasVision[v.codigo] || {}).tiempoVision || ''), distanciaVision: String((vallasVision[v.codigo] || {}).distancia || ''),
+      nFotos: (vallasFotos[v.codigo] || []).length ? String((vallasFotos[v.codigo] || []).length) : '',
       precioCat: precioCategoria(v.categoria) });
   });
 }
@@ -423,7 +434,7 @@ window.onImportError = function (msg) { toast('⚠ ' + (msg || 'No se pudo impor
 /* ------------------------------------------------------------- copia de seguridad completa */
 
 const BACKUP_KEYS = ['leads', 'settings', 'trabajos', 'negociaciones', 'clientes', 'contratos', 'documentos',
-  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant', 'gastos'];
+  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant', 'gastos', 'vallas_fotos', 'vallas_vision'];
 
 function exportarCopia() {
   const data = {};

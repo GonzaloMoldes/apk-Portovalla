@@ -139,6 +139,18 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   galería*; para las coordenadas: *Usar mi ubicación* (GPS), escribirlas o pegar un enlace
   de Google Maps. Las vallas del catálogo original se pueden eliminar o *Volver al
   original*. Los cambios se guardan en la tablet y se usan en presupuestos y trabajos.
+- **Tiempo de visión (cronómetro)**: en la ficha de la valla y en la negociación de
+  patrimonio, *Cronometrar el tiempo de visión*: se pulsa cuando un vehículo empieza a ver la
+  valla y otra vez cuando la ha pasado; se toman varias pasadas y se guarda la media. Con la
+  velocidad aproximada del tráfico se estima la distancia desde la que se ve. Cada valla
+  guarda y muestra (👀 en el catálogo) su **tiempo de visión y distancia**, editables; al
+  ganar una negociación pasan a las vallas nuevas.
+- **Historial de fotos de las vallas**: cada foto nueva se suma a las anteriores con la
+  fecha y el cliente que tenía la valla; se puede elegir la principal (★) y eliminar fotos.
+- **Fotos en los trabajos**: salen en la columna *FOTO DEL TRABAJO* del Excel para el equipo.
+- **Contacto rápido**: botones ✉ Email, WhatsApp, ☎ Llamar (y 📍 Mapa) en las tarjetas y
+  fichas de Clientes y Patrimonio. En una visita de tipo *Cliente*, buscador de los clientes
+  dados de alta: al elegirlo se rellenan sus datos y la visita queda unida a su ficha.
 - **Tráfico e impactos de las vallas**: en la ficha de cada valla, el mismo **contador de
   1 minuto** de Patrimonio (vehículos y personas) calcula los **impactos al día**
   ((vehículos × 1,3 + personas) × 60 × 14 h). Cada conteo se guarda con su fecha en un

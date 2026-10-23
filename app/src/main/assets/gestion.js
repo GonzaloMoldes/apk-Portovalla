@@ -18,7 +18,11 @@ let trPersona = '';
 let catZona = 'Todas';
 let catMuni = '';
 let vallaEditing = null;   // código de la valla que se edita (null = nueva)
-let vfFoto = '';           // foto de la ficha de valla
+let vfFoto = '';           // foto principal de la ficha de valla
+let vfFotos = [];          // historial de fotos de la valla que se edita: [{url, fecha, cliente}]
+let vfFotosBorrar = [];    // fotos quitadas (se borran al guardar)
+let vallasFotos = store.load('vallas_fotos') || {};   // código → historial de fotos
+let tfFotos = [];          // fotos del trabajo que se edita
 let trEditing = null;      // id del trabajo que se edita (null = nuevo)
 let trCodes = [];          // vallas del trabajo en edición
 let trSnap = {};           // datos guardados de esas vallas (por si ya no están en el catálogo)
@@ -125,7 +129,7 @@ function renderCatalog() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${revisionBadge(v.codigo)}</div>
+        <div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${visionBadge(v.codigo)}${revisionBadge(v.codigo)}${(vallasFotos[v.codigo] || []).length ? `<span class="badge">📷 ${(vallasFotos[v.codigo] || []).length}</span>` : ''}</div>
         ${traficoSplitHtml(v.codigo)}
         ${v.lat !== '' && v.lat != null ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
       </div>
@@ -151,7 +155,19 @@ function normCodigo(s) {
 
 function renderVfPhoto() {
   $('#vf-photo').innerHTML = vfFoto ? `<img src="${esc(vfFoto)}" alt="">` : 'Sin foto';
-  $('#vf-photo-remove').hidden = !vfFoto;
+  // Historial: la foto del catálogo original y las que se han ido haciendo (la más reciente primero)
+  const base = vallaEditing ? fotoBaseValla(vallaEditing) : '';
+  const items = vfFotos.map((f, i) => ({ ...f, i })).reverse();
+  if (base && !vfFotos.some(f => f.url === base)) items.push({ url: base, fecha: '', cliente: '', base: true });
+  $('#vf-fotos').innerHTML = items.length ? items.map(f => `<div class="vf-foto${f.url === vfFoto ? ' principal' : ''}">
+      <img src="${esc(f.url)}" alt="" data-vf-ver="${esc(f.url)}">
+      <div class="vf-foto-pie">${f.base ? 'Catálogo original' : f.fecha ? esc(fmtDate(f.fecha)) : 'Foto anterior'}${f.cliente ? `<br>${esc(f.cliente)}` : ''}</div>
+      ${f.url === vfFoto ? '<span class="vf-foto-star">★ Principal</span>'
+        : `<button type="button" class="act vf-foto-btn" data-vf-principal="${esc(f.url)}">★ Usar</button>`}
+      ${f.base ? '' : `<button type="button" class="photo-x" data-vf-fotodel="${f.i}" aria-label="Eliminar foto">✕</button>`}
+    </div>`).join('') : '<p class="hint">Sin fotos todavía.</p>';
+  $('#vf-fotos-n').textContent = vfFotos.length ? `${vfFotos.length} foto${vfFotos.length > 1 ? 's' : ''} hecha${vfFotos.length > 1 ? 's' : ''}` : '';
+  $('#vf-photo-remove').hidden = true;
 }
 
 function renderVfChips() {
@@ -190,6 +206,10 @@ function openVallaForm(code) {
   const isBase = !!code && VALLAS_BASE.some(b => b.codigo === code);
   form.elements.codigo.readOnly = isBase;
   vfFoto = v.foto || '';
+  vfFotos = code ? (vallasFotos[code] || []).map(f => Object.assign({}, f)) : [];
+  // Foto hecha con versiones anteriores (una sola por valla): pasa al historial
+  if (vfFoto && vfFoto !== fotoBaseValla(code) && !vfFotos.some(f => f.url === vfFoto)) vfFotos.unshift({ url: vfFoto, fecha: '', cliente: '' });
+  vfFotosBorrar = [];
   renderVfPhoto();
   renderVfChips();
   $('#valla-form-title').textContent = code ? `Editar ${code}` : 'Nueva valla';
@@ -207,6 +227,7 @@ function openVallaForm(code) {
   form.elements.ocupadaHasta.value = d.hasta || '';
   renderVfDispo();
   traficoLoad(code || '');
+  visionLoad(code || '');
   mantLoad(code || '');
   show('valla-form');
 }
@@ -265,6 +286,12 @@ function saveValla() {
     if (vallasDispo[vallaEditing]) { vallasDispo[codigo] = vallasDispo[vallaEditing]; delete vallasDispo[vallaEditing]; }
   }
   vallasUser[codigo] = rec;
+  if (vallaEditing && vallaEditing !== codigo) delete vallasFotos[vallaEditing];
+  if (vfFotos.length) vallasFotos[codigo] = vfFotos; else delete vallasFotos[codigo];
+  store.save('vallas_fotos', vallasFotos);
+  if (NATIVE && window.Android.deletePhoto) vfFotosBorrar.forEach(u => window.Android.deletePhoto(u));
+  vfFotosBorrar = [];
+  visionSave(codigo, vallaEditing);              // vision.js
   traficoSave(codigo, vallaEditing);
   mantSave(codigo, vallaEditing);
   saveCatalog();
@@ -304,7 +331,32 @@ function restoreValla() {
 
 /* --- foto y ubicación (respuestas de Android) --- */
 
-PHOTO_HANDLERS.valla = url => { vfFoto = url; renderVfPhoto(); toast('Foto añadida'); };
+/** Foto del catálogo original (PDF) de una valla, si la tiene. */
+function fotoBaseValla(code) {
+  const b = VALLAS_BASE.find(x => x.codigo === code);
+  return b && b.foto || '';
+}
+
+/** Cliente que tiene la valla ahora (para saber qué lona salía en cada foto). */
+function clienteActualValla(code) {
+  const ct = code && contratoActivo(code);
+  const c = ct && clienteById(ct.clienteId);
+  if (c) return c.nombre;
+  const d = code && vallasDispo[code];
+  return d && d.estado === 'Ocupada' ? d.ocupadaPor || '' : '';
+}
+
+/* Cada foto nueva se suma al historial de la valla y pasa a ser la principal. */
+PHOTO_HANDLERS.valla = url => {
+  vfFotos.push({ url, fecha: todayISO(), cliente: clienteActualValla(vallaEditing) });
+  vfFoto = url;
+  renderVfPhoto();
+  toast('Foto añadida (se guarda al guardar la valla)');
+};
+
+/* --- fotos del trabajo --- */
+function renderTfFotos() { $('#tf-fotos').innerHTML = photoStrip(tfFotos, 'trabajo'); }
+PHOTO_HANDLERS.trabajo = url => { tfFotos.push(url); renderTfFotos(); toast('Foto añadida'); };
 
 /* Ubicación GPS para la ficha que la pide (valla o negociación). */
 const LOC_VALLA = { form: '#valla-form', btn: '#vf-location', hint: '#vf-coords-hint' };
@@ -406,6 +458,7 @@ function renderTrabajos() {
     const venta = t.clase === 'Venta';
     const titulo = venta ? `🛒 ${(t.lineas || []).map(x => x.articulo).join(', ') || 'Venta'}` : t.tipos.join(' + ');
     return `<article class="job${t.prioridad === 'Urgente' && t.estado !== 'Hecho' ? ' urgente' : ''}${t.estado === 'Hecho' ? ' hecho' : ''}" data-tr="${t.id}">
+      ${t.fotos && t.fotos.length ? `<img class="lead-thumb" src="${esc(t.fotos[0])}" alt="">` : ''}
       <div class="job-main">
         <div class="job-title">#${t.num} · ${esc(titulo)}</div>
         ${vallas ? `<div class="job-vallas">${vallas}</div>` : ''}
@@ -483,6 +536,8 @@ function openTrabajoForm(id, preset) {
   form.elements.clienteNombre.value = t.clienteNombre || '';
   tfLineas = (t.lineas || []).map(l => Object.assign({}, l));
   renderTfLineas();
+  tfFotos = (t.fotos || []).slice();
+  renderTfFotos();
   trLeadId = t.leadId || '';
   trCodes = t.vallas.map(v => v.codigo);
   trSnap = {};
@@ -510,6 +565,7 @@ function saveTrabajo() {
     clienteId: cli ? cli.id : '',
     clienteNombre: cli ? cli.nombre : clienteNombre,
     lineas: venta ? lineasForSave(tfLineas) : [],
+    fotos: tfFotos.slice(),
     importe: venta ? String(ventaImporte(tfLineas)) : '',
     tipos,
     vallas: trCodes.map(code => {
@@ -651,7 +707,8 @@ const TR_COLS = [
   ['MAPA', 'mapa', 'link', 11], ['CLIENTE / CAMPAÑA', 'campana', 'text', 20], ['MATERIAL', 'material', 'text', 13],
   ['INSTRUCCIONES', 'descripcion', 'wrap', 36], ['ASIGNADO A', 'asignado', 'text', 16],
   ['ESTADO', 'estado', 'text', 11, 'Pendiente,En curso,Hecho'], ['FECHA REALIZADO', 'fechaHecho', 'date', 12],
-  ['OBSERVACIONES DEL OPERARIO', 'obs', 'wrap', 30], ['FOTO', 'foto', 'photo', 26], ['ID', 'id', 'text', 14],
+  ['OBSERVACIONES DEL OPERARIO', 'obs', 'wrap', 30], ['FOTO VALLA', 'foto', 'photo', 26],
+  ['FOTO DEL TRABAJO', 'fotoTrabajo', 'photo', 26], ['ID', 'id', 'text', 14],
 ];
 
 /** Filas del Excel: trabajos → una por valla; ventas → una por artículo. */
@@ -663,6 +720,7 @@ function trabajoRows(list) {
       prioridad: t.prioridad || '', clienteNombre: t.clienteNombre || '', campana: t.campana || '',
       material: t.material || '', descripcion: t.descripcion || '', asignado: t.asignado || '',
       estado: t.estado || '', fechaHecho: t.fechaHecho || '', obs: t.obs || '',
+      fotoTrabajo: (t.fotos || [])[0] || '',
     };
     const vallaCols = v => {
       if (!v) return { codigo: '', direccion: '', municipio: '', medida: '', lat: '', lng: '', foto: '' };
@@ -822,6 +880,8 @@ document.addEventListener('click', e => {
       pickPhoto('gallery', 'valla');
       break;
     case 'vf-photo-remove': vfFoto = ''; renderVfPhoto(); break;
+    case 'tf-photo-camera': pickPhoto('camera', 'trabajo'); break;
+    case 'tf-photo-gallery': pickPhoto('gallery', 'trabajo'); break;
     case 'vf-location': requestLocationFor(LOC_VALLA); break;
     case 'vf-map': vfMap(); break;
     case 'tr-new': openTrabajoForm(null); break;
@@ -837,6 +897,28 @@ document.addEventListener('click', e => {
     case 'tx-cancel': $('#tr-export-modal').hidden = true; break;
     case 'tx-open': doExport('open'); break;
     case 'tx-share': doExport('share'); break;
+  }
+});
+
+/* Fotos de la valla (historial) y del trabajo */
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, [data-vf-ver]');
+  if (!t) return;
+  if (t.dataset.vfVer) { $('#foto-grande img').src = t.dataset.vfVer; $('#foto-grande').hidden = false; return; }
+  if (t.dataset.vfPrincipal) { vfFoto = t.dataset.vfPrincipal; renderVfPhoto(); return; }
+  if (t.dataset.vfFotodel !== undefined) {
+    const i = Number(t.dataset.vfFotodel), f = vfFotos[i];
+    if (!f || !confirm(`¿Eliminar la foto del ${fmtDate(f.fecha)}${f.cliente ? ` (${f.cliente})` : ''}?`)) return;
+    vfFotos.splice(i, 1);
+    vfFotosBorrar.push(f.url);
+    if (vfFoto === f.url) vfFoto = vfFotos.length ? vfFotos[vfFotos.length - 1].url : (vallaEditing ? fotoBaseValla(vallaEditing) : '');
+    renderVfPhoto();
+    toast('Foto quitada (se borra al guardar la valla)');
+    return;
+  }
+  if (t.dataset.fotoX && t.dataset.fotoX.startsWith('trabajo:')) {
+    tfFotos.splice(Number(t.dataset.fotoX.split(':')[1]), 1);
+    renderTfFotos();
   }
 });
 

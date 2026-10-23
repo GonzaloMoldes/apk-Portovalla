@@ -453,3 +453,30 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .renov-btn { padding: 4px 8px; background: none; }
 .renov-btn .badge { margin: 0; }
 .renov-item .g-importe { font-size: 15px; }
+
+/* ---------- contacto rápido, cliente de la visita, cronómetro, fotos de valla ---------- */
+.qa-row { flex-basis: 100%; }
+.job .qa-row { border-top: 1px solid #e6ebf1; padding-top: 10px; margin-top: 2px; }
+#cf-contacto .qa-row, #nf-contacto .qa-row { border: 0; padding-top: 4px; margin-top: 8px; }
+.lc-box { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #f3f6fa; }
+.lc-elegido { margin: 0 0 8px; font-size: 14px; }
+.lc-resultados { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.lc-item { text-align: left; border: 1px solid var(--border); background: #fff; border-radius: 10px; padding: 8px 12px; }
+.lc-item b { display: block; font-size: 15px; }
+.lc-item span { color: var(--muted); font-size: 13px; }
+.crono-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 6px auto 12px;
+  width: 190px; height: 190px; border-radius: 50%; border: 0; background: var(--ok); color: #fff; font-size: 54px; line-height: 1;
+  box-shadow: 0 6px 18px rgba(16,34,60,.25); }
+.crono-btn span { font-size: 16px; font-weight: 700; margin-top: 8px; }
+.crono-btn.on { background: var(--danger); }
+.crono-medidas { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.chip.crono-m { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 6px 4px 12px; }
+.crono-x { border: 0; background: #fde8e6; color: var(--danger); border-radius: 50%; width: 24px; height: 24px; font-size: 12px; }
+.badge.vision { background: #e9f6ee; color: #1d6b3d; }
+.vf-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.vf-foto { position: relative; border: 2px solid transparent; border-radius: 10px; overflow: hidden; background: #f3f6fa; }
+.vf-foto.principal { border-color: var(--gold); }
+.vf-foto img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; cursor: zoom-in; }
+.vf-foto-pie { font-size: 12px; color: var(--muted); padding: 4px 8px 0; min-height: 30px; }
+.vf-foto-star { display: block; font-size: 12px; font-weight: 700; color: #8a5300; padding: 2px 8px 8px; }
+.vf-foto-btn { margin: 2px 8px 8px; padding: 4px 10px; font-size: 12px; }

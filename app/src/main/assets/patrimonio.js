@@ -119,6 +119,7 @@ function renderNegs() {
           .filter(Boolean).map(esc).join(' · ')}</div>
         <div class="badges">${badges}</div>
       </div>
+      ${contactoBtns({ correo: n.correo, telefono: n.telefono, lat: n.lat, lng: n.lng, label: n.propietario })}
     </article>`;
   }).join('') : `<div class="empty">${negociaciones.length ? 'No hay negociaciones con este filtro.'
     : 'Aún no hay negociaciones.<br>Pulsa <b>＋ Negociación</b> o el botón <b>🏠 Negociación</b> de una visita a un propietario.'}</div>`;
@@ -171,6 +172,7 @@ function openNegForm(id, preset) {
   }, preset || {});
   for (const k of NF_FIELDS) form.elements[k].value = n[k] || '';
   form.elements.coords.value = n.lat !== '' && n.lat != null ? `${n.lat}, ${n.lng}` : '';
+  setTimeout(() => renderFichaContacto('#neg-form', '#nf-contacto'), 0);
   nfState = {};
   for (const k of NF_CHOICES) nfState[k] = n[k] || '';
   negFotos = Array.isArray(n.fotos) ? n.fotos.slice() : [];
@@ -281,6 +283,11 @@ function winNeg() {
       };
     });
     saveCatalog();
+    // El tiempo de visión y la distancia medidos en la negociación pasan a las vallas nuevas
+    if (num(n.tiempoVision) || num(n.distancia)) {
+      codes.forEach(c => { vallasVision[c] = { tiempoVision: num(n.tiempoVision) || '', distancia: Math.round(num(n.distancia)) || '', fecha: todayISO(), medidas: [] }; });
+      saveVision();
+    }
     n.vallasCreadas = codes;
     n.modificado = new Date().toISOString();
     saveNegs();

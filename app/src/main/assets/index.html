@@ -69,6 +69,12 @@
         <button type="button" class="chip" data-value="Visita Patrimonio">Visita Patrimonio</button>
       </div>
       <input type="hidden" name="tipo">
+      <input type="hidden" name="clienteId">
+      <div id="lead-cli-pick" class="lc-box" hidden>
+        <p class="lc-elegido" id="lc-elegido"></p>
+        <input id="lc-buscar" type="search" placeholder="Buscar cliente por nombre, CIF, contacto, valla, PVS…" autocomplete="off">
+        <div id="lc-resultados" class="lc-resultados"></div>
+      </div>
 
       <div>
         <label>Fecha<input type="date" name="fecha" required></label>
@@ -283,6 +289,7 @@
         </div>
       </div>
       <label>Notas<textarea name="notas" rows="2"></textarea></label>
+      <div id="cf-contacto"></div>
     </div>
 
     <div class="card">
@@ -416,6 +423,7 @@
         <label>Teléfono<input type="tel" name="telefono" inputmode="tel"></label>
       </div>
       <label>Correo<input type="email" name="correo" inputmode="email" autocapitalize="none"></label>
+      <div id="nf-contacto"></div>
     </div>
 
     <div class="card">
@@ -500,7 +508,10 @@
 
     <div class="card">
       <h2>Visibilidad y tráfico</h2>
-      <button type="button" class="btn scan" data-p="nf-count">⏱ Contar tráfico durante 1 minuto</button>
+      <div class="scan-row">
+        <button type="button" class="btn scan" data-p="nf-count">⏱ Contar tráfico durante 1 minuto</button>
+        <button type="button" class="btn scan" data-crono="#neg-form">👀 Cronometrar el tiempo de visión</button>
+      </div>
       <div class="grid">
         <label>Vehículos por minuto<input type="text" name="vehiculosMin" inputmode="numeric"></label>
         <label>Personas por minuto<input type="text" name="personasMin" inputmode="numeric"></label>
@@ -666,8 +677,11 @@
       <div class="scan-row">
         <button type="button" class="btn scan" data-g="vf-photo-camera">📷 Hacer foto</button>
         <button type="button" class="btn" data-g="vf-photo-gallery">🖼 Desde galería</button>
-        <button type="button" class="btn danger" data-g="vf-photo-remove" id="vf-photo-remove">Quitar foto</button>
+        <button type="button" class="btn danger" data-g="vf-photo-remove" id="vf-photo-remove" hidden>Quitar foto</button>
       </div>
+      <label class="lbl">Historial de fotos <span class="hint-inline" id="vf-fotos-n"></span></label>
+      <p class="hint">Cada foto nueva se suma a las anteriores (con la fecha y el cliente que tenía la valla) para ver cómo ha evolucionado. ★ elige la foto principal.</p>
+      <div class="vf-fotos" id="vf-fotos"></div>
     </div>
 
     <div class="card">
@@ -724,6 +738,32 @@
         <button type="button" class="btn" data-g="vf-map">🗺 Ver en mapa</button>
       </div>
       <p class="hint" id="vf-coords-hint"></p>
+    </div>
+
+    <div class="card">
+      <h2>Visión de la valla</h2>
+      <button type="button" class="btn scan" data-crono="#valla-form">⏱ Cronometrar el tiempo de visión</button>
+      <div class="grid">
+        <div>
+          <label>Tiempo de visión (segundos)<input type="text" name="tiempoVision" inputmode="decimal"></label>
+          <div class="chips small" data-vv-fill="tiempoVision">
+            <button type="button" class="chip" data-value="3">3 s</button>
+            <button type="button" class="chip" data-value="5">5 s</button>
+            <button type="button" class="chip" data-value="8">8 s</button>
+            <button type="button" class="chip" data-value="12">12 s</button>
+          </div>
+        </div>
+        <div>
+          <label>Distancia desde la que se ve (m)<input type="text" name="distancia" inputmode="numeric"></label>
+          <div class="chips small" data-vv-fill="distancia">
+            <button type="button" class="chip" data-value="50">50 m</button>
+            <button type="button" class="chip" data-value="100">100 m</button>
+            <button type="button" class="chip" data-value="200">200 m</button>
+            <button type="button" class="chip" data-value="300">300 m</button>
+          </div>
+        </div>
+      </div>
+      <p class="hint" id="vv-info"></p>
     </div>
 
     <div class="card">
@@ -917,6 +957,15 @@
       </div>
     </div>
 
+    <div class="card">
+      <label class="lbl">Fotos de referencia <span class="hint-inline">(salen en el Excel que se envía al equipo)</span></label>
+      <div class="photo-strip" id="tf-fotos"></div>
+      <div class="scan-row">
+        <button type="button" class="btn scan" data-g="tf-photo-camera">📷 Hacer foto</button>
+        <button type="button" class="btn" data-g="tf-photo-gallery">🖼 Desde galería</button>
+      </div>
+    </div>
+
     <div class="form-actions">
       <button type="button" class="btn danger" data-g="tr-delete" id="tf-delete">Eliminar</button>
       <span class="spacer"></span>
@@ -943,6 +992,32 @@
       <span class="spacer"></span>
       <button type="button" class="btn" data-g="tx-open">Abrir</button>
       <button type="button" class="btn primary" data-g="tx-share">📤 Compartir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= CRONÓMETRO DE VISIÓN ======================= -->
+<div class="modal" id="crono-modal" hidden>
+  <div class="sheet counter">
+    <h2>Tiempo de visión</h2>
+    <p class="hint">Pulsa cuando un vehículo empiece a ver la valla y otra vez cuando ya la haya pasado. Repite con varios para sacar la media.</p>
+    <div class="count-time" id="crono-tiempo">0,0 s</div>
+    <button type="button" class="crono-btn" id="crono-btn">▶<span>Empieza a verse</span></button>
+    <div class="crono-medidas" id="crono-medidas"></div>
+    <label class="lbl">Velocidad aproximada del tráfico (para estimar la distancia)</label>
+    <div class="chips small" id="crono-vel">
+      <button type="button" class="chip" data-vel="30">30 km/h</button>
+      <button type="button" class="chip" data-vel="50">50 km/h</button>
+      <button type="button" class="chip" data-vel="80">80 km/h</button>
+      <button type="button" class="chip" data-vel="100">100 km/h</button>
+      <button type="button" class="chip" data-vel="120">120 km/h</button>
+    </div>
+    <p class="budget-total" id="crono-media"></p>
+    <label class="check"><input type="checkbox" id="crono-dist" checked> Poner también la distancia estimada</label>
+    <div class="form-actions">
+      <button type="button" class="btn" id="crono-cancelar">Cancelar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" id="crono-guardar">Guardar la media</button>
     </div>
   </div>
 </div>
@@ -1357,6 +1432,8 @@
 <script src="ticket.js"></script>
 <script src="gastos.js"></script>
 <script src="renovaciones.js"></script>
+<script src="contacto.js"></script>
+<script src="vision.js"></script>
 <script src="agenda.js"></script>
 </body>
 </html>

@@ -92,7 +92,7 @@ DEFAULT_PLANTILLAS.push({
     'Le adjunto el PDF con las fotos y la ubicación de cada valla. Cualquier duda, me dice.',
 });
 
-const FIELDS = ['tipo', 'fecha', 'fechaFirma', 'razonSocial', 'contacto', 'telefono',
+const FIELDS = ['tipo', 'clienteId', 'fecha', 'fechaFirma', 'razonSocial', 'contacto', 'telefono',
   'poblacion', 'provincia', 'correo', 'situacion', 'pvpEntrada', 'pvpTotal', 'volver',
   'porcentaje', 'fechaTrabajo'];
 
@@ -417,6 +417,7 @@ function setChipGroup(name, value) {
   if (!group) return;
   $$('.chip', group).forEach(c => c.classList.toggle('active', c.dataset.value === value));
   $(`#lead-form [name="${name}"]`).value = value || '';
+  if (name === 'tipo' && typeof renderLeadCliPick === 'function') renderLeadCliPick();   // contacto.js
 }
 
 /** Marca el botón de población/provincia que coincide con lo escrito en el campo. */
@@ -1174,7 +1175,7 @@ function renderPicker() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
-        ${typeof dispoBadge === 'function' ? `<div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${precioCategoria(v.categoria) ? `<span class="badge">${fmtMoney(parseMoney(precioCategoria(v.categoria)))}/mes</span>` : ''}</div>` : ''}
+        ${typeof dispoBadge === 'function' ? `<div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${visionBadge(v.codigo)}${precioCategoria(v.categoria) ? `<span class="badge">${fmtMoney(parseMoney(precioCategoria(v.categoria)))}/mes</span>` : ''}</div>` : ''}
         ${v.lat ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
       </div>
     </article>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';

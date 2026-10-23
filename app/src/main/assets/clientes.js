@@ -144,6 +144,7 @@ function renderClientes() {
         <div class="job-meta">${[c.contacto, c.telefono, c.correo, c.poblacion].filter(Boolean).map(esc).join(' · ')}</div>
         <div class="badges">${badges}</div>
       </div>
+      ${contactoBtns(c)}
     </article>`;
   }).join('') : `<div class="empty">${clientes.length ? 'No hay clientes con este filtro.'
     : 'Aún no hay clientes.<br>Pulsa <b>＋ Cliente</b> o el botón <b>👤 Cliente</b> de una visita.'}</div>`;
@@ -162,6 +163,7 @@ function openClienteForm(id, preset) {
   for (const k of CF_FIELDS) form.elements[k].value = c[k] || '';
   $('#cli-form-title').textContent = id ? c.nombre : 'Nuevo cliente';
   $('#cf-delete').hidden = !id;
+  renderFichaContacto('#cli-form', '#cf-contacto');
   renderCf();
   show('cliente-form');
 }

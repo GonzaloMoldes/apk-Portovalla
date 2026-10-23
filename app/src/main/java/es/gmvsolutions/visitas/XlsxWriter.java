@@ -402,10 +402,17 @@ public final class XlsxWriter {
         Map<String, Integer> mediaIds = new HashMap<>();
         int r = 2;
         for (Map<String, String> m : rows) {
-            String foto = nz(m.get("foto"));
-            byte[] img = (photos != null && !foto.isEmpty()) ? photos.load(foto) : null;
+            // Fotos de la fila (puede haber varias columnas de foto: valla, trabajo…)
+            byte[][] imgs = new byte[cols.length][];
+            boolean anyImg = false;
+            for (int c = 0; c < cols.length; c++) {
+                if (cols[c].kind != Kind.PHOTO) continue;
+                String f = nz(m.get(cols[c].key));
+                imgs[c] = (photos != null && !f.isEmpty()) ? photos.load(f) : null;
+                anyImg |= imgs[c] != null;
+            }
             sb.append("<row r=\"").append(r).append('"');
-            if (img != null) sb.append(" ht=\"").append(PHOTO_ROW_PT).append("\" customHeight=\"1\"");
+            if (anyImg) sb.append(" ht=\"").append(PHOTO_ROW_PT).append("\" customHeight=\"1\"");
             sb.append('>');
             for (int c = 0; c < cols.length; c++) {
                 Col col = cols[c];
@@ -425,8 +432,9 @@ public final class XlsxWriter {
                         inlineStr(sb, ref, "", S_TEXT);
                     }
                 } else if (col.kind == Kind.PHOTO) {
-                    inlineStr(sb, ref, img == null && !foto.isEmpty() ? "Sin foto" : "", S_TEXT);
-                    if (img != null) addPicture(dr, mediaIds, foto, img, c, r - 1);
+                    byte[] img = imgs[c];
+                    inlineStr(sb, ref, img == null && !v.isEmpty() ? "Sin foto" : "", S_TEXT);
+                    if (img != null) addPicture(dr, mediaIds, v, img, c, r - 1);
                 } else {
                     cell(sb, ref, col, v);
                 }
