@@ -158,6 +158,14 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   ganar una negociación pasan a las vallas nuevas.
 - **Historial de fotos de las vallas**: cada foto nueva se suma a las anteriores con la
   fecha y el cliente que tenía la valla; se puede elegir la principal (★) y eliminar fotos.
+- **Revisiones de los trabajos**: historial de comprobaciones de cada trabajo (*🔎 Revisar*
+  en la tarjeta o en la ficha): hecho correctamente, con incidencias o no realizado, con
+  fecha, nota y **foto obligatoria**. Si no se ha realizado, el trabajo vuelve a pendiente.
+  Filtro *Revisados / Sin revisar* y, en el Excel, la última revisión (resultado, fecha,
+  nota, nº de revisiones y foto).
+- **Documentos anexados en Clientes**: *📎 Anexar PDF* (contratos de la central, firmados…)
+  copia el fichero a `Descargas/PortoValla/Clientes` y lo guarda en los documentos del
+  cliente, junto a los presupuestos generados, para abrirlo o enviarlo cuando haga falta.
 - **Fotos en los trabajos**: salen en la columna *FOTO DEL TRABAJO* del Excel para el equipo.
 - **Contacto rápido**: botones ✉ Email, WhatsApp, ☎ Llamar (y 📍 Mapa) en las tarjetas y
   fichas de Clientes y Patrimonio. En una visita de tipo *Cliente*, buscador de los clientes

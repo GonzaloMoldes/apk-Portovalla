@@ -68,6 +68,7 @@ public class MainActivity extends Activity {
     private static final int REQ_LOCATION = 4;
     private static final int REQ_IMPORT = 5;
     private static final int REQ_NOTIF = 6;
+    private static final int REQ_ATTACH = 7;
     private static final int PHOTO_MAX_SIDE = 1280;   // fotos de vallas añadidas desde la app
     private static final int OCR_MAX_SIDE = 2048;
 
@@ -78,6 +79,7 @@ public class MainActivity extends Activity {
     private String pendingPurpose = "ocr";   // "ocr" (tarjeta) o etiqueta de la foto de una valla
     private boolean locationPending;
     private String pendingImportArea = "";
+    private String pendingAttach = "";     // JSON {tag, prefix} del anexo que se está eligiendo
     private boolean pageLoaded;
     private String pendingJs;          // llamada JS a la espera de que cargue la página
 
@@ -89,6 +91,7 @@ public class MainActivity extends Activity {
             if (p != null) pendingPhoto = Uri.parse(p);
             pendingPurpose = savedInstanceState.getString("pendingPurpose", "ocr");
             pendingImportArea = savedInstanceState.getString("pendingImportArea", "");
+            pendingAttach = savedInstanceState.getString("pendingAttach", "");
         }
         web = new WebView(this);
         setContentView(web);
@@ -155,6 +158,7 @@ public class MainActivity extends Activity {
         if (pendingPhoto != null) out.putString("pendingPhoto", pendingPhoto.toString());
         out.putString("pendingPurpose", pendingPurpose);
         out.putString("pendingImportArea", pendingImportArea);
+        out.putString("pendingAttach", pendingAttach);
     }
 
     /** Ejecuta una función JS global con un argumento de texto. */
@@ -180,6 +184,62 @@ public class MainActivity extends Activity {
         } catch (ActivityNotFoundException e) {
             callJs("onImportError", "No se puede abrir el selector de ficheros");
         }
+    }
+
+    // ---------------------------------------------------------------- anexar documentos (PDF externos)
+
+    private void startAttach(String tag, String prefix) {
+        try {
+            pendingAttach = new JSONObject().put("tag", tag == null ? "" : tag).put("prefix", prefix == null ? "" : prefix).toString();
+        } catch (Exception e) {
+            pendingAttach = "";
+        }
+        Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        pick.addCategory(Intent.CATEGORY_OPENABLE);
+        pick.setType("*/*");
+        pick.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/pdf", "image/*"});
+        try {
+            startActivityForResult(pick, REQ_ATTACH);
+        } catch (ActivityNotFoundException e) {
+            callJs("onAttachError", "No se puede abrir el selector de ficheros");
+        }
+    }
+
+    /**
+     * Copia el fichero elegido a Descargas/PortoValla/Clientes (para poder abrirlo y enviarlo
+     * siempre desde la app) y avisa a JS: onAttachResult({tag, name, uri, mime, size}).
+     */
+    private void readAttach(Uri src, String pending) {
+        new Thread(() -> {
+            try {
+                JSONObject p = pending.isEmpty() ? new JSONObject() : new JSONObject(pending);
+                String original = displayName(src);
+                if (original.isEmpty()) original = "documento.pdf";
+                String mime = getContentResolver().getType(src);
+                if (mime == null || mime.isEmpty()) mime = original.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
+                String prefix = p.optString("prefix").replaceAll("[^A-Za-z0-9_-]+", "_");
+                String name = (prefix.isEmpty() ? "" : prefix + "_") + original.replaceAll("[\\\\/:*?\"<>|]", "_");
+                final long[] size = {0};
+                Uri saved = saveToDownloads(FOLDER + "/Clientes", name, mime, out -> {
+                    try (InputStream in = getContentResolver().openInputStream(src)) {
+                        if (in == null) throw new IOException("No se pudo leer el fichero");
+                        byte[] b = new byte[16384];
+                        int n;
+                        while ((n = in.read(b)) > 0) { out.write(b, 0, n); size[0] += n; }
+                    }
+                });
+                JSONObject r = new JSONObject();
+                r.put("tag", p.optString("tag"));
+                r.put("name", original);
+                r.put("fichero", name);
+                r.put("uri", saved.toString());
+                r.put("mime", mime);
+                r.put("size", size[0]);
+                callJs("onAttachResult", r.toString());
+            } catch (Exception e) {
+                callJs("onAttachError", "No se pudo anexar: " + (e.getMessage() == null ? e.toString() : e.getMessage()));
+            }
+        }).start();
     }
 
     private String displayName(Uri uri) {
@@ -390,6 +450,10 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_IMPORT) {
             if (resultCode == RESULT_OK && data != null && data.getData() != null) readImport(data.getData(), pendingImportArea);
+            return;
+        }
+        if (requestCode == REQ_ATTACH) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) readAttach(data.getData(), pendingAttach);
             return;
         }
         if (requestCode != REQ_CAMERA && requestCode != REQ_GALLERY) return;
@@ -1121,6 +1185,12 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 return "";
             }
+        }
+
+        /** Anexar un PDF (o imagen) externo. tag: a quién pertenece; prefix: inicio del nombre del fichero. */
+        @JavascriptInterface
+        public void attachFile(String tag, String prefix) {
+            runOnUiThread(() -> startAttach(tag, prefix));
         }
 
         /** Abre o comparte un documento guardado (historial de PDF). mode: open|share */

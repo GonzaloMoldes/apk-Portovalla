@@ -438,8 +438,11 @@ function renderTrabajos() {
   $('#tr-personas').innerHTML = ps.length ? chipsHtml(['', ...ps], 'data-tr-persona', trPersona, p => p || 'Todas las personas') : '';
   $$('#tr-estados .chip').forEach(c => c.classList.toggle('active', c.dataset.trEstado === trFilter));
   $$('#tr-clases .chip').forEach(c => c.classList.toggle('active', c.dataset.trClase === trClase));
+  $$('#tr-revs .chip').forEach(c => c.classList.toggle('active', c.dataset.trRev === trRev));   // revisiones.js
+  const nSin = trabajos.filter(t => t.estado === 'Hecho' && !revisionesDe(t).length).length;
+  $('[data-tr-rev=sinrevisar]').textContent = `Sin revisar${nSin ? ` (${nSin} hecho${nSin > 1 ? 's' : ''})` : ''}`;
   const q = $('#tr-search').value.trim().toLowerCase();
-  const items = trabajos.filter(t => trMatches(t, trFilter, trPersona) && (!trClase || (t.clase || 'Trabajo') === trClase) && (!q || q.split(/\s+/).every(w =>
+  const items = trabajos.filter(t => trMatches(t, trFilter, trPersona) && (!trClase || (t.clase || 'Trabajo') === trClase) && pasaFiltroRevision(t) && (!q || q.split(/\s+/).every(w =>
     [t.tipos.join(' '), t.asignado, t.campana, t.descripcion, t.clienteNombre, ...(t.lineas || []).map(x => `${x.articulo} ${x.descripcion}`),
       ...t.vallas.map(v => `${v.codigo} ${v.direccion} ${v.municipio}`)]
       .join(' ').toLowerCase().includes(w)))).sort(trSort);
@@ -453,6 +456,7 @@ function renderTrabajos() {
       t.prioridad === 'Urgente' ? '<span class="badge urgente">Urgente</span>' : '',
       t.fechaPrevista ? `<span class="badge${atrasado ? ' pend' : ''}">${atrasado ? 'Atrasado · ' : ''}${t.fechaPrevista === hoy ? 'Hoy' : fmtDate(t.fechaPrevista)}</span>` : '',
       t.estado === 'Hecho' && t.fechaHecho ? `<span class="badge ok">Hecho ${fmtDate(t.fechaHecho)}</span>` : '',
+      revisionBadgeTr(t),
     ].join('');
     const vallas = t.vallas.map(v => `<b>${esc(v.codigo)}</b> ${esc(v.municipio || '')}`).join(' · ');
     const venta = t.clase === 'Venta';
@@ -466,7 +470,7 @@ function renderTrabajos() {
           !venta && t.campana && 'Campaña: ' + t.campana, t.material].filter(Boolean).map(esc).join(' · ')}</div>
         <div class="badges">${badges}${venta && t.importe ? `<span class="badge budget-b">${fmtMoney(parseMoney(t.importe))}</span>` : ''}</div>
       </div>
-      ${t.estado !== 'Hecho' ? `<div class="lead-actions"><button class="act" data-tr-done="${t.id}">✓ Hecho</button></div>` : ''}
+      <div class="lead-actions">${t.estado !== 'Hecho' ? `<button class="act" data-tr-done="${t.id}">✓ Hecho</button>` : ''}<button class="act" data-tr-revisar="${t.id}">🔎 Revisar</button></div>
     </article>`;
   }).join('') : `<div class="empty">${trabajos.length ? 'No hay trabajos con este filtro.' : 'Aún no hay trabajos.<br>Pulsa <b>＋ Nuevo trabajo</b> para crear uno.'}</div>`;
 }
@@ -538,6 +542,7 @@ function openTrabajoForm(id, preset) {
   renderTfLineas();
   tfFotos = (t.fotos || []).slice();
   renderTfFotos();
+  renderTfRevisiones();   // revisiones.js
   trLeadId = t.leadId || '';
   trCodes = t.vallas.map(v => v.codigo);
   trSnap = {};
@@ -708,7 +713,10 @@ const TR_COLS = [
   ['INSTRUCCIONES', 'descripcion', 'wrap', 36], ['ASIGNADO A', 'asignado', 'text', 16],
   ['ESTADO', 'estado', 'text', 11, 'Pendiente,En curso,Hecho'], ['FECHA REALIZADO', 'fechaHecho', 'date', 12],
   ['OBSERVACIONES DEL OPERARIO', 'obs', 'wrap', 30], ['FOTO VALLA', 'foto', 'photo', 26],
-  ['FOTO DEL TRABAJO', 'fotoTrabajo', 'photo', 26], ['ID', 'id', 'text', 14],
+  ['FOTO DEL TRABAJO', 'fotoTrabajo', 'photo', 26],
+  ['REVISIÓN', 'revResultado', 'text', 14, 'Correcto,Con incidencias,No realizado,Sin revisar'], ['FECHA REVISIÓN', 'revFecha', 'date', 12],
+  ['NOTA REVISIÓN', 'revNota', 'wrap', 28], ['Nº REVISIONES', 'revN', 'number', 9], ['FOTO REVISIÓN', 'revFoto', 'photo', 26],
+  ['ID', 'id', 'text', 14],
 ];
 
 /** Filas del Excel: trabajos → una por valla; ventas → una por artículo. */
@@ -721,6 +729,7 @@ function trabajoRows(list) {
       material: t.material || '', descripcion: t.descripcion || '', asignado: t.asignado || '',
       estado: t.estado || '', fechaHecho: t.fechaHecho || '', obs: t.obs || '',
       fotoTrabajo: (t.fotos || [])[0] || '',
+      ...revisionCols(t),
     };
     const vallaCols = v => {
       if (!v) return { codigo: '', direccion: '', municipio: '', medida: '', lat: '', lng: '', foto: '' };

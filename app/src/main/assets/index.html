@@ -334,8 +334,9 @@
     </div>
 
     <div class="card">
-      <h2>Documentos (historial de PDF)</h2>
+      <h2>Documentos (presupuestos y anexos)</h2>
       <div id="cf-docs"></div>
+      <button type="button" class="btn" data-c="cf-anexar">📎 Anexar PDF (contrato de la central, firmado…)</button>
     </div>
 
     <div class="card">
@@ -880,6 +881,11 @@
       <button class="chip" data-tr-clase="Trabajo">🛠 Trabajos en vallas</button>
       <button class="chip" data-tr-clase="Venta">🛒 Ventas</button>
     </div>
+    <div class="chips small" id="tr-revs">
+      <button class="chip active" data-tr-rev="">🔎 Revisión: todos</button>
+      <button class="chip" data-tr-rev="revisados">Revisados</button>
+      <button class="chip" data-tr-rev="sinrevisar">Sin revisar</button>
+    </div>
     <div class="chips small" id="tr-personas"></div>
     <p class="stats" id="tr-stats"></p>
   </div>
@@ -980,6 +986,13 @@
     </div>
 
     <div class="card">
+      <h2>Revisiones <span class="hint-inline">(comprobaciones de si se ha hecho)</span></h2>
+      <div id="tf-revisiones"></div>
+      <button type="button" class="btn primary" id="tf-rev-nueva">🔎 Añadir revisión</button>
+      <p class="hint" id="tf-rev-hint">Guarda el trabajo para poder revisarlo.</p>
+    </div>
+
+    <div class="card">
       <label class="lbl">Fotos de referencia <span class="hint-inline">(salen en el Excel que se envía al equipo)</span></label>
       <div class="photo-strip" id="tf-fotos"></div>
       <div class="scan-row">
@@ -1014,6 +1027,35 @@
       <span class="spacer"></span>
       <button type="button" class="btn" data-g="tx-open">Abrir</button>
       <button type="button" class="btn primary" data-g="tx-share">📤 Compartir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= REVISIÓN DE UN TRABAJO ======================= -->
+<div class="modal" id="rev-modal" hidden>
+  <div class="sheet">
+    <h2 id="rev-title">Revisión</h2>
+    <p class="hint" id="rev-info"></p>
+    <label class="lbl">¿Cómo está el trabajo?</label>
+    <div class="chips" id="rev-resultados">
+      <button type="button" class="chip" data-value="Correcto">✅ Hecho correctamente</button>
+      <button type="button" class="chip" data-value="Con incidencias">⚠️ Hecho con incidencias</button>
+      <button type="button" class="chip" data-value="No realizado">❌ No realizado</button>
+    </div>
+    <div class="grid">
+      <label>Fecha de la revisión<input type="date" id="rev-fecha"></label>
+      <label>Nota<input type="text" id="rev-nota" placeholder="Ej.: lona bien tensada, falta retirar la vieja…"></label>
+    </div>
+    <label class="lbl">Foto de la revisión *</label>
+    <div class="photo-strip" id="rev-fotos"></div>
+    <div class="scan-row">
+      <button type="button" class="btn scan" data-rv2="camara">📷 Hacer foto</button>
+      <button type="button" class="btn" data-rv2="galeria">🖼 Desde galería</button>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" data-rv2="cancelar">Cancelar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-rv2="guardar">Guardar revisión</button>
     </div>
   </div>
 </div>
@@ -1465,6 +1507,7 @@
 <script src="renovaciones.js"></script>
 <script src="contacto.js"></script>
 <script src="vision.js"></script>
+<script src="revisiones.js"></script>
 <script src="agenda.js"></script>
 </body>
 </html>

@@ -92,7 +92,49 @@ function abrirDoc(id, mode) {
   const d = documentos.find(x => x.id === id);
   if (!d) return;
   if (!NATIVE) { toast('Solo disponible en la tablet'); return; }
-  window.Android.openDoc(d.uri, 'application/pdf', mode);
+  window.Android.openDoc(d.uri, d.mime || 'application/pdf', mode);
+}
+
+/* ------------------------------------------------------------- documentos anexados (PDF externos) */
+
+/** Anexa un PDF (o imagen) externo, p. ej. el contrato que manda la central, al cliente de la ficha. */
+function anexarDocumento() {
+  const c = saveCliente(true);
+  if (!c) return;
+  if (!NATIVE || !window.Android.attachFile) { toast('Solo disponible en la tablet'); return; }
+  const prefijo = c.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 30);
+  window.Android.attachFile(c.id, prefijo);
+}
+
+window.onAttachError = function (msg) { toast('⚠ ' + (msg || 'No se pudo anexar el documento')); };
+window.onAttachResult = function (json) {
+  let r;
+  try { r = JSON.parse(json); } catch (e) { return; }
+  const c = clienteById(r.tag);
+  if (!c) return;
+  const base = String(r.name || 'Documento').replace(/\.[a-z0-9]{2,4}$/i, '');
+  const pvs = contratos.filter(ct => ct.clienteId === c.id && ct.pvs).map(ct => ct.pvs);
+  const titulo = prompt('Nombre del documento (p. ej. «Contrato central PVS-…»):', base);
+  registrarDocumento({
+    tipo: 'Anexo', externo: true, titulo: (titulo == null || !titulo.trim() ? base : titulo.trim()),
+    fichero: r.fichero || r.name, uri: r.uri, mime: r.mime || 'application/pdf', clienteId: c.id, empresa: c.nombre,
+    tamano: r.size || 0, pvs: pvs.find(p => (titulo || base).toUpperCase().includes(p.toUpperCase())) || '',
+  });
+  toast('Documento anexado al cliente');
+  if (currentView() === 'cliente-form' && cliEditing === c.id) renderCf();
+};
+
+function quitarDocumento(id) {
+  const d = documentos.find(x => x.id === id);
+  if (!d || !confirm(`¿Quitar «${d.titulo || d.fichero}» de los documentos del cliente? (El fichero sigue en Descargas/PortoValla.)`)) return;
+  documentos = documentos.filter(x => x.id !== id);
+  saveDocumentos();
+  renderCf();
+}
+
+function fmtTamano(b) {
+  if (!b) return '';
+  return b > 1048576 ? `${(b / 1048576).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`;
 }
 
 /* ------------------------------------------------------------- lista */
@@ -262,11 +304,12 @@ function renderCf() {
   // Documentos
   const docs = c ? docsDeCliente(c) : [];
   $('#cf-docs').innerHTML = docs.length ? docs.map(d => `<div class="row-item">
-      <div class="ri-main"><b>📄 ${esc(d.titulo || d.fichero || 'Documento')}</b>
-        <span>${esc([d.tipo, fmtDate((d.fecha || '').slice(0, 10)), d.fichero].filter(Boolean).join(' · '))}</span></div>
+      <div class="ri-main"><b>${d.externo ? '📎' : '📄'} ${esc(d.titulo || d.fichero || 'Documento')}</b>
+        <span>${esc([d.externo ? 'Anexado' : d.tipo, fmtDate((d.fecha || '').slice(0, 10)), d.pvs, d.fichero, fmtTamano(d.tamano)].filter(Boolean).join(' · '))}</span></div>
       <button type="button" class="act" data-doc-open="${d.id}">Abrir</button>
       <button type="button" class="act" data-doc-share="${d.id}">Enviar</button>
-    </div>`).join('') : '<p class="hint">Aún no hay documentos. Los PDF de presupuesto de este cliente se guardan aquí.</p>';
+      ${d.externo ? `<button type="button" class="vsel-x" data-doc-del="${d.id}" aria-label="Quitar" title="Quitar">${icon('close')}</button>` : ''}
+    </div>`).join('') : '<p class="hint">Aún no hay documentos. Aquí se guardan los PDF de presupuesto de este cliente y los que anexes (contratos de la central…).</p>';
   // Relacionados
   const n = c ? normName(c.nombre) : '';
   const vis = c ? leads.filter(l => l.clienteId === c.id || (!l.clienteId && n && normName(l.razonSocial) === n)) : [];
@@ -523,6 +566,7 @@ document.addEventListener('click', e => {
   if (t.dataset.cliFiltro) { cliFiltro = t.dataset.cliFiltro; renderClientes(); return; }
   if (t.dataset.docOpen) { abrirDoc(t.dataset.docOpen, 'open'); return; }
   if (t.dataset.docShare) { abrirDoc(t.dataset.docShare, 'share'); return; }
+  if (t.dataset.docDel) { quitarDocumento(t.dataset.docDel); return; }
   if (t.dataset.leadCliente) { clienteFromLead(leads.find(l => l.id === t.dataset.leadCliente)); return; }
   if (t.dataset.ctDesde !== undefined) { $('#ct-desde').value = todayISO(); return; }
   if (t.dataset.ctMeses) {
@@ -551,6 +595,7 @@ document.addEventListener('click', e => {
     case 'cli-delete': deleteCliente(); break;
     case 'cf-contratar': contratar(); break;
     case 'cf-foto-camara': pickPhoto('camera', 'cliente'); break;
+    case 'cf-anexar': anexarDocumento(); break;
     case 'cf-foto-galeria': pickPhoto('gallery', 'cliente'); break;
     case 'cf-contratar-interes': contratarInteres(); break;
     case 'ct-save': saveContrato(); break;
