@@ -30,7 +30,7 @@ const VALLA_COLS = [
   ['QUÉ HACER', 'revMotivo', 'text', 12, 'Desbrozar,Revisión,Limpieza'], ['ÚLTIMA REVISIÓN', 'revUltima', 'date', 12],
   ['PRÓXIMA REVISIÓN', 'revProxima', 'date', 12],
   ['TIEMPO DE VISIÓN (s)', 'tiempoVision', 'number', 11], ['DISTANCIA DE VISIÓN (m)', 'distanciaVision', 'number', 12],
-  ['Nº FOTOS', 'nFotos', 'number', 8],
+  ['Nº FOTOS', 'nFotos', 'number', 8], ['ÚLTIMA VISITA', 'ultimaVisita', 'date', 12],
   ['PRECIO MES (categoría)', 'precioCat', 'money', 12],
   ['FOTO', 'foto', 'photo', 26],
 ];
@@ -353,6 +353,7 @@ function vallaRows() {
       revUltima: (vallasMant[v.codigo] || {}).ultima || '', revProxima: proximaRevision(v.codigo),
       tiempoVision: String((vallasVision[v.codigo] || {}).tiempoVision || ''), distanciaVision: String((vallasVision[v.codigo] || {}).distancia || ''),
       nFotos: (vallasFotos[v.codigo] || []).length ? String((vallasFotos[v.codigo] || []).length) : '',
+      ultimaVisita: ultimaVisitaValla(v.codigo),
       precioCat: precioCategoria(v.categoria) });
   });
 }
@@ -434,7 +435,7 @@ window.onImportError = function (msg) { toast('⚠ ' + (msg || 'No se pudo impor
 /* ------------------------------------------------------------- copia de seguridad completa */
 
 const BACKUP_KEYS = ['leads', 'settings', 'trabajos', 'negociaciones', 'clientes', 'contratos', 'documentos',
-  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant', 'gastos', 'vallas_fotos', 'vallas_vision'];
+  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant', 'gastos', 'vallas_fotos', 'vallas_vision', 'vallas_visitas'];
 
 function exportarCopia() {
   const data = {};

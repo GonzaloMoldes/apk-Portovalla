@@ -150,6 +150,16 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   donde se vio, con la descripción del sitio. Queda como lead para llamar, enviar WhatsApp o
   email; se propone el **Modelo 5 «Anuncio en valla»** (variable `{ubicacion}`), editable en
   Ajustes. En la tarjeta, *📍 Valla* abre el sitio en el mapa.
+- **Visitas a las vallas y rutas semanales**: cada valla guarda su última visita (*✓ Visitada
+  hoy*, y también cuentan una foto, un conteo de tráfico, una revisión, la medida de visión o
+  la revisión de un trabajo suyo). Filtro *🚶 Sin visitar en N días* (N en Ajustes, 30 por
+  defecto). En Ajustes se indica qué provincia se recorre cada día (por defecto lunes,
+  miércoles y viernes Coruña; martes y jueves Lugo): el catálogo ofrece *🚗 Ruta de hoy* y
+  *Mañana* con las vallas de esa provincia sin visitar (por municipio y de la más olvidada a
+  la más reciente, con botón *✓ Visitada*), la Agenda muestra la ruta de cada día y la
+  notificación avisa el día anterior.
+- **Filtros Por revisar / Por recontar**: incluyen también las vallas que nunca se han
+  revisado o cuyo tráfico nunca se ha medido (salvo las marcadas *Nunca* en la revisión).
 - **Tiempo de visión (cronómetro)**: en la ficha de la valla y en la negociación de
   patrimonio, *Cronometrar el tiempo de visión*: se pulsa cuando un vehículo empieza a ver la
   valla y otra vez cuando la ha pasado; se toman varias pasadas y se guarda la media. Con la

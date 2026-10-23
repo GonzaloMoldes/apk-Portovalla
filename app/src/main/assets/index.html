@@ -668,7 +668,10 @@
       <button class="chip" data-cat-trafico="recontar">⏱ Por recontar</button>
       <button class="chip" data-cat-trafico="sinconteo">Sin conteo de tráfico</button>
       <button class="chip" data-cat-trafico="revisar">🌿 Por revisar</button>
+      <button class="chip" data-cat-trafico="visitar">🚶 Sin visitar</button>
     </div>
+    <div class="chips" id="cat-rutas"></div>
+    <p class="aviso" id="cat-ruta-info" hidden></p>
     <div class="cerca-row">
       <button class="chip cerca" id="cat-cerca-btn">📍 Vallas cerca de mí</button>
       <div class="chips small" id="cat-radios" hidden>
@@ -800,6 +803,13 @@
       </div>
       <p class="budget-total" id="vf-impactos"></p>
       <div id="vf-trafico-hist"></div>
+    </div>
+
+    <div class="card">
+      <h2>Visitas</h2>
+      <div id="vv-visitas"></div>
+      <button type="button" class="btn primary" id="vv-visitada">✓ Visitada hoy</button>
+      <p class="hint">También cuentan como visita: hacerle una foto, contar el tráfico, revisarla, medir la visión o revisar un trabajo suyo.</p>
     </div>
 
     <div class="card">
@@ -1360,6 +1370,22 @@
     </div>
 
     <div class="card">
+      <h2>Visitas a las vallas y rutas</h2>
+      <label>Visitar cada valla al menos cada (días)<input type="text" name="visitaDias" inputmode="numeric" placeholder="30"></label>
+      <label class="lbl">Provincia que recorres cada día</label>
+      <div class="ruta-dias">
+        <label>Lunes<select name="ruta1"><option value="">—</option><option value="Coruña">Coruña</option><option value="Lugo">Lugo</option><option value="Pontevedra">Pontevedra</option><option value="Ourense">Ourense</option></select></label>
+        <label>Martes<select name="ruta2"><option value="">—</option><option value="Coruña">Coruña</option><option value="Lugo">Lugo</option><option value="Pontevedra">Pontevedra</option><option value="Ourense">Ourense</option></select></label>
+        <label>Miércoles<select name="ruta3"><option value="">—</option><option value="Coruña">Coruña</option><option value="Lugo">Lugo</option><option value="Pontevedra">Pontevedra</option><option value="Ourense">Ourense</option></select></label>
+        <label>Jueves<select name="ruta4"><option value="">—</option><option value="Coruña">Coruña</option><option value="Lugo">Lugo</option><option value="Pontevedra">Pontevedra</option><option value="Ourense">Ourense</option></select></label>
+        <label>Viernes<select name="ruta5"><option value="">—</option><option value="Coruña">Coruña</option><option value="Lugo">Lugo</option><option value="Pontevedra">Pontevedra</option><option value="Ourense">Ourense</option></select></label>
+        <label>Sábado<select name="ruta6"><option value="">—</option><option value="Coruña">Coruña</option><option value="Lugo">Lugo</option><option value="Pontevedra">Pontevedra</option><option value="Ourense">Ourense</option></select></label>
+        <label>Domingo<select name="ruta0"><option value="">—</option><option value="Coruña">Coruña</option><option value="Lugo">Lugo</option><option value="Pontevedra">Pontevedra</option><option value="Ourense">Ourense</option></select></label>
+      </div>
+      <p class="hint">Cada día de ruta, la Agenda propone las vallas de esa provincia que llevan más días sin visitar de los indicados, y la notificación te avisa el día anterior.</p>
+    </div>
+
+    <div class="card">
       <h2>Precios de las vallas por categoría</h2>
       <p class="hint">Precio de alquiler por mes y valla (€ sin IVA). Al elegir vallas en un presupuesto se pone el precio de su categoría (se puede cambiar en cada valla).</p>
       <div class="grid4 cat-precios">
@@ -1508,6 +1534,7 @@
 <script src="contacto.js"></script>
 <script src="vision.js"></script>
 <script src="revisiones.js"></script>
+<script src="rutas.js"></script>
 <script src="agenda.js"></script>
 </body>
 </html>

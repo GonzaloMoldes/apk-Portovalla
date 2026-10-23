@@ -95,8 +95,10 @@ function renderMant() {
 function mantSave(codigo, anterior) {
   if (anterior && anterior !== codigo) delete vallasMant[anterior];
   const ultima = $('#valla-form').elements.vm_ultima.value;
-  if (vmState.cada === 'Nunca' && !ultima) delete vallasMant[codigo];
-  else vallasMant[codigo] = { cada: vmState.cada, motivo: vmState.motivo, ultima };
+  // «Nunca» elegido a mano se guarda, para que no salga en «Por revisar»
+  const antes = vallasMant[codigo];
+  if (vmState.cada === 'Nunca' && !ultima && !antes) { saveMant(); return; }
+  vallasMant[codigo] = { cada: vmState.cada, motivo: vmState.motivo, ultima };
   saveMant();
 }
 
@@ -223,6 +225,20 @@ function agendaItems() {
     out.push({ fecha: f, aviso: f, tipo: 'trafico', icono: '⏱', titulo: `Medir el tráfico de ${code}`,
       texto: `último conteo: ${fmtDate(c.fecha)} · ${fmtInt(Number(c.impactos) || 0)} impactos/día`, abrir: ['valla', code] });
   }
+  // Rutas de la semana: vallas de la provincia del día sin visitar (rutas.js). Aviso el día anterior.
+  for (let d = 0; d < 7; d++) {
+    const f = isoAddDays(hoy, d);
+    const prov = rutaDe(f);
+    if (!prov) continue;
+    const vs = vallasDeRuta(prov, f);
+    if (!vs.length) continue;
+    const munis = [...new Set(vs.map(v => v.municipio).filter(Boolean))];
+    const dt = parseISO(f);
+    out.push({ fecha: f, aviso: isoAddDays(f, -1), tipo: 'ruta', icono: '🚗',
+      titulo: `Ruta ${DIAS_SEMANA[dt.getDay()].toLowerCase()} · ${prov}: ${vs.length} valla${vs.length > 1 ? 's' : ''} sin visitar (+${diasVisita()} días)`,
+      texto: munis.slice(0, 6).join(', ') + (munis.length > 6 ? ` y ${munis.length - 6} municipios más` : ''),
+      abrir: ['ruta', `${prov}|${f}`] });
+  }
   // Próximos contactos de patrimonio
   for (const n of negociaciones) {
     if (!n.proximo || ['Ganada', 'Perdida'].includes(n.estado)) continue;
@@ -263,7 +279,7 @@ function agendaItemHtml(i) {
 function renderAgenda() {
   const hoy = todayISO();
   const all = agendaItems();
-  const tipos = { trabajo: 'Trabajos', contrato: 'Renovaciones', revision: 'Revisiones', trafico: 'Tráfico', patrimonio: 'Patrimonio' };
+  const tipos = { ruta: 'Rutas', trabajo: 'Trabajos', contrato: 'Renovaciones', revision: 'Revisiones', trafico: 'Tráfico', patrimonio: 'Patrimonio' };
   const pend = agendaPendientes(all);
   $('#ag-tipos').innerHTML = [['', `Todo (${pend.length})`], ...Object.entries(tipos).map(([k, v]) => [k, `${v} (${pend.filter(i => i.tipo === k).length})`])]
     .map(([k, label]) => `<button class="chip${agendaFiltro === k ? ' active' : ''}" data-ag-tipo="${k}">${esc(label)}</button>`).join('');
@@ -322,6 +338,7 @@ document.addEventListener('click', e => {
     else if (kind === 'cliente') openClienteForm(id);
     else if (kind === 'valla') openVallaForm(id);
     else if (kind === 'neg') openNegForm(id);
+    else if (kind === 'ruta') { const [prov, fecha] = id.split('|'); openRuta(prov, fecha); }
     return;
   }
   if (t.dataset.vm === 'hoy') { $('#valla-form').elements.vm_ultima.value = todayISO(); renderMant(); return; }

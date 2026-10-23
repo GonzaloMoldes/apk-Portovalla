@@ -46,7 +46,7 @@ let txPersona = '';
 /* ------------------------------------------------------------- navegación */
 
 function openTab(tab) {
-  if (tab === 'catalogo') openCatalog();
+  if (tab === 'catalogo') { catRuta = null; openCatalog(); }   // desde la barra: sin el filtro de ruta
   else if (tab === 'patrimonio') openPatrimonio();   // patrimonio.js
   else if (tab === 'clientes') openClientes();       // clientes.js
   else if (tab === 'ajustes') openSettings();
@@ -105,16 +105,27 @@ function renderCatalog() {
   const items = VALLAS_DB.filter(v =>
     (catZona === 'Todas' || v.zona === catZona) && (!catMuni || v.municipio === catMuni) &&
     (!catDispo || vallaDisponibilidad(v.codigo).estado === catDispo) &&
-    (catTrafico !== 'recontar' || conteoVencido(v.codigo)) && (catTrafico !== 'sinconteo' || !ultimoConteo(v.codigo)) &&
-    (catTrafico !== 'revisar' || (proximaRevision(v.codigo) && diasHasta(proximaRevision(v.codigo)) <= 7)) &&
+    (catTrafico !== 'recontar' || porRecontar(v.codigo)) && (catTrafico !== 'sinconteo' || !ultimoConteo(v.codigo)) &&
+    (catTrafico !== 'revisar' || porRevisar(v.codigo)) && (catTrafico !== 'visitar' || sinVisitar(v.codigo)) &&
+    (!catRuta || (normName(v.provincia) === normName(catRuta.prov) && sinVisitar(v.codigo, catRuta.fecha))) &&
     (!catCerca || (distanciaValla(v) !== null && distanciaValla(v) <= cercaKm)) &&
     (!q || q.split(/\s+/).every(w => [v.codigo, v.direccion, v.municipio, v.zona, v.medida].join(' ').toLowerCase().includes(w))));
   if (catTrafico === 'impactos') items.sort((a, b) => impactosValla(b.codigo) - impactosValla(a.codigo));
   else if (catCerca) items.sort((a, b) => distanciaValla(a) - distanciaValla(b));
+  else if (catRuta || catTrafico === 'visitar') {
+    // Para la ruta: por municipio y, dentro, de la más olvidada a la más reciente
+    items.sort((a, b) => (a.municipio || '').localeCompare(b.municipio || '', 'es') || ultimaVisitaValla(a.codigo).localeCompare(ultimaVisitaValla(b.codigo)));
+  }
+  const modoVisita = !!catRuta || catTrafico === 'visitar';
+  renderRutaUi();   // rutas.js
   renderCercaUi();
   $$('#cat-trafico .chip').forEach(c => c.classList.toggle('active', c.dataset.catTrafico === catTrafico));
-  const porRecontar = VALLAS_DB.filter(v => conteoVencido(v.codigo)).length;
-  $('#cat-trafico [data-cat-trafico=recontar]').textContent = `⏱ Por recontar${porRecontar ? ` (${porRecontar})` : ''}`;
+  const nRecontar = VALLAS_DB.filter(v => porRecontar(v.codigo)).length;
+  const nRevisar = VALLAS_DB.filter(v => porRevisar(v.codigo)).length;
+  const nVisitar = VALLAS_DB.filter(v => sinVisitar(v.codigo)).length;
+  $('#cat-trafico [data-cat-trafico=recontar]').textContent = `⏱ Por recontar${nRecontar ? ` (${nRecontar})` : ''}`;
+  $('#cat-trafico [data-cat-trafico=revisar]').textContent = `🌿 Por revisar${nRevisar ? ` (${nRevisar})` : ''}`;
+  $('#cat-trafico [data-cat-trafico=visitar]').textContent = `🚶 Sin visitar en ${diasVisita()} días${nVisitar ? ` (${nVisitar})` : ''}`;
   const nuevas = VALLAS_DB.filter(v => v._nueva).length;
   const editadas = VALLAS_DB.filter(v => v._editada).length;
   const borradas = Object.values(vallasUser).filter(u => u._borrada).length;
@@ -130,8 +141,14 @@ function renderCatalog() {
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
         <div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${visionBadge(v.codigo)}${revisionBadge(v.codigo)}${(vallasFotos[v.codigo] || []).length ? `<span class="badge">📷 ${(vallasFotos[v.codigo] || []).length}</span>` : ''}</div>
+        ${modoVisita ? `<div class="badges dispo-wrap">${visitaBadge(v.codigo)}</div>` : ''}
+        ${catTrafico === 'revisar' && !proximaRevision(v.codigo) ? '<div class="badges dispo-wrap"><span class="badge volver">🌿 Sin revisión apuntada</span></div>' : ''}
+        ${catTrafico === 'recontar' && !ultimoConteo(v.codigo) ? '<div class="badges dispo-wrap"><span class="badge volver">⏱ Tráfico sin medir</span></div>' : ''}
         ${traficoSplitHtml(v.codigo)}
-        ${v.lat !== '' && v.lat != null ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
+        <div class="valla-btns">
+          ${v.lat !== '' && v.lat != null ? `<button type="button" class="valla-map" data-map="${esc(v.codigo)}">📍 Ver en mapa</button>` : ''}
+          ${modoVisita ? `<button type="button" class="valla-map visitada-btn" data-visitada="${esc(v.codigo)}">✓ Visitada</button>` : ''}
+        </div>
       </div>
     </div>`).join('') : '<div class="empty">No hay vallas que coincidan.</div>';
 }
@@ -228,6 +245,7 @@ function openVallaForm(code) {
   renderVfDispo();
   traficoLoad(code || '');
   visionLoad(code || '');
+  renderVisitasValla();   // rutas.js
   mantLoad(code || '');
   show('valla-form');
 }

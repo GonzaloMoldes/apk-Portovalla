@@ -496,3 +496,13 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .rev-head { display: flex; align-items: center; gap: 10px; }
 .rev-head span { color: var(--muted); font-size: 13px; flex: 1; }
 .rev-nota { font-size: 14px; margin-top: 4px; }
+
+/* ---------- visitas y rutas ---------- */
+.chip.ruta { border-color: var(--gold); font-weight: 700; }
+.chip.ruta.active { background: var(--gold); color: #1c2733; border-color: var(--gold); }
+#cat-ruta-info { margin-top: 8px; }
+.valla-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.visitada-btn { background: #dff3e7; border-color: #b9e2c8; color: #1d6b3d; font-weight: 700; }
+.ruta-dias { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0 12px; }
+.ruta-dias select, #settings-form select { display: block; width: 100%; margin-top: 4px; padding: 10px; border: 1px solid var(--border);
+  border-radius: 8px; font: inherit; background: #fff; }
