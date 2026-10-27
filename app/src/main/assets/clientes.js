@@ -110,6 +110,7 @@ window.onAttachError = function (msg) { toast('⚠ ' + (msg || 'No se pudo anexa
 window.onAttachResult = function (json) {
   let r;
   try { r = JSON.parse(json); } catch (e) { return; }
+  if (String(r.tag || '').startsWith('lead:')) { anexoDeVisita(r); return; }
   const c = clienteById(r.tag);
   if (!c) return;
   const base = String(r.name || 'Documento').replace(/\.[a-z0-9]{2,4}$/i, '');
@@ -126,10 +127,62 @@ window.onAttachResult = function (json) {
 
 function quitarDocumento(id) {
   const d = documentos.find(x => x.id === id);
-  if (!d || !confirm(`¿Quitar «${d.titulo || d.fichero}» de los documentos del cliente? (El fichero sigue en Descargas/PortoValla.)`)) return;
+  if (!d || !confirm(`¿Quitar «${d.titulo || d.fichero}» de los documentos? (El fichero sigue en Descargas/PortoValla.)`)) return;
   documentos = documentos.filter(x => x.id !== id);
   saveDocumentos();
-  renderCf();
+  if (currentView() === 'form') renderLeadDocs(); else renderCf();
+}
+
+/* ------------------------------------------------------------- documentos y envíos de una visita */
+
+function docsDeVisita(leadId) {
+  return documentos.filter(d => d.leadId === leadId).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+}
+
+/** Historial de la visita: presupuestos generados, PDF anexados y mensajes enviados. */
+function renderLeadDocs() {
+  const box = $('#lead-docs');
+  if (!box) return;
+  const lead = editingId ? leads.find(l => l.id === editingId) : null;
+  const docs = lead ? docsDeVisita(lead.id) : [];
+  const envios = lead ? (lead.envios || []).slice() : [];
+  if (lead && lead.envio && !envios.length) envios.push({ fecha: '', canal: lead.envio, modelo: '', antiguo: true });
+  const filas = [
+    ...docs.map(d => ({ fecha: d.fecha || '', html: `<div class="row-item">
+      <div class="ri-main"><b>${d.externo ? '📎' : '📄'} ${esc(d.titulo || d.fichero || 'Documento')}</b>
+        <span>${esc([d.externo ? 'Anexado' : d.tipo, fmtDate((d.fecha || '').slice(0, 10)), d.fichero, fmtTamano(d.tamano)].filter(Boolean).join(' · '))}</span></div>
+      <button type="button" class="act" data-doc-open="${d.id}">Abrir</button>
+      <button type="button" class="act" data-doc-share="${d.id}">Enviar</button>
+      ${d.externo ? `<button type="button" class="vsel-x" data-doc-del="${d.id}" aria-label="Quitar" title="Quitar">${icon('close')}</button>` : ''}
+    </div>` })),
+    ...envios.map(e => ({ fecha: e.fecha || '', html: `<div class="row-item envio-item">
+      <div class="ri-main"><b>${e.canal === 'Email' ? '✉' : e.canal === 'WhatsApp' ? '💬' : '📨'} ${esc(e.antiguo ? `Enviado: ${e.canal}` : `${e.canal}${e.modelo ? ' · ' + e.modelo : ''}${e.conPdf ? ' · con PDF del presupuesto' : ''}`)}</b>
+        <span>${esc([e.fecha && fmtDate(e.fecha.slice(0, 10)) + ' ' + e.fecha.slice(11, 16), e.a, e.asunto].filter(Boolean).join(' · '))}</span></div>
+    </div>` })),
+  ].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  box.innerHTML = filas.length ? filas.map(f => f.html).join('')
+    : `<p class="hint">${lead ? 'Aún no hay documentos ni envíos.' : 'Guarda la visita para anexar documentos.'} Aquí quedan los presupuestos generados, los PDF que anexes y los mensajes enviados.</p>`;
+}
+
+/** Anexar un PDF a la visita (se guarda antes si es nueva). */
+function anexarAVisita() {
+  if (!NATIVE || !window.Android.attachFile) { toast('Solo disponible en la tablet'); return; }
+  saveForm(false, lead => {
+    const prefijo = (lead.razonSocial || 'visita').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 30);
+    window.Android.attachFile('lead:' + lead.id, prefijo);
+  });
+}
+
+function anexoDeVisita(r) {
+  const lead = leads.find(l => l.id === String(r.tag).slice(5));
+  if (!lead) return;
+  const base = String(r.name || 'Documento').replace(/\.[a-z0-9]{2,4}$/i, '');
+  const titulo = prompt('Nombre del documento:', base);
+  registrarDocumento({ tipo: 'Anexo', externo: true, titulo: titulo == null || !titulo.trim() ? base : titulo.trim(),
+    fichero: r.fichero || r.name, uri: r.uri, mime: r.mime || 'application/pdf', leadId: lead.id, clienteId: lead.clienteId || '',
+    empresa: lead.razonSocial || '', tamano: r.size || 0 });
+  toast('Documento anexado a la visita');
+  if (currentView() === 'form' && editingId === lead.id) renderLeadDocs();
 }
 
 function fmtTamano(b) {
@@ -511,6 +564,10 @@ function syncClienteDesdeLead(lead) {
   c.modificado = now;
   lead.clienteId = c.id;
   saveClientes();
+  // Los documentos de la visita (presupuestos, anexos) pasan a la ficha del cliente
+  let movidos = 0;
+  documentos.forEach(d => { if (d.leadId === lead.id && d.clienteId !== c.id) { d.clienteId = c.id; d.empresa = c.nombre; movidos++; } });
+  if (movidos) saveDocumentos();
   return { cliente: c, nuevo };
 }
 
@@ -596,6 +653,7 @@ document.addEventListener('click', e => {
     case 'cf-contratar': contratar(); break;
     case 'cf-foto-camara': pickPhoto('camera', 'cliente'); break;
     case 'cf-anexar': anexarDocumento(); break;
+    case 'lead-anexar': anexarAVisita(); break;
     case 'cf-foto-galeria': pickPhoto('gallery', 'cliente'); break;
     case 'cf-contratar-interes': contratarInteres(); break;
     case 'ct-save': saveContrato(); break;

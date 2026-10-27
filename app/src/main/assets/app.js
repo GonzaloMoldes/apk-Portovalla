@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS = {
     'INTERESADO',
     'NO INTERESADO',
     'PIDE PRESUPUESTO',
+    'ESPERANDO FIRMA',
     'LLAMAR PARA CITA',
     'VOLVER MÁS ADELANTE',
     'SE GESTIONA DESDE CENTRAL',
@@ -131,6 +132,16 @@ const store = {
 
 let leads = store.load('leads') || [];
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.load('settings') || {});
+// Situación nueva «ESPERANDO FIRMA» para quien ya tenía su lista de situaciones guardada (una sola vez)
+if (!settings.sitEsperandoFirma) {
+  settings.sitEsperandoFirma = true;
+  if (!/ESPERANDO FIRMA/i.test(settings.situaciones || '')) {
+    const ls = (settings.situaciones || '').split('\n');
+    const i = ls.findIndex(s => /PIDE PRESUPUESTO/i.test(s));
+    ls.splice(i >= 0 ? i + 1 : ls.length, 0, 'ESPERANDO FIRMA');
+    settings.situaciones = ls.filter(Boolean).join('\n');
+  }
+}
 if (!Array.isArray(settings.plantillas) || !settings.plantillas.length) {
   settings.plantillas = DEFAULT_PLANTILLAS.map(p => Object.assign({}, p));
 }
@@ -146,6 +157,8 @@ settings.plantillas = settings.plantillas.map((t, i) => {
 });
 ['emailAsunto', 'emailCuerpo', 'whatsappTexto'].forEach(k => delete settings[k]); // formato antiguo
 let filter = 'semana';
+let filterPct = '';         // % de avance
+let filterSit = '';         // situación
 let editingId = null;
 
 /* ------------------------------------------------------------- utilidades */
@@ -345,6 +358,8 @@ window.handleBack = function () {
 /* ------------------------------------------------------------- listado */
 
 function matchesFilter(l) {
+  if (filterPct && String(l.porcentaje || '') !== filterPct) return false;
+  if (filterSit && !splitSituacion(l.situacion).sel.includes(filterSit)) return false;
   const d = parseISO(l.fecha);
   const now = new Date();
   switch (filter) {
@@ -363,7 +378,35 @@ function matchesSearch(l, q) {
   return q.toLowerCase().split(/\s+/).every(w => hay.includes(w));
 }
 
+/** Filtros de % de avance y situación, con cuántas visitas tiene cada uno (dentro del periodo elegido). */
+function renderListFiltros() {
+  const base = leads.filter(l => { const p = filterPct, s = filterSit; filterPct = ''; filterSit = ''; const ok = matchesFilter(l); filterPct = p; filterSit = s; return ok; });
+  const pcts = ['25', '50', '75', '100'];
+  $('#filter-pct').innerHTML = `<span class="filt-lbl">% avance</span>` + ['', ...pcts].map(p => {
+    const n = p ? base.filter(l => String(l.porcentaje || '') === p).length : 0;
+    return `<button class="chip${filterPct === p ? ' active' : ''}" data-fpct="${p}">${p ? `${p}%${n ? ` (${n})` : ''}` : 'Todos'}</button>`;
+  }).join('');
+  const sits = situacionOptions();
+  $('#filter-sit').innerHTML = `<span class="filt-lbl">Situación</span>` + ['', ...sits].map(s => {
+    const n = s ? base.filter(l => splitSituacion(l.situacion).sel.includes(s)).length : 0;
+    if (s && !n && filterSit !== s) return '';
+    return `<button class="chip${filterSit === s ? ' active' : ''}" data-fsit="${esc(s)}">${s ? `${esc(s.charAt(0) + s.slice(1).toLowerCase())} (${n})` : 'Todas'}</button>`;
+  }).join('');
+}
+
+/** Interesado, pide presupuesto o presupuesto enviado → el avance sube al 50 % (si estaba por debajo). */
+function subirAvance50(lead) {
+  if ((Number(lead.porcentaje) || 0) >= 50) return false;
+  lead.porcentaje = '50';
+  return true;
+}
+
+function situacionDeInteres(situacion) {
+  return splitSituacion(situacion).sel.some(s => (/interes/i.test(s) && !/^no\b/i.test(s)) || /presupuesto/i.test(s));
+}
+
 function renderList() {
+  renderListFiltros();
   const q = $('#search').value.trim();
   const items = leads
     .filter(l => matchesFilter(l) && matchesSearch(l, q))
@@ -535,6 +578,7 @@ function openForm(id) {
   form.elements.nota.value = sit.nota;
   leadFotos = Array.isArray(lead.fotos) ? lead.fotos.slice() : [];
   renderLeadFotos();
+  if (typeof renderLeadDocs === 'function') renderLeadDocs();   // clientes.js
   syncFillChips();
   loadBudget(lead.presupuesto);
 
@@ -575,6 +619,9 @@ function saveForm(thenSend, onSaved) {
     return;
   }
 
+  let avanceSubido = false;
+  if (situacionDeInteres(data.situacion) || data.presupuesto) avanceSubido = subirAvance50(data);
+  if (avanceSubido) setChipGroup('porcentaje', data.porcentaje);
   const now = new Date().toISOString();
   let lead;
   const isNew = !editingId;
@@ -587,7 +634,7 @@ function saveForm(thenSend, onSaved) {
     if (!lead.presupuesto) delete lead.presupuesto;
     leads.push(lead);
   }
-  let aviso = 'Visita guardada';
+  let aviso = 'Visita guardada' + (avanceSubido ? ' · avance al 50 %' : '');
   if (typeof esVisitaCliente === 'function' && esVisitaCliente(lead)) {
     const r = syncClienteDesdeLead(lead);
     aviso += r.nuevo ? ` · cliente ${r.cliente.nombre} creado en Clientes` : ' · copiada a Clientes';
@@ -696,6 +743,14 @@ function doSend() {
   const modelo = (settings.plantillas[sending.modelo] || {}).nombre || '';
   lead.envio = [sending.channel === 'email' ? 'Email' : 'WhatsApp', modelo, conPdf ? 'con PDF' : '',
     fmtDate(todayISO())].filter(Boolean).join(' · ');
+  // Historial de envíos de la visita
+  const ahora = new Date();
+  lead.envios = (lead.envios || []).concat({ fecha: `${todayISO()}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`, canal: sending.channel === 'email' ? 'Email' : 'WhatsApp',
+    modelo, conPdf, asunto: sending.channel === 'email' ? $('#send-subject').value : '', texto: body.slice(0, 500),
+    a: sending.channel === 'email' ? lead.correo : lead.telefono });
+  // Enviar el presupuesto sube el avance al 50 %
+  const subido = (conPdf || sending.modelo === 3 || hasBudget(lead)) && subirAvance50(lead);
+  if (subido) toast('Avance de la visita al 50 %');
   lead.modificado = new Date().toISOString();
   persist();
   closeSend();
@@ -1473,6 +1528,8 @@ document.addEventListener('click', e => {
     return;
   }
   if (t.dataset.ocrField) { assignOcrLine(Number(t.dataset.ocrLine), t.dataset.ocrField); return; }
+  if (t.dataset.fpct !== undefined) { filterPct = filterPct === t.dataset.fpct ? '' : t.dataset.fpct; renderList(); return; }
+  if (t.dataset.fsit !== undefined) { filterSit = filterSit === t.dataset.fsit ? '' : t.dataset.fsit; renderList(); return; }
   if (t.dataset.filter) {
     filter = t.dataset.filter;
     $$('#filters .chip').forEach(c => c.classList.toggle('active', c === t));
@@ -1508,7 +1565,7 @@ document.addEventListener('click', e => {
     case 'budget-pdf':
       if (!budget || !(budget.codes.length || budget.lineas.length)) { toast('Elige vallas o añade artículos al presupuesto'); break; }
       saveForm(false, lead => {
-        if (generarPdfPresupuesto(lead)) { window.Android.viewPdf(); toast('PDF guardado en el historial del cliente'); }
+        if (generarPdfPresupuesto(lead)) { window.Android.viewPdf(); toast('PDF guardado en los documentos de la visita'); if (typeof renderLeadDocs === 'function') renderLeadDocs(); }
       });
       break;
     case 'vallas-done': closePicker(); break;

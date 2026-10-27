@@ -506,3 +506,8 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .ruta-dias { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0 12px; }
 .ruta-dias select, #settings-form select { display: block; width: 100%; margin-top: 4px; padding: 10px; border: 1px solid var(--border);
   border-radius: 8px; font: inherit; background: #fff; }
+
+/* ---------- filtros de visitas ---------- */
+.filt-row { align-items: center; margin: 6px 0 0; }
+.filt-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-right: 2px; }
+.envio-item .ri-main b { font-weight: 600; }

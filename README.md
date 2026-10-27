@@ -144,6 +144,15 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   galería*; para las coordenadas: *Usar mi ubicación* (GPS), escribirlas o pegar un enlace
   de Google Maps. Las vallas del catálogo original se pueden eliminar o *Volver al
   original*. Los cambios se guardan en la tablet y se usan en presupuestos y trabajos.
+- **Filtros de Visitas** por **% de avance** (25/50/75/100) y por **situación**, con contador,
+  combinables con hoy / esta semana / todas. Situación nueva **ESPERANDO FIRMA**.
+- **Avance automático al 50 %**: al guardar una visita *interesada* o que *pide presupuesto*
+  (o con presupuesto), y al enviarle un mensaje con el presupuesto, si estaba por debajo.
+- **Documentos y envíos de la visita**: presupuestos generados, PDF anexados (*📎 Anexar PDF*)
+  y cada mensaje enviado (canal, modelo, con PDF, fecha y hora). Si la visita pasa a cliente,
+  sus documentos pasan a la ficha del cliente.
+- **Filtros de Patrimonio** por cada estado de la negociación (contacto inicial, en
+  negociación, oferta enviada, ganada, perdida), además de *En curso* y *Todas*, con contador.
 - **Visitas de tipo «Valla»** (anunciantes vistos en vallas de otros): el escáner pasa a
   *Escanear valla*: lee del cartel el nombre del anunciante (cruzándolo con su web o email),
   el teléfono, el email y la web, guarda la foto del cartel en la visita y la posición GPS

@@ -88,7 +88,10 @@ function negMatches(n) {
 }
 
 function renderNegs() {
-  $$('#neg-estados .chip').forEach(c => c.classList.toggle('active', c.dataset.negEstado === negFilter));
+  // Un filtro por cada estado de la negociación, con cuántas hay
+  const cuenta = e => negociaciones.filter(n => e === 'todas' || (e === 'abiertas' ? !NEG_CERRADAS.includes(n.estado) : n.estado === e)).length;
+  $('#neg-estados').innerHTML = [['abiertas', 'En curso'], ...NEG_ESTADOS.map(e => [e, e]), ['todas', 'Todas']]
+    .map(([v, l]) => `<button class="chip${negFilter === v ? ' active' : ''}" data-neg-estado="${esc(v)}">${esc(l)} (${cuenta(v)})</button>`).join('');
   const q = $('#neg-search').value.trim().toLowerCase();
   const items = negociaciones.filter(n => negMatches(n) && (!q || q.split(/\s+/).every(w =>
     [n.propietario, n.contacto, n.direccion, n.municipio, n.notas, n.soporte].join(' ').toLowerCase().includes(w))))
