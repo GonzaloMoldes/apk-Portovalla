@@ -144,6 +144,10 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   galería*; para las coordenadas: *Usar mi ubicación* (GPS), escribirlas o pegar un enlace
   de Google Maps. Las vallas del catálogo original se pueden eliminar o *Volver al
   original*. Los cambios se guardan en la tablet y se usan en presupuestos y trabajos.
+- **Listas compactas con buscador**: cualquier grupo de opciones con más de 5 (situación,
+  clientes, poblaciones, municipios, tipos de trabajo, filtros…) muestra como mucho 5: las
+  elegidas, las primeras y *🔍 N más…*, que abre un desplegable con buscador (5 a la vista y
+  el resto con scroll). En las listas de clientes salen primero los últimos usados.
 - **Filtros de Visitas** por **% de avance** (25/50/75/100) y por **situación**, con contador,
   combinables con hoy / esta semana / todas. Situación nueva **ESPERANDO FIRMA**.
 - **Avance automático al 50 %**: al guardar una visita *interesada* o que *pide presupuesto*

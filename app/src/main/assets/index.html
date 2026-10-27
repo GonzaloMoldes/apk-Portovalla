@@ -1050,6 +1050,17 @@
   </div>
 </div>
 
+<!-- ======================= DESPLEGABLE CON BUSCADOR ======================= -->
+<div class="modal" id="dd-modal" hidden>
+  <div class="sheet dd-sheet">
+    <h2 id="dd-titulo">Elegir</h2>
+    <input id="dd-buscar" type="search" placeholder="Buscar…" autocomplete="off">
+    <p class="hint" id="dd-info"></p>
+    <div class="dd-lista" id="dd-lista"></div>
+    <div class="form-actions"><span class="spacer"></span><button type="button" class="btn primary" id="dd-cerrar">Listo</button></div>
+  </div>
+</div>
+
 <!-- ======================= REVISIÓN DE UN TRABAJO ======================= -->
 <div class="modal" id="rev-modal" hidden>
   <div class="sheet">
@@ -1545,5 +1556,6 @@
 <script src="revisiones.js"></script>
 <script src="rutas.js"></script>
 <script src="agenda.js"></script>
+<script src="desplegables.js"></script>
 </body>
 </html>

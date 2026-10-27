@@ -265,7 +265,7 @@ function renderVfDispo() {
   $$('[data-vf-dispo] .chip').forEach(c => c.classList.toggle('active', c.dataset.value === vfDispo));
   $('#vf-ocupada').hidden = !!ct || vfDispo !== 'Ocupada';
   $('#vf-clientes').innerHTML = clientes.length
-    ? clientes.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(c =>
+    ? clientes.slice().sort((a, b) => (b.modificado || b.creado || '').localeCompare(a.modificado || a.creado || '') || a.nombre.localeCompare(b.nombre, 'es')).map(c =>
       `<button type="button" class="chip${c.id === vfClienteId ? ' active' : ''}" data-vf-cliente="${c.id}">${esc(c.nombre)}</button>`).join('')
     : '<span class="hint">No hay clientes dados de alta.</span>';
 }
@@ -524,7 +524,7 @@ function renderTf() {
   $('#tf-tipos-card').hidden = venta;
   $('#tf-vallas-label').textContent = venta ? 'Vallas (opcional, si la venta es para una valla)' : 'Vallas';
   const cn = form.elements.clienteNombre.value.trim();
-  $('#tf-clientes').innerHTML = clientes.slice().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(c =>
+  $('#tf-clientes').innerHTML = clientes.slice().sort((a, b) => (b.modificado || b.creado || '').localeCompare(a.modificado || a.creado || '') || a.nombre.localeCompare(b.nombre, 'es')).map(c =>
     `<button type="button" class="chip${c.id === tfClienteId || (!tfClienteId && cn && normName(cn) === normName(c.nombre)) ? ' active' : ''}" data-tf-cliente="${c.id}">${esc(c.nombre)}</button>`).join('');
   $$('#trabajo-form [data-tf]').forEach(g => $$('.chip', g).forEach(c =>
     c.classList.toggle('active', tfState[g.dataset.tf] === c.dataset.value)));

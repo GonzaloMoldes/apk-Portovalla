@@ -80,7 +80,7 @@ function renderLeadCliPick() {
 function renderLcResultados() {
   const q = $('#lc-buscar').value.trim().toLowerCase();
   lcResultados = clientes.filter(c => !q || q.split(/\s+/).every(w => clienteBuscaTexto(c).includes(w)))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).slice(0, q ? 12 : 6);
+    .sort((a, b) => q ? a.nombre.localeCompare(b.nombre, 'es') : (b.modificado || b.creado || '').localeCompare(a.modificado || a.creado || '') || a.nombre.localeCompare(b.nombre, 'es'));   // sin buscar: los últimos primero
   $('#lc-resultados').innerHTML = lcResultados.map(c => {
     const r = clienteResumen(c);
     return `<button type="button" class="lc-item" data-lc="${c.id}"><b>${esc(c.nombre)}</b>

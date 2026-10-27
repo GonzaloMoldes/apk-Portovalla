@@ -511,3 +511,16 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .filt-row { align-items: center; margin: 6px 0 0; }
 .filt-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-right: 2px; }
 .envio-item .ri-main b { font-weight: 600; }
+
+/* ---------- grupos compactos y desplegable con buscador ---------- */
+.dd-oculto { display: none !important; }
+.chip.dd-mas { border-style: dashed; border-color: var(--primary); color: var(--primary); font-weight: 700; background: #f3f6fb; }
+.dd-sheet { max-width: 560px; }
+.dd-lista { display: flex; flex-direction: column; gap: 6px; max-height: calc(5 * 50px); overflow-y: auto; margin: 6px 0;
+  border: 1px solid var(--border); border-radius: 12px; padding: 6px; }
+.dd-item { display: flex; gap: 10px; align-items: center; text-align: left; min-height: 44px; border: 0; border-radius: 10px;
+  background: #f6f8fb; padding: 8px 12px; font-size: 15px; flex: none; }
+.dd-item.active { background: #dbe6f5; font-weight: 700; color: var(--primary-dark); }
+.dd-check { width: 18px; color: var(--primary); font-weight: 800; flex: none; }
+/* listas de búsqueda: 5 a la vista y el resto con scroll */
+.lc-resultados, #fu-lista { max-height: calc(5 * 58px); overflow-y: auto; }
