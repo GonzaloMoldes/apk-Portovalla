@@ -207,6 +207,26 @@ function agendaItems() {
       titulo: `Fin de contrato (no renueva) ${ct.codigo}`, texto: [c ? c.nombre : '', ct.pvs, 'liberar la valla / retirar lona'].filter(Boolean).join(' · '),
       abrir: ['cliente', ct.clienteId] });
   }
+  // Vallas con lista de espera que van a quedar libres (fincas.js)
+  for (const code of Object.keys(vallasEspera)) {
+    const lista = esperaDe(code);
+    if (!lista.length || !VALLAS_DB.some(v => v.codigo === code)) continue;
+    const d = vallaDisponibilidad(code);
+    const libre = d.estado !== 'Ocupada';
+    const f = libre ? hoy : d.hasta;
+    if (!f) continue;
+    out.push({ fecha: f, aviso: libre ? hoy : isoAddDays(f, -diasAvisoRenov()), tipo: 'contrato', icono: '⏳',
+      titulo: `${code} ${libre ? 'está libre' : 'queda libre'} · ${lista.length} en espera`,
+      texto: lista.slice(0, 4).map(x => x.nombre).join(', ') + (lista.length > 4 ? ` y ${lista.length - 4} más` : ''), abrir: ['valla', code] });
+  }
+  // Contratos con propietarios de fincas que vencen (aviso 2 meses antes)
+  for (const code of Object.keys(vallasProp)) {
+    const p = vallasProp[code];
+    if (!p.vence || p.vence < isoAddDays(hoy, -30)) continue;
+    out.push({ fecha: p.vence, aviso: addMonthsISO(p.vence, -2), tipo: 'patrimonio', icono: '🏠',
+      titulo: `Vence el contrato de la finca de ${code}`, texto: [p.nombre, p.telefono, p.renta && `${fmtMoney(parseMoney(p.renta))}/año`].filter(Boolean).join(' · '),
+      abrir: ['valla', code] });
+  }
   // Revisiones periódicas de vallas
   for (const code of Object.keys(vallasMant)) {
     const f = proximaRevision(code);

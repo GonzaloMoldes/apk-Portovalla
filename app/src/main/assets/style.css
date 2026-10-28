@@ -524,3 +524,15 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .dd-check { width: 18px; color: var(--primary); font-weight: 800; flex: none; }
 /* listas de búsqueda: 5 a la vista y el resto con scroll */
 .lc-resultados, #fu-lista { max-height: calc(5 * 58px); overflow-y: auto; }
+
+/* ---- tráfico por hora, lista de espera, propietario de la finca ---- */
+#valla-form .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 12px; }
+@media (max-width: 560px) { #valla-form .grid4 { grid-template-columns: 1fr 1fr; } }
+.franjas { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 6px 0 10px; }
+.franja { border: 1px solid #dde5ee; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.franja.top { border-color: #f0b429; background: #fff8e6; }
+.franja.top b::after { content: ' ★ más tráfico'; font-size: 12px; color: #b07a00; font-weight: 600; }
+.badge.espera { background: #fff1d6; color: #8a5a00; }
+.espera-item .qa-row { margin-top: 6px; }
+#espera-modal #ve-nota { margin-top: 8px; }
+#ve-sug { margin-top: 10px; }

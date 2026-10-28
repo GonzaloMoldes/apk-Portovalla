@@ -84,7 +84,7 @@ function docsDeCliente(c) {
   const leadIds = new Set(leads.filter(l => l.clienteId === c.id).map(l => l.id));
   const n = normName(c.nombre);
   return documentos.filter(d => d.clienteId === c.id || (d.leadId && leadIds.has(d.leadId))
-    || (!d.clienteId && n && normName(d.empresa) === n))
+    || (!d.clienteId && !d.negId && n && normName(d.empresa) === n))
     .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 }
 
@@ -111,6 +111,7 @@ window.onAttachResult = function (json) {
   let r;
   try { r = JSON.parse(json); } catch (e) { return; }
   if (String(r.tag || '').startsWith('lead:')) { anexoDeVisita(r); return; }
+  if (/^(neg|valla|trabajo):/.test(String(r.tag || ''))) { anexoGenerico(r); return; }
   const c = clienteById(r.tag);
   if (!c) return;
   const base = String(r.name || 'Documento').replace(/\.[a-z0-9]{2,4}$/i, '');
@@ -130,7 +131,7 @@ function quitarDocumento(id) {
   if (!d || !confirm(`¿Quitar «${d.titulo || d.fichero}» de los documentos? (El fichero sigue en Descargas/PortoValla.)`)) return;
   documentos = documentos.filter(x => x.id !== id);
   saveDocumentos();
-  if (currentView() === 'form') renderLeadDocs(); else renderCf();
+  refrescarDocs();
 }
 
 /* ------------------------------------------------------------- documentos y envíos de una visita */

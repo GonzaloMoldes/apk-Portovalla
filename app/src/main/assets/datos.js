@@ -26,12 +26,16 @@ const VALLA_COLS = [
   ['VEHÍCULOS / MIN', 'vehiculosMin', 'number', 10], ['PERSONAS / MIN', 'personasMin', 'number', 10],
   ['IMPACTOS / DÍA (estim.)', 'impactos', 'number', 12], ['IMPACTOS RODADO', 'impactosVeh', 'number', 11],
   ['IMPACTOS A PIE', 'impactosPie', 'number', 11], ['FECHA CONTEO', 'fechaConteo', 'date', 12],
+  ['HORA CONTEO', 'horaConteo', 'text', 8],
   ['REVISAR CADA', 'revCada', 'text', 12, 'Mensual,Trimestral,Semestral,Anual,Nunca'],
   ['QUÉ HACER', 'revMotivo', 'text', 12, 'Desbrozar,Revisión,Limpieza'], ['ÚLTIMA REVISIÓN', 'revUltima', 'date', 12],
   ['PRÓXIMA REVISIÓN', 'revProxima', 'date', 12],
   ['TIEMPO DE VISIÓN (s)', 'tiempoVision', 'number', 11], ['DISTANCIA DE VISIÓN (m)', 'distanciaVision', 'number', 12],
   ['Nº FOTOS', 'nFotos', 'number', 8], ['ÚLTIMA VISITA', 'ultimaVisita', 'date', 12],
   ['PRECIO MES (categoría)', 'precioCat', 'money', 12],
+  ['PROPIETARIO FINCA', 'propNombre', 'text', 22], ['TELÉFONO PROPIETARIO', 'propTelefono', 'text', 13],
+  ['RENTA PROPIETARIO (€/año)', 'propRenta', 'money', 12], ['CONTRATO FINCA HASTA', 'propVence', 'date', 12],
+  ['EN ESPERA', 'enEspera', 'wrap', 26],
   ['FOTO', 'foto', 'photo', 26],
 ];
 
@@ -177,13 +181,20 @@ const IMPORTERS = {
       }
       // Conteo de tráfico: se añade al historial si es nuevo
       if (o.vehiculosMin || o.personasMin) {
-        const c = { fecha: o.fechaConteo || todayISO(), vehiculosMin: String(o.vehiculosMin || ''), personasMin: String(o.personasMin || '') };
+        const hora = horaCelda(o.horaConteo);
+        const c = { fecha: o.fechaConteo || todayISO(), hora, vehiculosMin: String(o.vehiculosMin || ''), personasMin: String(o.personasMin || '') };
         c.impactos = String(impactosDia(c));
         const hist = vallasTrafico[codigo] || [];
-        const i = hist.findIndex(x => x.fecha === c.fecha);
+        const i = hist.findIndex(x => x.fecha === c.fecha && (x.hora || '') === hora);
         if (i >= 0) hist[i] = c; else hist.push(c);
-        hist.sort((a, b) => a.fecha.localeCompare(b.fecha));
+        hist.sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')));
         vallasTrafico[codigo] = hist;
+      }
+      // Propietario de la finca
+      if (o.propNombre || o.propTelefono || o.propRenta || o.propVence) {
+        const pp = vallasProp[codigo] || {};
+        vallasProp[codigo] = Object.assign({}, pp, { nombre: String(o.propNombre || pp.nombre || '').toUpperCase(),
+          telefono: String(o.propTelefono || pp.telefono || ''), renta: String(o.propRenta || pp.renta || ''), vence: o.propVence || pp.vence || '' });
       }
       // Visión
       if (o.tiempoVision || o.distanciaVision) {
@@ -207,6 +218,7 @@ const IMPORTERS = {
     saveDispo();
     saveTrafico();
     saveMant();
+    saveProp();
     saveVision();
     return res;
   },
@@ -347,14 +359,17 @@ function vallaRows() {
     const d = vallaDisponibilidad(v.codigo);
     const c = ultimoConteo(v.codigo) || {};
     return Object.assign({}, v, { disponibilidad: d.estado, ocupadaPor: d.cliente || '', ocupadaHasta: d.hasta || '',
-      vehiculosMin: c.vehiculosMin || '', personasMin: c.personasMin || '', impactos: c.impactos || '', fechaConteo: c.fecha || '',
+      vehiculosMin: c.vehiculosMin || '', personasMin: c.personasMin || '', impactos: c.impactos || '', fechaConteo: c.fecha || '', horaConteo: c.hora || '',
       impactosVeh: c.fecha ? String(impactosSplit(c).veh) : '', impactosPie: c.fecha ? String(impactosSplit(c).pie) : '',
       revCada: (vallasMant[v.codigo] || {}).cada || '', revMotivo: (vallasMant[v.codigo] || {}).motivo || '',
       revUltima: (vallasMant[v.codigo] || {}).ultima || '', revProxima: proximaRevision(v.codigo),
       tiempoVision: String((vallasVision[v.codigo] || {}).tiempoVision || ''), distanciaVision: String((vallasVision[v.codigo] || {}).distancia || ''),
       nFotos: (vallasFotos[v.codigo] || []).length ? String((vallasFotos[v.codigo] || []).length) : '',
       ultimaVisita: ultimaVisitaValla(v.codigo),
-      precioCat: precioCategoria(v.categoria) });
+      precioCat: precioCategoria(v.categoria),
+      propNombre: (vallasProp[v.codigo] || {}).nombre || '', propTelefono: (vallasProp[v.codigo] || {}).telefono || '',
+      propRenta: (vallasProp[v.codigo] || {}).renta || '', propVence: (vallasProp[v.codigo] || {}).vence || '',
+      enEspera: esperaDe(v.codigo).map(x => x.nombre).join(', ') });
   });
 }
 
@@ -434,8 +449,19 @@ window.onImportError = function (msg) { toast('⚠ ' + (msg || 'No se pudo impor
 
 /* ------------------------------------------------------------- copia de seguridad completa */
 
+/** Hora de una celda: «9:30», «09:30:00» o la fracción de día de Excel (0,395…) → «09:30». */
+function horaCelda(v) {
+  const t = String(v == null ? '' : v).trim();
+  let m = /^(\d{1,2})[:.h](\d{2})/.exec(t);
+  if (m && Number(m[1]) < 24) return `${pad(Number(m[1]))}:${m[2]}`;
+  const f = Number(t.replace(',', '.'));
+  if (t && !isNaN(f) && f > 0 && f < 1) { const min = Math.round(f * 1440); return `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`; }
+  return '';
+}
+
 const BACKUP_KEYS = ['leads', 'settings', 'trabajos', 'negociaciones', 'clientes', 'contratos', 'documentos',
-  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant', 'gastos', 'vallas_fotos', 'vallas_vision', 'vallas_visitas'];
+  'vallas_user', 'vallas_dispo', 'vallas_trafico', 'vallas_mant', 'gastos', 'vallas_fotos', 'vallas_vision', 'vallas_visitas',
+  'vallas_prop', 'vallas_espera'];
 
 function exportarCopia() {
   const data = {};

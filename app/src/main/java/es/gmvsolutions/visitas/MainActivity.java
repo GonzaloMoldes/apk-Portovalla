@@ -188,9 +188,10 @@ public class MainActivity extends Activity {
 
     // ---------------------------------------------------------------- anexar documentos (PDF externos)
 
-    private void startAttach(String tag, String prefix) {
+    private void startAttach(String tag, String prefix, String folder) {
         try {
-            pendingAttach = new JSONObject().put("tag", tag == null ? "" : tag).put("prefix", prefix == null ? "" : prefix).toString();
+            pendingAttach = new JSONObject().put("tag", tag == null ? "" : tag).put("prefix", prefix == null ? "" : prefix)
+                    .put("folder", folder == null ? "" : folder).toString();
         } catch (Exception e) {
             pendingAttach = "";
         }
@@ -220,7 +221,9 @@ public class MainActivity extends Activity {
                 String prefix = p.optString("prefix").replaceAll("[^A-Za-z0-9_-]+", "_");
                 String name = (prefix.isEmpty() ? "" : prefix + "_") + original.replaceAll("[\\\\/:*?\"<>|]", "_");
                 final long[] size = {0};
-                Uri saved = saveToDownloads(FOLDER + "/Clientes", name, mime, out -> {
+                String sub = p.optString("folder", "Clientes").replaceAll("[^A-Za-z0-9_ -]", "");
+                if (sub.isEmpty()) sub = "Clientes";
+                Uri saved = saveToDownloads(FOLDER + "/" + sub, name, mime, out -> {
                     try (InputStream in = getContentResolver().openInputStream(src)) {
                         if (in == null) throw new IOException("No se pudo leer el fichero");
                         byte[] b = new byte[16384];
@@ -962,7 +965,8 @@ public class MainActivity extends Activity {
         JSONObject doc = new JSONObject(docJson);
         String name = doc.optString("fichero", "Presupuesto").replaceAll("[\\\\/:*?\"<>|]", "_");
         if (!name.endsWith(".pdf")) name += ".pdf";
-        return saveToDownloads(FOLDER + "/Presupuestos", name, "application/pdf",
+        String sub = doc.optString("carpeta", "Presupuestos").replaceAll("[^A-Za-z0-9_ -]", "");
+        return saveToDownloads(FOLDER + "/" + (sub.isEmpty() ? "Presupuestos" : sub), name, "application/pdf",
                 out -> BudgetPdf.write(doc, path -> {
                     byte[] b = loadAsset(path);
                     return b == null ? null : BitmapFactory.decodeByteArray(b, 0, b.length);
@@ -1190,7 +1194,13 @@ public class MainActivity extends Activity {
         /** Anexar un PDF (o imagen) externo. tag: a quién pertenece; prefix: inicio del nombre del fichero. */
         @JavascriptInterface
         public void attachFile(String tag, String prefix) {
-            runOnUiThread(() -> startAttach(tag, prefix));
+            runOnUiThread(() -> startAttach(tag, prefix, "Clientes"));
+        }
+
+        /** Igual, guardando la copia en Descargas/PortoValla/&lt;folder&gt; (Patrimonio, Vallas, Trabajos…). */
+        @JavascriptInterface
+        public void attachFileTo(String tag, String prefix, String folder) {
+            runOnUiThread(() -> startAttach(tag, prefix, folder));
         }
 
         /** Abre o comparte un documento guardado (historial de PDF). mode: open|share */

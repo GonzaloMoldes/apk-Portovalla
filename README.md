@@ -248,6 +248,22 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   `Descargas/PortoValla/Trabajos/Trabajos_<persona>_<fecha>.xlsx` con una fila por
   valla (dirección, enlace al mapa, foto, instrucciones, estado con desplegable…) para
   **compartirlo** por WhatsApp, email, etc. o abrirlo.
+- **Contratos y documentos anexos** en Patrimonio (negociaciones), Vallas y Trabajos:
+  *📎 Anexar…* guarda una copia del PDF o foto en `Descargas/PortoValla/<Patrimonio|Vallas|Trabajos>`
+  y queda en la ficha para abrirlo o enviarlo. La valla muestra también los documentos de la
+  negociación con el propietario de la finca.
+- **Propietario de la finca** en cada valla (nombre, contacto, renta anual, vencimiento del
+  contrato y notas), propuesto desde la negociación de la que salió la valla. La agenda avisa
+  2 meses antes de que venza el contrato de la finca.
+- **Lista de espera** en cada valla: clientes y visitas interesados para cuando quede libre
+  (se proponen los que la tuvieron en un presupuesto). Insignia *⏳ N en espera* en el
+  catálogo y aviso en la agenda cuando la valla queda libre.
+- **Hora del conteo de tráfico**: cada conteo guarda fecha y hora (varios el mismo día) y la
+  ficha muestra la media por franja (mañana, mediodía, tarde, noche) marcando la de más tráfico.
+- **Oferta al propietario (PDF)** desde la negociación: datos del propietario y de la finca,
+  emplazamiento, fotos, tráfico y visibilidad, enlace a Google Maps, precio ofrecido, duración,
+  valoración anual y total. Se guarda en los documentos y se envía por email o WhatsApp
+  (la negociación pasa a *Oferta enviada*).
 - **Iconos** de la cabecera de Visitas: *tabla* = abrir el Excel, *compartir* = enviarlo
   por correo, Drive, WhatsApp…
 - **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos

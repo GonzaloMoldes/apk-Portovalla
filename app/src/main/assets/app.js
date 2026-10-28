@@ -107,9 +107,10 @@ DEFAULT_PLANTILLAS.push({
     'ofrecerles nuestras vallas en Galicia para su próxima campaña. ¿Le puedo llamar para contárselo?',
 });
 
-const FIELDS = ['tipo', 'clienteId', 'fecha', 'fechaFirma', 'razonSocial', 'contacto', 'telefono',
-  'poblacion', 'provincia', 'correo', 'situacion', 'pvpEntrada', 'pvpTotal', 'volver',
-  'porcentaje', 'fechaTrabajo', 'vallaUbic', 'vallaCoords'];
+// (precio, firma y trabajo ya no se piden en la visita: los datos antiguos se conservan)
+const FIELDS = ['tipo', 'clienteId', 'fecha', 'razonSocial', 'contacto', 'telefono',
+  'poblacion', 'provincia', 'correo', 'situacion', 'volver',
+  'porcentaje', 'vallaUbic', 'vallaCoords'];
 
 /* ------------------------------------------------------------- almacenamiento */
 
@@ -585,7 +586,6 @@ function openForm(id) {
   $('#form-title').textContent = id ? 'Editar visita' : 'Nueva visita';
   $('#btn-delete').hidden = !id;
   $('#envio-info').textContent = lead.envio ? `Seguimiento enviado: ${lead.envio}` : '';
-  $('details.card', form).open = !!(lead.pvpEntrada || lead.pvpTotal || lead.fechaFirma || lead.fechaTrabajo);
   show('form');
 }
 
@@ -599,7 +599,7 @@ function readForm() {
   data.correo = data.correo.toLowerCase();
   data.presupuesto = budgetForSave();
   const total = budgetTotal();
-  if (data.presupuesto && total > 0 && !data.pvpTotal) data.pvpTotal = String(total).replace('.', ',');
+  if (data.presupuesto && total > 0) data.pvpTotal = String(total).replace('.', ',');
   return data;
 }
 

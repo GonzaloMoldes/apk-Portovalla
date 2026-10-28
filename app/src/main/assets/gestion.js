@@ -140,7 +140,7 @@ function renderCatalog() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${visionBadge(v.codigo)}${revisionBadge(v.codigo)}${(vallasFotos[v.codigo] || []).length ? `<span class="badge">📷 ${(vallasFotos[v.codigo] || []).length}</span>` : ''}</div>
+        <div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${visionBadge(v.codigo)}${revisionBadge(v.codigo)}${esperaDe(v.codigo).length ? `<span class="badge espera" title="Lista de espera">⏳ ${esperaDe(v.codigo).length} en espera</span>` : ''}${(vallasFotos[v.codigo] || []).length ? `<span class="badge">📷 ${(vallasFotos[v.codigo] || []).length}</span>` : ''}</div>
         ${modoVisita ? `<div class="badges dispo-wrap">${visitaBadge(v.codigo)}</div>` : ''}
         ${catTrafico === 'revisar' && !proximaRevision(v.codigo) ? '<div class="badges dispo-wrap"><span class="badge volver">🌿 Sin revisión apuntada</span></div>' : ''}
         ${catTrafico === 'recontar' && !ultimoConteo(v.codigo) ? '<div class="badges dispo-wrap"><span class="badge volver">⏱ Tráfico sin medir</span></div>' : ''}
@@ -247,6 +247,9 @@ function openVallaForm(code) {
   visionLoad(code || '');
   renderVisitasValla();   // rutas.js
   mantLoad(code || '');
+  propLoad(code || '');            // fincas.js
+  renderEspera();
+  renderAnexos('valla', code || '');   // anexos.js
   show('valla-form');
 }
 
@@ -312,6 +315,7 @@ function saveValla() {
   visionSave(codigo, vallaEditing);              // vision.js
   traficoSave(codigo, vallaEditing);
   mantSave(codigo, vallaEditing);
+  propSave(codigo, vallaEditing);      // fincas.js
   saveCatalog();
   // Disponibilidad
   if (!contratoActivo(codigo)) {
@@ -561,6 +565,7 @@ function openTrabajoForm(id, preset) {
   tfFotos = (t.fotos || []).slice();
   renderTfFotos();
   renderTfRevisiones();   // revisiones.js
+  renderAnexos('trabajo', id || '');   // anexos.js
   trLeadId = t.leadId || '';
   trCodes = t.vallas.map(v => v.codigo);
   trSnap = {};

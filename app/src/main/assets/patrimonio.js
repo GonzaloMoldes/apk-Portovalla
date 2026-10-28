@@ -12,7 +12,7 @@ const NEG_CERRADAS = ['Ganada', 'Perdida'];
 const NF_CHOICES = ['soporte', 'nVallas', 'caras', 'iluminacion', 'sentido', 'duracion', 'pago', 'estado'];
 const NF_FIELDS = ['propietario', 'contacto', 'telefono', 'correo', 'direccion', 'municipio', 'provincia', 'zona',
   'medida', 'vehiculosMin', 'personasMin', 'tiempoVision', 'distancia', 'precioPedido', 'precioOfrecido',
-  'precioAcordado', 'proximo', 'notas'];
+  'precioAcordado', 'proximo', 'notas', 'conteoFecha', 'conteoHora'];
 const LOC_NEG = { form: '#neg-form', btn: '#nf-location', hint: '#nf-coords-hint' };
 // Estimación de impactos: ocupantes por vehículo y horas de tráfico al día
 const OCUPACION = 1.3;
@@ -190,6 +190,8 @@ function openNegForm(id, preset) {
   $('#nf-location').textContent = '📍 Usar mi ubicación';
   $('#nf-ganada-info').textContent = n.vallasCreadas && n.vallasCreadas.length
     ? `Vallas añadidas al catálogo: ${n.vallasCreadas.join(', ')}` : '';
+  renderAnexos('neg', id || '');   // anexos.js
+  renderOfertasNeg(n);             // oferta.js
   show('neg-form');
 }
 
@@ -366,6 +368,9 @@ function countToNeg(veh, per) {
   const form = $('#neg-form');
   form.elements.vehiculosMin.value = String(veh);
   form.elements.personasMin.value = String(per);
+  const ahora = new Date();
+  form.elements.conteoFecha.value = todayISO();
+  form.elements.conteoHora.value = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
   renderNf();
 }
 

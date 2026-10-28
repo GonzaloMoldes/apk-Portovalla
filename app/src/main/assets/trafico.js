@@ -3,7 +3,7 @@
    para recalcular cada cierto tiempo los impactos al día y ver cuánto vale cada valla.
    Usa el mismo contador de 1 minuto y la misma fórmula que Patrimonio (impactosDia). */
 
-/** código → [{ fecha, vehiculosMin, personasMin, impactos }] ordenados por fecha */
+/** código → [{ fecha, hora, vehiculosMin, personasMin, impactos }] ordenados por fecha y hora */
 let vallasTrafico = store.load('vallas_trafico') || {};
 let vtHist = [];          // conteos de la valla que se está editando
 
@@ -110,13 +110,43 @@ function traficoLoad(code) {
   form.elements.t_veh.value = last ? last.vehiculosMin : '';
   form.elements.t_per.value = last ? last.personasMin : '';
   form.elements.t_fecha.value = last ? last.fecha : '';
+  form.elements.t_hora.value = last ? last.hora || '' : '';
   renderTrafico();
+}
+
+/** Hora actual «HH:MM». */
+function horaAhora() {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Franja del día de un conteo según su hora. */
+const FRANJAS = [['Mañana', 7, 11], ['Mediodía', 11, 15], ['Tarde', 15, 20], ['Noche', 20, 31]];
+function franjaDe(hora) {
+  const m = /^(\d{1,2}):/.exec(hora || '');
+  if (!m) return '';
+  let h = Number(m[1]);
+  if (h < 7) h += 24;
+  const f = FRANJAS.find(x => h >= x[1] && h < x[2]);
+  return f ? f[0] : '';
+}
+
+/** Media de tráfico por franja horaria (para saber a qué horas pasa más gente). */
+function traficoPorFranja(hist) {
+  const out = [];
+  for (const [nombre] of FRANJAS) {
+    const cs = hist.filter(c => franjaDe(c.hora) === nombre);
+    if (!cs.length) continue;
+    const media = k => cs.reduce((s, c) => s + parseMoney(c[k]), 0) / cs.length;
+    out.push({ franja: nombre, n: cs.length, veh: media('vehiculosMin'), per: media('personasMin') });
+  }
+  return out;
 }
 
 function traficoForm() {
   const form = $('#valla-form');
   return { vehiculosMin: form.elements.t_veh.value.trim(), personasMin: form.elements.t_per.value.trim(),
-    fecha: form.elements.t_fecha.value || todayISO() };
+    fecha: form.elements.t_fecha.value || todayISO(), hora: form.elements.t_hora.value || '' };
 }
 
 function renderTrafico() {
@@ -145,17 +175,23 @@ function renderTrafico() {
       ? `⏱ Toca recontar: el último conteo es del ${fmtDate(last.fecha)} (${haceText(last.fecha)}; se recuenta cada ${recontarMeses()} meses).`
       : `Último conteo: ${fmtDate(last.fecha)} (${haceText(last.fecha)}).`;
   }
-  $('#vf-trafico-hist').innerHTML = vtHist.length ? `<label class="lbl">Historial de conteos</label>` + vtHist.slice().reverse().map((c, k) => {
+  const franjas = traficoPorFranja(vtHist);
+  const maxF = franjas.reduce((m, f) => Math.max(m, f.veh + f.per), 0);
+  const franjasHtml = franjas.length ? `<label class="lbl">Tráfico por franja horaria <span class="hint-inline">(media por minuto)</span></label>
+    <div class="franjas">${franjas.map(f => `<div class="franja${f.veh + f.per === maxF && franjas.length > 1 ? ' top' : ''}">
+      <b>${f.franja}</b><span>🚗 ${fmtInt(Math.round(f.veh))} · 🚶 ${fmtInt(Math.round(f.per))}</span>
+      <span class="hint-inline">${f.n} conteo${f.n > 1 ? 's' : ''}</span></div>`).join('')}</div>` : '';
+  $('#vf-trafico-hist').innerHTML = franjasHtml + (vtHist.length ? `<label class="lbl">Historial de conteos</label>` + vtHist.slice().reverse().map((c, k) => {
     const i = vtHist.length - 1 - k;
     const prev = vtHist[i - 1];
     const dif = prev && Number(prev.impactos) ? Math.round((Number(c.impactos) - Number(prev.impactos)) / Number(prev.impactos) * 100) : null;
     return `<div class="row-item">
-      <div class="ri-main"><b>${esc(fmtDate(c.fecha))} · ${fmtInt(Number(c.impactos) || 0)} impactos/día
+      <div class="ri-main"><b>${esc(fmtDate(c.fecha))}${c.hora ? ` ${esc(c.hora)} h${franjaDe(c.hora) ? ' (' + franjaDe(c.hora).toLowerCase() + ')' : ''}` : ''} · ${fmtInt(Number(c.impactos) || 0)} impactos/día
         ${dif !== null ? `<span class="trend ${dif >= 0 ? 'up' : 'down'}">${dif >= 0 ? '▲' : '▼'} ${Math.abs(dif)}%</span>` : ''}</b>
         <span>🚗 ${esc(c.vehiculosMin || '0')}/min (${fmtInt(impactosSplit(c).veh)} rodado) · 🚶 ${esc(c.personasMin || '0')}/min (${fmtInt(impactosSplit(c).pie)} a pie)</span></div>
       <button type="button" class="vsel-x" data-vt-del="${i}" aria-label="Borrar conteo" title="Borrar conteo">${icon('close')}</button>
     </div>`;
-  }).join('') : '';
+  }).join('') : '');
 }
 
 /** Al guardar la valla: añade el conteo nuevo (o corrige el del mismo día). */
@@ -166,11 +202,13 @@ function traficoSave(codigo, anterior) {
   if (t.vehiculosMin || t.personasMin) {
     const rec = Object.assign(t, { impactos: String(impactosDia(t)) });
     const last = hist[hist.length - 1];
-    const igual = last && last.vehiculosMin === rec.vehiculosMin && last.personasMin === rec.personasMin && last.fecha === rec.fecha;
+    const igual = last && last.vehiculosMin === rec.vehiculosMin && last.personasMin === rec.personasMin && last.fecha === rec.fecha
+      && (last.hora || '') === rec.hora;
     if (!igual) {
-      const i = hist.findIndex(c => c.fecha === rec.fecha);
+      // Varios conteos el mismo día a distintas horas se guardan por separado
+      const i = hist.findIndex(c => c.fecha === rec.fecha && (c.hora || '') === rec.hora);
       if (i >= 0) hist[i] = rec; else hist.push(rec);
-      hist.sort((a, b) => a.fecha.localeCompare(b.fecha));
+      hist.sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')));
     }
   }
   if (hist.length) vallasTrafico[codigo] = hist; else delete vallasTrafico[codigo];
@@ -183,6 +221,7 @@ function traficoCount() {
     form.elements.t_veh.value = String(veh);
     form.elements.t_per.value = String(per);
     form.elements.t_fecha.value = todayISO();
+    form.elements.t_hora.value = horaAhora();
     renderTrafico();
   });
 }
@@ -193,14 +232,15 @@ document.addEventListener('click', e => {
   if (t.dataset.vt === 'count') { traficoCount(); return; }
   if (t.dataset.vtDel !== undefined) {
     const c = vtHist[Number(t.dataset.vtDel)];
-    if (!c || !confirm(`¿Borrar el conteo del ${fmtDate(c.fecha)}?`)) return;
+    if (!c || !confirm(`¿Borrar el conteo del ${fmtDate(c.fecha)}${c.hora ? ' a las ' + c.hora : ''}?`)) return;
     vtHist.splice(Number(t.dataset.vtDel), 1);
     const form = $('#valla-form');
     const last = vtHist[vtHist.length - 1];
-    if (form.elements.t_fecha.value === c.fecha) {
+    if (form.elements.t_fecha.value === c.fecha && form.elements.t_hora.value === (c.hora || '')) {
       form.elements.t_veh.value = last ? last.vehiculosMin : '';
       form.elements.t_per.value = last ? last.personasMin : '';
       form.elements.t_fecha.value = last ? last.fecha : '';
+      form.elements.t_hora.value = last ? last.hora || '' : '';
     }
     renderTrafico();
     toast('Se borrará al guardar la valla');
@@ -208,5 +248,5 @@ document.addEventListener('click', e => {
 });
 
 $('#valla-form').addEventListener('input', e => {
-  if (['t_veh', 't_per', 't_fecha'].includes(e.target.name)) renderTrafico();
+  if (['t_veh', 't_per', 't_fecha', 't_hora'].includes(e.target.name)) renderTrafico();
 });

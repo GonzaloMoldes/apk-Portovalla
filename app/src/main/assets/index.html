@@ -212,17 +212,6 @@
       <p class="hint">«Pasar a trabajos» crea el trabajo de instalación de las vallas y la venta de los artículos.</p>
     </div>
 
-    <details class="card">
-      <summary>Precio, firma y trabajo</summary>
-      <div class="grid">
-        <label>PVP entrada sin IVA (€)<input type="text" name="pvpEntrada" inputmode="decimal"></label>
-        <label>PVP total sin IVA (€)<input type="text" name="pvpTotal" inputmode="decimal"></label>
-      </div>
-      <div class="grid">
-        <label>Fecha firma<input type="date" name="fechaFirma"></label>
-        <label>Fecha trabajo realizado<input type="date" name="fechaTrabajo"></label>
-      </div>
-    </details>
 
     <p class="envio-info" id="envio-info"></p>
 
@@ -456,6 +445,7 @@
       </div>
       <label>Correo<input type="email" name="correo" inputmode="email" autocapitalize="none"></label>
       <div id="nf-contacto"></div>
+      <input type="hidden" name="conteoFecha"><input type="hidden" name="conteoHora">
     </div>
 
     <div class="card">
@@ -626,6 +616,24 @@
       <label>Notas (qué se ha hablado, condiciones, motivo si se pierde…)<textarea name="notas" rows="4"></textarea></label>
       <p class="envio-info" id="nf-ganada-info"></p>
       <button type="button" class="btn primary" data-p="neg-win" id="nf-win" hidden>🏗 Pasar a patrimonio y crear trabajo de montaje</button>
+    </div>
+
+    <div class="card">
+      <h2>Oferta al propietario</h2>
+      <p class="hint">PDF con los datos del propietario y de la finca, las fotos, el tráfico y la visibilidad, la ubicación en Google Maps, el precio ofrecido y la duración del contrato.</p>
+      <div class="scan-row">
+        <button type="button" class="btn" data-oferta="pdf">📄 Ver PDF de oferta</button>
+        <button type="button" class="btn mail" data-oferta="mail">✉ Enviar por email</button>
+        <button type="button" class="btn wa" data-oferta="wa">Enviar por WhatsApp</button>
+      </div>
+      <p class="hint" id="nf-ofertas"></p>
+    </div>
+
+    <div class="card">
+      <h2>Documentos y contrato</h2>
+      <div id="nf-docs"></div>
+      <button type="button" class="btn" data-anexar="neg">📎 Anexar contrato o documento…</button>
+      <p class="hint">Cuando el propietario firme, anexa aquí el contrato (PDF o foto). También sale en la ficha de las vallas de esta finca.</p>
     </div>
 
     <div class="form-actions">
@@ -805,10 +813,11 @@
       <h2>Tráfico e impactos</h2>
       <p id="vf-trafico-estado" class="hint"></p>
       <button type="button" class="btn scan" data-vt="count">⏱ Contar tráfico durante 1 minuto</button>
-      <div class="grid3">
+      <div class="grid4">
         <label>Vehículos por minuto<input type="text" name="t_veh" inputmode="numeric"></label>
         <label>Personas por minuto<input type="text" name="t_per" inputmode="numeric"></label>
         <label>Fecha del conteo<input type="date" name="t_fecha"></label>
+        <label>Hora del conteo<input type="time" name="t_hora"></label>
       </div>
       <p class="budget-total" id="vf-impactos"></p>
       <div id="vf-trafico-hist"></div>
@@ -867,6 +876,39 @@
         </div>
         <p class="hint">Si eliges un cliente de la lista se crea su contrato y la valla aparece en su ficha.</p>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Lista de espera</h2>
+      <p class="hint">Clientes y visitas interesados en esta valla para cuando quede libre. La agenda avisa cuando vaya a quedar libre.</p>
+      <p class="envio-info" id="ve-estado"></p>
+      <div id="ve-lista"></div>
+      <button type="button" class="btn" id="ve-add">＋ Añadir interesado</button>
+      <div id="ve-sug"></div>
+    </div>
+
+    <div class="card">
+      <h2>Propietario de la finca</h2>
+      <p class="envio-info" id="vp-neg"></p>
+      <label>Propietario / razón social<input type="text" name="p_nombre" autocapitalize="characters"></label>
+      <div class="grid">
+        <label>Persona de contacto<input type="text" name="p_contacto" autocapitalize="words"></label>
+        <label>Teléfono<input type="tel" name="p_telefono" inputmode="tel"></label>
+      </div>
+      <label>Correo<input type="email" name="p_correo" inputmode="email" autocapitalize="none"></label>
+      <div id="vp-contacto"></div>
+      <div class="grid">
+        <label>Renta al propietario (€/año)<input type="text" name="p_renta" inputmode="decimal"></label>
+        <label>Contrato con el propietario hasta<input type="date" name="p_vence"></label>
+      </div>
+      <label>Notas (acceso a la finca, llaves, condiciones…)<textarea name="p_notas" rows="2"></textarea></label>
+    </div>
+
+    <div class="card">
+      <h2>Documentos y contratos</h2>
+      <div id="vf-docs"></div>
+      <button type="button" class="btn" data-anexar="valla">📎 Anexar documento…</button>
+      <p class="hint">Contrato con el propietario, permisos, planos… También salen los de la negociación de la finca.</p>
     </div>
 
     <p class="hint" id="vf-origin"></p>
@@ -1012,6 +1054,12 @@
     </div>
 
     <div class="card">
+      <h2>Documentos y contratos</h2>
+      <div id="tf-docs"></div>
+      <button type="button" class="btn" data-anexar="trabajo">📎 Anexar documento…</button>
+    </div>
+
+    <div class="card">
       <label class="lbl">Fotos de referencia <span class="hint-inline">(salen en el Excel que se envía al equipo)</span></label>
       <div class="photo-strip" id="tf-fotos"></div>
       <div class="scan-row">
@@ -1047,6 +1095,17 @@
       <button type="button" class="btn" data-g="tx-open">Abrir</button>
       <button type="button" class="btn primary" data-g="tx-share">📤 Compartir</button>
     </div>
+  </div>
+</div>
+
+<!-- ======================= LISTA DE ESPERA: BUSCAR INTERESADO ======================= -->
+<div class="modal" id="espera-modal" hidden>
+  <div class="sheet dd-sheet">
+    <h2>Añadir a la lista de espera</h2>
+    <input id="ve-buscar" type="search" placeholder="Buscar cliente o visita…" autocomplete="off">
+    <input id="ve-nota" type="text" placeholder="Nota (opcional): para qué fechas, qué campaña…">
+    <div class="lc-resultados dd-lista" id="ve-resultados"></div>
+    <div class="form-actions"><span class="spacer"></span><button type="button" class="btn" id="ve-cerrar">Cancelar</button></div>
   </div>
 </div>
 
@@ -1555,6 +1614,9 @@
 <script src="vision.js"></script>
 <script src="revisiones.js"></script>
 <script src="rutas.js"></script>
+<script src="anexos.js"></script>
+<script src="fincas.js"></script>
+<script src="oferta.js"></script>
 <script src="agenda.js"></script>
 <script src="desplegables.js"></script>
 </body>
