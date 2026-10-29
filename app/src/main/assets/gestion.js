@@ -466,8 +466,11 @@ function renderTrabajos() {
   $$('#tr-revs .chip').forEach(c => c.classList.toggle('active', c.dataset.trRev === trRev));   // revisiones.js
   const nSin = trabajos.filter(t => t.estado === 'Hecho' && !revisionesDe(t).length).length;
   $('[data-tr-rev=sinrevisar]').textContent = `Sin revisar${nSin ? ` (${nSin} hecho${nSin > 1 ? 's' : ''})` : ''}`;
+  const filtrosExtra = typeof pasaFiltrosTr === 'function';   // trfiltros.js
+  if (filtrosExtra) renderTrFiltros();
   const q = $('#tr-search').value.trim().toLowerCase();
-  const items = trabajos.filter(t => trMatches(t, trFilter, trPersona) && (!trClase || (t.clase || 'Trabajo') === trClase) && pasaFiltroRevision(t) && (!q || q.split(/\s+/).every(w =>
+  const items = trabajos.filter(t => trMatches(t, trFilter, trPersona) && (!trClase || (t.clase || 'Trabajo') === trClase) && pasaFiltroRevision(t)
+    && (!filtrosExtra || pasaFiltrosTr(t)) && (!q || q.split(/\s+/).every(w =>
     [t.tipos.join(' '), t.asignado, t.campana, t.descripcion, t.clienteNombre, ...(t.lineas || []).map(x => `${x.articulo} ${x.descripcion}`),
       ...t.vallas.map(v => `${v.codigo} ${v.direccion} ${v.municipio}`)]
       .join(' ').toLowerCase().includes(w)))).sort(trSort);

@@ -270,6 +270,10 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   **PDF de conformidad** (`Descargas/PortoValla/Trabajos`) que se guarda en los documentos del
   trabajo y del cliente y se envía por email o WhatsApp. Nuevos tipos *Devolver lona al cliente*
   y *Entrega de material*, que no necesitan valla.
+- **Filtros de Trabajos** («Filtrar por tipo, fecha, cliente o firma»): tipo de trabajo o
+  artículo vendido, fecha (hoy, esta semana, este mes, atrasados o entre dos fechas; la prevista
+  o la de realizado si está hecho), cliente y firmados / sin firmar. Se combinan con el estado,
+  la clase, la revisión, la persona y la búsqueda.
 - **Iconos** de la cabecera de Visitas: *tabla* = abrir el Excel, *compartir* = enviarlo
   por correo, Drive, WhatsApp…
 - **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos

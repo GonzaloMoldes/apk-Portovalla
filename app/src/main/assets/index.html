@@ -942,6 +942,26 @@
       <button class="chip" data-tr-clase="Trabajo">🛠 Trabajos en vallas</button>
       <button class="chip" data-tr-clase="Venta">🛒 Ventas</button>
     </div>
+    <details class="trf" id="trf">
+      <summary><span id="trf-resumen">Filtrar por tipo, fecha, cliente o firma</span> <span id="trf-activos"></span></summary>
+      <label class="lbl">Tipo de trabajo</label>
+      <div class="chips small" id="trf-tipos" data-titulo="Tipo de trabajo"></div>
+      <label class="lbl">Fecha <span class="hint-inline">(la prevista, o la de realizado si está hecho)</span></label>
+      <div class="chips small" id="trf-periodos" data-sin-desplegable></div>
+      <div class="grid" id="trf-rango" hidden>
+        <label>Desde<input type="date" id="trf-desde"></label>
+        <label>Hasta<input type="date" id="trf-hasta"></label>
+      </div>
+      <label class="lbl">Cliente</label>
+      <div class="chips small" id="trf-clientes" data-titulo="Cliente"></div>
+      <label class="lbl">Firma de conformidad</label>
+      <div class="chips small" id="trf-firmas">
+        <button type="button" class="chip active" data-trf-firma="">Todos</button>
+        <button type="button" class="chip" data-trf-firma="firmados">✍ Firmados</button>
+        <button type="button" class="chip" data-trf-firma="sinfirmar">Sin firmar</button>
+      </div>
+      <button type="button" class="btn" id="trf-quitar" hidden>Quitar estos filtros</button>
+    </details>
     <div class="chips small" id="tr-revs">
       <button class="chip active" data-tr-rev="">🔎 Revisión: todos</button>
       <button class="chip" data-tr-rev="revisados">Revisados</button>
@@ -1647,6 +1667,7 @@
 <script src="fincas.js"></script>
 <script src="oferta.js"></script>
 <script src="firma.js"></script>
+<script src="trfiltros.js"></script>
 <script src="agenda.js"></script>
 <script src="desplegables.js"></script>
 </body>

@@ -549,3 +549,9 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
   border: 1px solid var(--border); border-radius: 10px; }
 .firma-guardada div { display: flex; flex-direction: column; gap: 2px; }
 .firma-guardada span { color: var(--muted); font-size: 14px; }
+
+/* ---- filtros de trabajos ---- */
+.trf { margin: 6px 0 2px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 4px 12px 10px; }
+.trf summary { cursor: pointer; font-weight: 600; color: var(--primary); padding: 8px 0 4px; }
+.trf summary .badge { margin-left: 4px; font-weight: 600; }
+.trf #trf-quitar { margin-top: 10px; }
