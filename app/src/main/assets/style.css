@@ -536,3 +536,16 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .espera-item .qa-row { margin-top: 6px; }
 #espera-modal #ve-nota { margin-top: 8px; }
 #ve-sug { margin-top: 10px; }
+
+/* ---- firma de conformidad ---- */
+.firma-sheet { max-width: 720px; }
+.firma-pad { position: relative; border: 2px dashed var(--border); border-radius: 12px; background: #fff; margin-top: 6px; }
+.firma-pad canvas { display: block; width: 100%; height: 240px; touch-action: none; cursor: crosshair; }
+@media (max-height: 560px) { .firma-pad canvas { height: 170px; } }
+.firma-guia { position: absolute; left: 18px; bottom: 26px; color: #9aa8b6; font-size: 15px; pointer-events: none;
+  border-top: 1px solid #c9d3de; padding-top: 4px; width: calc(100% - 36px); }
+.firma-guardada { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.firma-guardada img { width: 220px; max-width: 100%; height: 100px; object-fit: contain; background: #fff;
+  border: 1px solid var(--border); border-radius: 10px; }
+.firma-guardada div { display: flex; flex-direction: column; gap: 2px; }
+.firma-guardada span { color: var(--muted); font-size: 14px; }

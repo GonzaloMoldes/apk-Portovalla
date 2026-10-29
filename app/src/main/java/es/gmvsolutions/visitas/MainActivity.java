@@ -883,6 +883,14 @@ public class MainActivity extends Activity {
 
     /** Lee una foto incluida en la app (assets/vallas/…). */
     private byte[] loadAsset(String path) {
+        if (path.startsWith("data:")) {      // firma u otra imagen en línea (data:image/…;base64,…)
+            int comma = path.indexOf(',');
+            try {
+                return comma < 0 ? null : android.util.Base64.decode(path.substring(comma + 1), android.util.Base64.DEFAULT);
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
         try (InputStream in = path.startsWith("file://")
                 ? new FileInputStream(path.substring("file://".length()))
                 : getAssets().open(path)) {
@@ -1225,6 +1233,29 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void scanTicket(String source) {
             runOnUiThread(() -> startCapture(source, "ticket"));
+        }
+
+        /**
+         * Guarda una firma manuscrita (data:image/jpeg;base64,… del lienzo) en la app
+         * (filesDir/firmas) y devuelve su "file://…" o "" si no se pudo.
+         */
+        @JavascriptInterface
+        public String saveFirma(String dataUrl, String tag) {
+            try {
+                int comma = dataUrl == null ? -1 : dataUrl.indexOf(',');
+                if (comma < 0) return "";
+                byte[] b = android.util.Base64.decode(dataUrl.substring(comma + 1), android.util.Base64.DEFAULT);
+                File dir = new File(getFilesDir(), "firmas");
+                if (!dir.exists() && !dir.mkdirs()) return "";
+                String safe = (tag == null ? "firma" : tag).replaceAll("[^A-Za-z0-9_-]", "_");
+                File f = new File(dir, safe + "_" + System.currentTimeMillis() + ".jpg");
+                try (OutputStream out = new FileOutputStream(f)) {
+                    out.write(b);
+                }
+                return "file://" + f.getAbsolutePath();
+            } catch (Exception e) {
+                return "";
+            }
         }
 
         /** Borra una foto guardada por la app (solo dentro de filesDir). */

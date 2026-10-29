@@ -264,6 +264,12 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   emplazamiento, fotos, tráfico y visibilidad, enlace a Google Maps, precio ofrecido, duración,
   valoración anual y total. Se guarda en los documentos y se envía por email o WhatsApp
   (la negociación pasa a *Oferta enviada*).
+- **Firma de conformidad en los trabajos**: quien recibe el trabajo (por ejemplo, el cliente al
+  que se le devuelve una lona) firma con el dedo en la pantalla, con su nombre y DNI. La firma
+  queda en el trabajo (se puede marcar como hecho al firmar), sale en el Excel de trabajos y en un
+  **PDF de conformidad** (`Descargas/PortoValla/Trabajos`) que se guarda en los documentos del
+  trabajo y del cliente y se envía por email o WhatsApp. Nuevos tipos *Devolver lona al cliente*
+  y *Entrega de material*, que no necesitan valla.
 - **Iconos** de la cabecera de Visitas: *tabla* = abrir el Excel, *compartir* = enviarlo
   por correo, Drive, WhatsApp…
 - **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos

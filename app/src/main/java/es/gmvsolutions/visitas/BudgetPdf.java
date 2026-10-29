@@ -204,6 +204,48 @@ final class BudgetPdf {
             y += 6;
             y += drawWrapped(nota, M, y + 10, W - 2 * M, body, 14);
         }
+
+        // Firma de conformidad
+        JSONObject firma = doc.optJSONObject("firma");
+        if (firma != null) drawFirma(firma);
+    }
+
+    /** Recuadro de conformidad: texto, firma manuscrita, nombre, DNI y fecha. */
+    private void drawFirma(JSONObject f) {
+        final float pad = 12, imgW = 240, imgH = 110;
+        final float boxW = W - 2 * M;
+        String texto = f.optString("texto", "");
+        float textH = texto.isEmpty() ? 0 : measureWrapped(texto, boxW - 2 * pad, body, 13) + 6;
+        float boxH = 22 + textH + imgH + 54;
+        ensure(boxH + 16);
+        y += 8;
+        float top = y;
+        c.drawRoundRect(new RectF(M, top, W - M, top + boxH), 8, 8, stroke);
+        c.drawText(f.optString("titulo", "Conformidad"), M + pad, top + 20, h2);
+        float ty = top + 34;
+        if (!texto.isEmpty()) ty += drawWrapped(texto, M + pad, ty, boxW - 2 * pad, body, 13) + 6;
+        RectF dst = new RectF(M + pad, ty, M + pad + imgW, ty + imgH);
+        Bitmap bmp = f.optString("imagen").isEmpty() ? null : photos.load(f.optString("imagen"));
+        if (bmp != null) {
+            float r = Math.min(dst.width() / bmp.getWidth(), dst.height() / bmp.getHeight());
+            float w = bmp.getWidth() * r, h = bmp.getHeight() * r;
+            c.drawBitmap(bmp, null, new RectF(dst.left, dst.top + (dst.height() - h) / 2, dst.left + w, dst.top + (dst.height() + h) / 2), null);
+            bmp.recycle();
+        }
+        Paint line = new Paint(stroke);
+        line.setColor(MUTED);
+        c.drawLine(dst.left, dst.bottom + 4, dst.right, dst.bottom + 4, line);
+        float ly = dst.bottom + 20;
+        c.drawText("Firma de quien recibe", dst.left, ly, small);
+        float dx = M + pad + imgW + 24;
+        float dy = ty + 14;
+        String[][] filas = {{"Nombre", f.optString("nombre")}, {"DNI / NIF", f.optString("dni")}, {"Fecha y hora", f.optString("fecha")}};
+        for (String[] fila : filas) {
+            if (fila[1].isEmpty()) continue;
+            c.drawText(fila[0], dx, dy, label);
+            dy += drawWrapped(fila[1], dx, dy + 14, W - M - pad - dx, value, 13) + 20;
+        }
+        y = top + boxH + 10;
     }
 
     private void drawValla(JSONObject v) {

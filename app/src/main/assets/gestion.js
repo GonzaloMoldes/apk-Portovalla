@@ -9,7 +9,10 @@
  * ========================================================================= */
 
 const TR_TIPOS = ['Desbrozar', 'Instalar lona', 'Desinstalar lona', 'Retirar lona', 'Cambio de lona',
-  'Arreglo / reparación', 'Revisión', 'Montaje de valla', 'Desmontaje de valla', 'Otro'];
+  'Arreglo / reparación', 'Revisión', 'Montaje de valla', 'Desmontaje de valla', 'Devolver lona al cliente',
+  'Entrega de material', 'Otro'];
+// Tipos que no necesitan valla (se hacen con el cliente)
+const TR_SIN_VALLA = ['Devolver lona al cliente', 'Entrega de material'];
 const TR_ABIERTOS = ['Pendiente', 'En curso'];
 
 let trabajos = store.load('trabajos') || [];
@@ -479,6 +482,7 @@ function renderTrabajos() {
       t.fechaPrevista ? `<span class="badge${atrasado ? ' pend' : ''}">${atrasado ? 'Atrasado · ' : ''}${t.fechaPrevista === hoy ? 'Hoy' : fmtDate(t.fechaPrevista)}</span>` : '',
       t.estado === 'Hecho' && t.fechaHecho ? `<span class="badge ok">Hecho ${fmtDate(t.fechaHecho)}</span>` : '',
       revisionBadgeTr(t),
+      t.firma ? `<span class="badge ok" title="Firmado por ${esc(t.firma.nombre)}">✍ Firmado</span>` : '',
     ].join('');
     const vallas = t.vallas.map(v => `<b>${esc(v.codigo)}</b> ${esc(v.municipio || '')}`).join(' · ');
     const venta = t.clase === 'Venta';
@@ -566,6 +570,7 @@ function openTrabajoForm(id, preset) {
   renderTfFotos();
   renderTfRevisiones();   // revisiones.js
   renderAnexos('trabajo', id || '');   // anexos.js
+  firmaLoad(t);                       // firma.js
   trLeadId = t.leadId || '';
   trCodes = t.vallas.map(v => v.codigo);
   trSnap = {};
@@ -584,7 +589,7 @@ function saveTrabajo() {
     if (!tfLineas.length) { toast('Añade al menos un artículo'); return; }
   } else {
     if (!tipos.length) { toast('Marca qué hay que hacer'); return; }
-    if (!trCodes.length) { toast('Elige al menos una valla'); return; }
+    if (!trCodes.length && !tipos.every(x => TR_SIN_VALLA.includes(x))) { toast('Elige al menos una valla'); return; }
   }
   const clienteNombre = form.elements.clienteNombre.value.trim();
   const cli = tfClienteId ? clienteById(tfClienteId) : clienteByNombre(clienteNombre);
@@ -605,7 +610,9 @@ function saveTrabajo() {
     material: tfState.material || '',
     estado: tfState.estado || 'Pendiente',
     leadId: trLeadId,
+    firma: tfFirma ? Object.assign({}, tfFirma) : null,   // firma.js
   };
+  if (!data.firma) delete data.firma;
   for (const k of ['fechaPrevista', 'asignado', 'campana', 'descripcion', 'fechaHecho', 'obs']) data[k] = form.elements[k].value.trim();
   if (data.estado === 'Hecho' && !data.fechaHecho) data.fechaHecho = todayISO();
   if (data.estado !== 'Hecho') data.fechaHecho = '';
@@ -739,6 +746,8 @@ const TR_COLS = [
   ['FOTO DEL TRABAJO', 'fotoTrabajo', 'photo', 26],
   ['REVISIÓN', 'revResultado', 'text', 14, 'Correcto,Con incidencias,No realizado,Sin revisar'], ['FECHA REVISIÓN', 'revFecha', 'date', 12],
   ['NOTA REVISIÓN', 'revNota', 'wrap', 28], ['Nº REVISIONES', 'revN', 'number', 9], ['FOTO REVISIÓN', 'revFoto', 'photo', 26],
+  ['FIRMADO POR', 'firmaNombre', 'text', 20], ['DNI FIRMANTE', 'firmaDni', 'text', 12],
+  ['FECHA FIRMA', 'firmaFecha', 'text', 16], ['FIRMA', 'firmaImg', 'photo', 20],
   ['ID', 'id', 'text', 14],
 ];
 
@@ -752,6 +761,8 @@ function trabajoRows(list) {
       material: t.material || '', descripcion: t.descripcion || '', asignado: t.asignado || '',
       estado: t.estado || '', fechaHecho: t.fechaHecho || '', obs: t.obs || '',
       fotoTrabajo: (t.fotos || [])[0] || '',
+      firmaNombre: t.firma ? t.firma.nombre : '', firmaDni: t.firma ? t.firma.dni || '' : '',
+      firmaFecha: t.firma ? fmtFechaHora(t.firma.fecha) : '', firmaImg: t.firma ? t.firma.imagen : '',
       ...revisionCols(t),
     };
     const vallaCols = v => {
@@ -770,7 +781,7 @@ function trabajoRows(list) {
         artPrecio: l.precio || '', artImporte: String(lineaImporte(l)),
       })));
     } else {
-      for (const v of t.vallas) rows.push(Object.assign({}, base, vallaCols(v), { tipos: t.tipos.join(' + ') }));
+      for (const v of t.vallas.length ? t.vallas : [null]) rows.push(Object.assign({}, base, vallaCols(v), { tipos: t.tipos.join(' + ') }));
     }
   }
   return rows;
@@ -795,7 +806,7 @@ function renderExport() {
   $$('#tx-estado .chip').forEach(c => c.classList.toggle('active', c.dataset.txEstado === txEstado));
   $('#tx-personas').innerHTML = chipsHtml(['', ...ps], 'data-tx-persona', txPersona, p => p || 'Todas');
   const list = trExportList();
-  const filas = list.reduce((n, t) => n + t.vallas.length, 0);
+  const filas = list.reduce((n, t) => n + t.vallas.length, 0);   // los trabajos sin valla también salen (una fila)
   $('#tx-stats').textContent = `${list.length} trabajo${list.length === 1 ? '' : 's'} · ${filas} valla${filas === 1 ? '' : 's'}`;
 }
 

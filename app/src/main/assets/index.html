@@ -1054,6 +1054,11 @@
     </div>
 
     <div class="card">
+      <h2>Firma de conformidad <span class="hint-inline">(de quien recibe el trabajo)</span></h2>
+      <div id="tf-firma"></div>
+    </div>
+
+    <div class="card">
       <h2>Documentos y contratos</h2>
       <div id="tf-docs"></div>
       <button type="button" class="btn" data-anexar="trabajo">📎 Anexar documento…</button>
@@ -1094,6 +1099,30 @@
       <span class="spacer"></span>
       <button type="button" class="btn" data-g="tx-open">Abrir</button>
       <button type="button" class="btn primary" data-g="tx-share">📤 Compartir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= FIRMA DE CONFORMIDAD ======================= -->
+<div class="modal" id="firma-modal" hidden>
+  <div class="sheet firma-sheet">
+    <h2>Firma de conformidad</h2>
+    <p class="envio-info" id="fm-que"></p>
+    <div class="grid">
+      <label>Nombre de quien recibe *<input id="fm-nombre" type="text" autocapitalize="words" autocomplete="off"></label>
+      <label>DNI / NIF<input id="fm-dni" type="text" autocapitalize="characters" autocomplete="off"></label>
+    </div>
+    <label class="lbl">Firme dentro del recuadro</label>
+    <div class="firma-pad">
+      <canvas id="fm-canvas"></canvas>
+      <span class="firma-guia" id="fm-guia">✕ Firme aquí</span>
+    </div>
+    <p class="hint">Al firmar, declara recibir de conformidad el trabajo o el material.</p>
+    <div class="form-actions">
+      <button type="button" class="btn" id="fm-borrar">Borrar</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="fm-cancelar">Cancelar</button>
+      <button type="button" class="btn primary" id="fm-guardar">Guardar firma</button>
     </div>
   </div>
 </div>
@@ -1617,6 +1646,7 @@
 <script src="anexos.js"></script>
 <script src="fincas.js"></script>
 <script src="oferta.js"></script>
+<script src="firma.js"></script>
 <script src="agenda.js"></script>
 <script src="desplegables.js"></script>
 </body>
