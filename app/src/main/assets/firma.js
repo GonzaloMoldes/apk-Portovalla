@@ -205,7 +205,8 @@ function conformidadDoc(t) {
   ];
   const vallas = t.vallas.filter(v => v.direccion).slice(0, 6).map(v => ({
     codigo: v.codigo, direccion: v.direccion, lineas: [[v.municipio, v.provincia].filter(Boolean).join(', ')].filter(Boolean),
-    mapa: v.lat !== '' && v.lat != null ? `https://maps.google.com/?q=${v.lat},${v.lng}` : '', foto: v.foto || '', precio: '' }));
+    mapa: v.lat !== '' && v.lat != null ? `https://maps.google.com/?q=${v.lat},${v.lng}` : '',
+    foto: (VALLAS_DB.find(x => x.codigo === v.codigo) || {}).foto || v.foto || '', precio: '' }));
   return {
     fichero: `Conformidad_${venta ? 'venta' : 'trabajo'}_${t.num}_${fecha}.pdf`,
     carpeta: 'Trabajos',
@@ -221,6 +222,8 @@ function conformidadDoc(t) {
     ultimoEsTotal: false,
     tituloVallas: 'Vallas',
     vallas,
+    tituloFotos: 'Fotos de referencia',
+    fotos: fotosDelTrabajo(t),
     nota: [t.descripcion, t.obs && `Observaciones: ${t.obs}`].filter(Boolean).join('\n'),
     firma: {
       titulo: 'Conformidad de quien recibe',
@@ -229,6 +232,17 @@ function conformidadDoc(t) {
     },
     pie: [settings.miEmpresa, settings.comercial, settings.miTelefono, settings.miEmail].filter(Boolean).join(' · '),
   };
+}
+
+/** Fotos para el PDF: las de referencia del trabajo (las del Excel) y las de las revisiones. */
+function fotosDelTrabajo(t) {
+  const out = (t.fotos || []).filter(Boolean).map((f, i, a) => ({ foto: f, pie: `Foto de referencia${a.length > 1 ? ' ' + (i + 1) : ''}` }));
+  for (const r of (typeof revisionesDe === 'function' ? revisionesDe(t) : [])) {
+    for (const f of [].concat(r.fotos || r.foto || []).filter(Boolean)) {
+      out.push({ foto: f, pie: [`Revisión ${fmtDate((r.fecha || '').slice(0, 10))}`, r.resultado].filter(Boolean).join(' · ') });
+    }
+  }
+  return out.slice(0, 12);
 }
 
 /** Crea el PDF del trabajo guardado y lo apunta en sus documentos (y en los del cliente). */

@@ -268,7 +268,8 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   que se le devuelve una lona) firma con el dedo en la pantalla, con su nombre y DNI. La firma
   queda en el trabajo (se puede marcar como hecho al firmar), sale en el Excel de trabajos y en un
   **PDF de conformidad** (`Descargas/PortoValla/Trabajos`) que se guarda en los documentos del
-  trabajo y del cliente y se envía por email o WhatsApp. Nuevos tipos *Devolver lona al cliente*
+  trabajo y del cliente y se envía por email o WhatsApp. Incluye las vallas o lo vendido, las fotos
+  de referencia del trabajo (las del Excel) y las fotos de sus revisiones. Nuevos tipos *Devolver lona al cliente*
   y *Entrega de material*, que no necesitan valla.
 - **Filtros de Trabajos** («Filtrar por tipo, fecha, cliente o firma»): tipo de trabajo o
   artículo vendido, fecha (hoy, esta semana, este mes, atrasados o entre dos fechas; la prevista

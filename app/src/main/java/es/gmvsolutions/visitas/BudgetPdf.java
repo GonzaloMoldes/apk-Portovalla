@@ -206,6 +206,10 @@ final class BudgetPdf {
         JSONArray arts = doc.optJSONArray("articulos");
         if (arts != null && arts.length() > 0) drawArticulos(doc.optString("tituloArticulos", "Artículos"), arts);
 
+        // Fotos sueltas en cuadrícula (2 por fila): [{foto, pie}]
+        JSONArray fotos = doc.optJSONArray("fotos");
+        if (fotos != null && fotos.length() > 0) drawFotos(doc.optString("tituloFotos", "Fotos"), fotos);
+
         // Nota final
         String nota = doc.optString("nota", "");
         if (!nota.isEmpty()) {
@@ -217,6 +221,42 @@ final class BudgetPdf {
         // Firma de conformidad
         JSONObject firma = doc.optJSONObject("firma");
         if (firma != null) drawFirma(firma);
+    }
+
+    /** Cuadrícula de fotos, dos por fila, cada una con su pie. Las que no se pueden leer se saltan. */
+    private void drawFotos(String titulo, JSONArray fotos) {
+        final float gap = 14, cellW = (W - 2 * M - gap) / 2f, imgH = cellW * 0.75f, cellH = imgH + 22;
+        ensure(30 + cellH);
+        y += 6;
+        c.drawText(titulo, M, y + 4, h2);
+        y += 16;
+        int col = 0;
+        for (int i = 0; i < fotos.length(); i++) {
+            JSONObject f = fotos.optJSONObject(i);
+            if (f == null || f.optString("foto").isEmpty()) continue;
+            Bitmap bmp = photos.load(f.optString("foto"));
+            if (bmp == null) continue;
+            if (col == 0) ensure(cellH + 6);
+            float x = M + col * (cellW + gap);
+            RectF dst = new RectF(x, y, x + cellW, y + imgH);
+            fill.setColor(SOFT);
+            c.drawRect(dst, fill);
+            // Foto entera (sin recortar), centrada en su hueco
+            float r = Math.min(dst.width() / bmp.getWidth(), dst.height() / bmp.getHeight());
+            float w = bmp.getWidth() * r, h = bmp.getHeight() * r;
+            c.drawBitmap(bmp, null, new RectF(dst.centerX() - w / 2, dst.centerY() - h / 2, dst.centerX() + w / 2, dst.centerY() + h / 2), null);
+            bmp.recycle();
+            c.drawRect(dst, stroke);
+            String pie = f.optString("pie");
+            if (!pie.isEmpty()) {
+                List<String> l = wrap(pie, cellW, small);
+                c.drawText(l.get(0), x, y + imgH + 13, small);
+            }
+            col++;
+            if (col == 2) { col = 0; y += cellH + 6; }
+        }
+        if (col == 1) y += cellH + 6;
+        y += 4;
     }
 
     /** Sección con título y filas «etiqueta: valor» (el valor ocupa varias líneas si hace falta). */
