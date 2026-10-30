@@ -42,6 +42,8 @@ let tfClienteId = '';
 let tfLineas = [];
 let vfDispo = 'Disponible';
 let vfClienteId = '';
+let vfTipo = 'Valla';        // tipo de la valla que se edita (Pantalla LED admite varios clientes)
+let catTipo = '';
 /* Disponibilidad marcada a mano (los contratos de clientes mandan sobre esto): { CODIGO: {estado, ocupadaPor, hasta} } */
 let vallasDispo = store.load('vallas_dispo') || {};
 function saveDispo() { store.save('vallas_dispo', vallasDispo); }
@@ -106,9 +108,12 @@ function renderCatFilters() {
 function renderCatalog() {
   const q = $('#cat-search').value.trim().toLowerCase();
   $$('#cat-dispo .chip').forEach(c => c.classList.toggle('active', c.dataset.catDispo === catDispo));
+  const tipos = TIPOS_VALLA.filter(tp => VALLAS_DB.some(v => vallaTipo(v.codigo) === tp));
+  if (catTipo && !tipos.includes(catTipo)) catTipo = '';
+  $('#cat-tipos').innerHTML = tipos.length > 1 ? chipsHtml(['', ...tipos], 'data-cat-tipo', catTipo, tp => tp ? `${tp} (${VALLAS_DB.filter(v => vallaTipo(v.codigo) === tp).length})` : 'Todos los tipos') : '';
   const items = VALLAS_DB.filter(v =>
     (catZona === 'Todas' || v.zona === catZona) && (!catMuni || v.municipio === catMuni) &&
-    (!catDispo || vallaDisponibilidad(v.codigo).estado === catDispo) &&
+    (!catDispo || vallaDisponibilidad(v.codigo).estado === catDispo) && (!catTipo || vallaTipo(v.codigo) === catTipo) &&
     (catTrafico !== 'recontar' || porRecontar(v.codigo)) && (catTrafico !== 'sinconteo' || !ultimoConteo(v.codigo)) &&
     (catTrafico !== 'revisar' || porRevisar(v.codigo)) && (catTrafico !== 'visitar' || sinVisitar(v.codigo)) &&
     (!catRuta || (normName(v.provincia) === normName(catRuta.prov) && sinVisitar(v.codigo, catRuta.fecha))) &&
@@ -144,7 +149,7 @@ function renderCatalog() {
         <div class="valla-code">${esc(v.codigo)}</div>
         <div class="valla-dir">${esc(v.direccion)}</div>
         <div class="valla-meta">${[v.municipio, v.medida, v.categoria && 'Cat. ' + v.categoria].filter(Boolean).map(esc).join(' · ')}</div>
-        <div class="badges dispo-wrap">${distanciaBadge(v)}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${visionBadge(v.codigo)}${revisionBadge(v.codigo)}${esperaDe(v.codigo).length ? `<span class="badge espera" title="Lista de espera">⏳ ${esperaDe(v.codigo).length} en espera</span>` : ''}${(vallasFotos[v.codigo] || []).length ? `<span class="badge">📷 ${(vallasFotos[v.codigo] || []).length}</span>` : ''}</div>
+        <div class="badges dispo-wrap">${distanciaBadge(v)}${vallaTipo(v.codigo) !== 'Valla' && vallaTipo(v.codigo) !== 'Pantalla LED' ? `<span class="badge">${esc(vallaTipo(v.codigo))}</span>` : ''}${dispoBadge(v.codigo)}${impactosBadge(v.codigo)}${visionBadge(v.codigo)}${revisionBadge(v.codigo)}${esperaDe(v.codigo).length ? `<span class="badge espera" title="Lista de espera">⏳ ${esperaDe(v.codigo).length} en espera</span>` : ''}${(vallasFotos[v.codigo] || []).length ? `<span class="badge">📷 ${(vallasFotos[v.codigo] || []).length}</span>` : ''}</div>
         ${modoVisita ? `<div class="badges dispo-wrap">${visitaBadge(v.codigo)}</div>` : ''}
         ${catTrafico === 'revisar' && !proximaRevision(v.codigo) ? '<div class="badges dispo-wrap"><span class="badge volver">🌿 Sin revisión apuntada</span></div>' : ''}
         ${catTrafico === 'recontar' && !ultimoConteo(v.codigo) ? '<div class="badges dispo-wrap"><span class="badge volver">⏱ Tráfico sin medir</span></div>' : ''}
@@ -244,6 +249,10 @@ function openVallaForm(code) {
   const d = code ? (vallasDispo[code] || {}) : {};
   vfDispo = d.estado || 'Disponible';
   vfClienteId = '';
+  vfTipo = code ? vallaTipo(code) : 'Valla';
+  form.elements.huecos.value = v.huecos || '';
+  form.elements.spot.value = v.spot || '';
+  renderVfTipo();
   form.elements.ocupadaPor.value = d.ocupadaPor || '';
   form.elements.ocupadaHasta.value = d.hasta || '';
   renderVfDispo();
@@ -257,22 +266,40 @@ function openVallaForm(code) {
   show('valla-form');
 }
 
+/** Tipo de valla elegido y, si es pantalla LED, sus huecos de anuncios. */
+function renderVfTipo() {
+  $$('#vf-tipos .chip').forEach(c => c.classList.toggle('active', c.dataset.vfTipo === vfTipo));
+  $('#vf-led').hidden = vfTipo !== 'Pantalla LED';
+}
+
+function vfHuecos() {
+  return vfTipo === 'Pantalla LED' ? Math.max(1, Number($('#valla-form').elements.huecos.value) || LED_HUECOS) : 1;
+}
+
 function renderVfDispo() {
-  const ct = vallaEditing ? contratoActivo(vallaEditing) : null;
+  const act = vallaEditing ? contratosActivos(vallaEditing) : [];
+  const led = vfTipo === 'Pantalla LED';
+  const cap = vfHuecos();
+  const libre = act.length < cap;
   const info = $('#vf-contrato');
-  if (ct) {
+  const fila = ct => {
     const c = clienteById(ct.clienteId);
-    info.innerHTML = `🔴 Ocupada por <b>${esc(c ? c.nombre : '?')}</b>${ct.pvs ? ` · PVS ${esc(ct.pvs)}` : ''}${ct.hasta ? ` hasta ${fmtDate(ct.hasta)}` : ''}
+    return `<div class="vf-ct">${led ? '📺' : '🔴'} ${led ? '' : 'Ocupada por '}<b>${esc(c ? c.nombre : '?')}</b>${ct.pvs ? ` · PVS ${esc(ct.pvs)}` : ''}${ct.hasta ? ` hasta ${fmtDate(ct.hasta)}` : ''}
       <button type="button" class="act" data-vf-vercliente="${esc(ct.clienteId)}">Ver cliente</button>
-      <button type="button" class="act" data-vf-liberar="${esc(ct.id)}">Liberar hoy</button>`;
-  } else {
-    info.textContent = '';
-  }
-  $('[data-vf-dispo]').hidden = !!ct;
+      <button type="button" class="act" data-vf-liberar="${esc(ct.id)}">${led ? 'Quitar hoy' : 'Liberar hoy'}</button></div>`;
+  };
+  info.innerHTML = act.length
+    ? (led ? `<div class="vf-led-uso"><b>${act.length} de ${cap}</b> anuncios en rotación${libre ? ` · ${cap - act.length} hueco${cap - act.length > 1 ? 's' : ''} libre${cap - act.length > 1 ? 's' : ''}` : ' · pantalla completa'}</div>` : '')
+      + act.map(fila).join('')
+    : '';
+  $('[data-vf-dispo]').hidden = act.length > 0;
   $$('[data-vf-dispo] .chip').forEach(c => c.classList.toggle('active', c.dataset.value === vfDispo));
-  $('#vf-ocupada').hidden = !!ct || vfDispo !== 'Ocupada';
+  $('#vf-ocupada').hidden = act.length ? !(led && libre) : vfDispo !== 'Ocupada';
+  $('#vf-ocupada-lbl').textContent = act.length ? '＋ Añadir otro anunciante a la pantalla' : '¿Con qué cliente?';
+  $('#valla-form').elements.ocupadaPor.closest('label').hidden = act.length > 0;   // al añadir a la pantalla, solo clientes de la lista
+  const yaEstan = new Set(act.map(ct => ct.clienteId));
   $('#vf-clientes').innerHTML = clientes.length
-    ? clientes.slice().sort((a, b) => (b.modificado || b.creado || '').localeCompare(a.modificado || a.creado || '') || a.nombre.localeCompare(b.nombre, 'es')).map(c =>
+    ? clientes.filter(c => !yaEstan.has(c.id)).sort((a, b) => (b.modificado || b.creado || '').localeCompare(a.modificado || a.creado || '') || a.nombre.localeCompare(b.nombre, 'es')).map(c =>
       `<button type="button" class="chip${c.id === vfClienteId ? ' active' : ''}" data-vf-cliente="${c.id}">${esc(c.nombre)}</button>`).join('')
     : '<span class="hint">No hay clientes dados de alta.</span>';
 }
@@ -305,6 +332,9 @@ function saveValla() {
     categoria: form.elements.categoria.value.trim().toUpperCase(),
     lat: coords ? coords.lat : '', lng: coords ? coords.lng : '',
     foto: vfFoto,
+    tipo: vfTipo,
+    huecos: vfTipo === 'Pantalla LED' ? String(vfHuecos()) : '',
+    spot: vfTipo === 'Pantalla LED' ? form.elements.spot.value.trim() : '',
   };
   if (vallaEditing && vallaEditing !== codigo) {   // cambio de código (solo vallas añadidas)
     delete vallasUser[vallaEditing];
@@ -322,7 +352,10 @@ function saveValla() {
   propSave(codigo, vallaEditing);      // fincas.js
   saveCatalog();
   // Disponibilidad
-  if (!contratoActivo(codigo)) {
+  if (contratoActivo(codigo)) {
+    // Pantalla LED con huecos: se puede añadir otro anunciante
+    if (vfClienteId && vallaAdmiteContrato(codigo, vfClienteId)) contratoDesdeValla(codigo, vfClienteId, form.elements.ocupadaHasta.value);
+  } else {
     if (vfDispo === 'Ocupada' && vfClienteId) {
       contratoDesdeValla(codigo, vfClienteId, form.elements.ocupadaHasta.value);
       delete vallasDispo[codigo];
@@ -842,9 +875,17 @@ document.addEventListener('click', e => {
     renderVfDispo();
     return;
   }
+  if (t.dataset.vfTipo) {
+    vfTipo = t.dataset.vfTipo;
+    renderVfTipo();
+    renderVfDispo();
+    return;
+  }
+  if (t.dataset.catTipo !== undefined) { catTipo = t.dataset.catTipo; renderCatalog(); return; }
   if (t.dataset.vfVercliente) { openClienteForm(t.dataset.vfVercliente); return; }
   if (t.dataset.vfLiberar) {
-    if (confirm('¿Liberar la valla? El contrato del cliente se da por terminado hoy.')) {
+    if (confirm(vfTipo === 'Pantalla LED' ? '¿Quitar este anuncio de la pantalla? Su contrato se da por terminado hoy.'
+      : '¿Liberar la valla? El contrato del cliente se da por terminado hoy.')) {
       finalizarContrato(t.dataset.vfLiberar, isoPlus(-1));
       vfDispo = 'Disponible';
       renderVfDispo();
@@ -986,3 +1027,5 @@ $('#trabajo-form').addEventListener('input', e => {
     renderTfImporte();
   }
 });
+
+$('#valla-form').elements.huecos.addEventListener('input', renderVfDispo);

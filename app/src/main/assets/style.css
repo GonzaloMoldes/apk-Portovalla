@@ -562,3 +562,8 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .formal-cat.ok { border-color: #b7e0c5; background: #f6fcf8; }
 .formal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .formal-cat .scan-row { margin-top: 6px; }
+
+/* ---- pantallas LED ---- */
+.vf-led-uso { margin-bottom: 6px; }
+.vf-ct { padding: 4px 0; border-top: 1px solid var(--border); }
+.vf-ct:first-of-type { border-top: 0; }

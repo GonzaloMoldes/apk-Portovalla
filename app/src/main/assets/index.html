@@ -726,6 +726,7 @@
       <button class="chip" data-cat-dispo="Ocupada">🔴 Ocupadas</button>
       <button class="chip" data-cat-dispo="Consultar">🟡 Consultar</button>
     </div>
+    <div class="chips small" id="cat-tipos"></div>
     <div class="chips small" id="cat-trafico">
       <button class="chip" data-cat-trafico="impactos">👁 Más impactos primero</button>
       <button class="chip" data-cat-trafico="recontar">⏱ Por recontar</button>
@@ -806,6 +807,21 @@
             <button type="button" class="chip" data-value="Ourense">Ourense</button>
           </div>
         </div>
+      </div>
+      <label class="lbl">Tipo de valla</label>
+      <div class="chips" id="vf-tipos" data-sin-desplegable>
+        <button type="button" class="chip" data-vf-tipo="Valla">🪧 Valla</button>
+        <button type="button" class="chip" data-vf-tipo="Monoposte">Monoposte</button>
+        <button type="button" class="chip" data-vf-tipo="Fachada / medianera">🏢 Fachada / medianera</button>
+        <button type="button" class="chip" data-vf-tipo="Pantalla LED">📺 Pantalla LED</button>
+        <button type="button" class="chip" data-vf-tipo="Mupi / otro">Mupi / otro</button>
+      </div>
+      <div id="vf-led" hidden>
+        <div class="grid">
+          <label>Anuncios a la vez (rotando)<input type="text" name="huecos" inputmode="numeric" placeholder="10"></label>
+          <label>Duración de cada anuncio (s)<input type="text" name="spot" inputmode="numeric" placeholder="10"></label>
+        </div>
+        <p class="hint">La pantalla admite varios clientes con contrato en vigor a la vez; solo está ocupada cuando se llenan todos los huecos.</p>
       </div>
       <label class="lbl">Medida</label>
       <div class="chips small" data-vf-fill="medida">
@@ -914,7 +930,7 @@
         <button type="button" class="chip" data-value="Consultar">🟡 Consultar estado</button>
       </div>
       <div id="vf-ocupada">
-        <label class="lbl">¿Con qué cliente?</label>
+        <label class="lbl" id="vf-ocupada-lbl">¿Con qué cliente?</label>
         <div class="chips small" id="vf-clientes"></div>
         <div class="grid">
           <label>Cliente (si no está en Clientes)<input type="text" name="ocupadaPor"></label>

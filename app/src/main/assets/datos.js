@@ -18,7 +18,8 @@ const VISITA_COLS = [
 const VISITA_ALIAS = { 'COLUMNA 15': 'porcentaje', 'TIPO': 'tipo' };
 
 const VALLA_COLS = [
-  ['CÓDIGO', 'codigo', 'text', 12], ['ZONA', 'zona', 'text', 16], ['MUNICIPIO', 'municipio', 'text', 16],
+  ['CÓDIGO', 'codigo', 'text', 12], ['TIPO', 'tipo', 'text', 14, 'Valla,Monoposte,Fachada / medianera,Pantalla LED,Mupi / otro'],
+  ['ANUNCIOS A LA VEZ', 'huecos', 'number', 9], ['ZONA', 'zona', 'text', 16], ['MUNICIPIO', 'municipio', 'text', 16],
   ['PROVINCIA', 'provincia', 'text', 11], ['DIRECCIÓN', 'direccion', 'wrap', 40], ['MEDIDA', 'medida', 'text', 12],
   ['CATEGORÍA', 'categoria', 'text', 9, 'A,B,C,D'], ['LATITUD', 'lat', 'coord', 12], ['LONGITUD', 'lng', 'coord', 12],
   ['MAPA', 'mapa', 'link', 11], ['DISPONIBILIDAD', 'disponibilidad', 'text', 13, 'Disponible,Ocupada,Consultar'],
@@ -167,6 +168,8 @@ const IMPORTERS = {
       const codigo = normCodigo(o.codigo);
       const actual = VALLAS_DB.find(v => v.codigo === codigo);
       const campos = {};
+      if (o.tipo && TIPOS_VALLA.includes(o.tipo)) campos.tipo = o.tipo;
+      if (o.huecos && Number(o.huecos) > 0) campos.huecos = String(Math.round(Number(o.huecos)));
       for (const k of ['zona', 'municipio', 'provincia', 'direccion', 'medida', 'categoria', 'lat', 'lng']) {
         if (o[k] !== undefined && o[k] !== '') campos[k] = o[k];
       }
@@ -358,7 +361,8 @@ function vallaRows() {
   return VALLAS_DB.map(v => {
     const d = vallaDisponibilidad(v.codigo);
     const c = ultimoConteo(v.codigo) || {};
-    return Object.assign({}, v, { disponibilidad: d.estado, ocupadaPor: d.cliente || '', ocupadaHasta: d.hasta || '',
+    return Object.assign({}, v, { tipo: vallaTipo(v.codigo), huecos: esLed(v.codigo) ? String(vallaHuecos(v.codigo)) : '',
+      disponibilidad: d.estado, ocupadaPor: d.cliente || '', ocupadaHasta: d.hasta || '',
       vehiculosMin: c.vehiculosMin || '', personasMin: c.personasMin || '', impactos: c.impactos || '', fechaConteo: c.fecha || '', horaConteo: c.hora || '',
       impactosVeh: c.fecha ? String(impactosSplit(c).veh) : '', impactosPie: c.fecha ? String(impactosSplit(c).pie) : '',
       revCada: (vallasMant[v.codigo] || {}).cada || '', revMotivo: (vallasMant[v.codigo] || {}).motivo || '',

@@ -38,10 +38,47 @@ function contratoEstado(ct, hoy) {
   return 'Activo';
 }
 
-function contratoActivo(codigo) {
+/* Tipos de valla. Una pantalla LED tiene varios anuncios a la vez (van rotando): admite
+   tantos contratos en vigor como huecos tenga (10 por defecto) y está ocupada solo si se llenan. */
+const TIPOS_VALLA = ['Valla', 'Monoposte', 'Fachada / medianera', 'Pantalla LED', 'Mupi / otro'];
+const LED_HUECOS = 10;
+
+function vallaRec(codigo) {
+  return (typeof VALLAS_DB !== 'undefined' && VALLAS_DB.find(x => x.codigo === codigo)) || {};
+}
+
+/** Tipo de la valla: el elegido en su ficha o, si no, el que se deduce de la medida (LED, Monoposte). */
+function vallaTipo(codigo) {
+  const v = vallaRec(codigo);
+  if (v.tipo) return v.tipo;
+  if (/\bLED/i.test(`${v.medida || ''} ${v.direccion || ''}`)) return 'Pantalla LED';
+  if (/MONOPOSTE/i.test(v.medida || '')) return 'Monoposte';
+  return 'Valla';
+}
+
+function esLed(codigo) { return vallaTipo(codigo) === 'Pantalla LED'; }
+
+/** Anuncios que caben a la vez: 1, o los huecos de la pantalla LED. */
+function vallaHuecos(codigo) {
+  return esLed(codigo) ? Math.max(1, Number(vallaRec(codigo).huecos) || LED_HUECOS) : 1;
+}
+
+/** Contratos en vigor de una valla (el más reciente primero). */
+function contratosActivos(codigo) {
   const hoy = todayISO();
   return contratos.filter(ct => ct.codigo === codigo && contratoEstado(ct, hoy) === 'Activo')
-    .sort((a, b) => (b.desde || '').localeCompare(a.desde || ''))[0] || null;
+    .sort((a, b) => (b.desde || '').localeCompare(a.desde || ''));
+}
+
+function contratoActivo(codigo) {
+  return contratosActivos(codigo)[0] || null;
+}
+
+/** ¿Se puede contratar ahora? (sin contrato, o pantalla LED con huecos libres) */
+function vallaAdmiteContrato(codigo, clienteId) {
+  const act = contratosActivos(codigo);
+  if (clienteId && act.some(ct => ct.clienteId === clienteId)) return false;
+  return act.length < vallaHuecos(codigo);
 }
 
 /**
@@ -49,6 +86,17 @@ function contratoActivo(codigo) {
  * si no, lo marcado a mano en la ficha de la valla (Disponible por defecto).
  */
 function vallaDisponibilidad(codigo) {
+  if (esLed(codigo)) {
+    const act = contratosActivos(codigo);
+    const huecos = vallaHuecos(codigo);
+    if (act.length) {
+      const nombres = act.map(ct => (clienteById(ct.clienteId) || {}).nombre || '?');
+      const llena = act.length >= huecos;
+      const hastas = act.map(ct => ct.hasta).filter(Boolean).sort();
+      return { estado: llena ? 'Ocupada' : 'Disponible', cliente: nombres.join(', '), clienteId: act[0].clienteId,
+        hasta: llena ? hastas[0] || '' : '', contratoId: act[0].id, led: { usados: act.length, huecos, clientes: nombres } };
+    }
+  }
   const ct = contratoActivo(codigo);
   if (ct) {
     const c = clienteById(ct.clienteId);
@@ -56,12 +104,17 @@ function vallaDisponibilidad(codigo) {
   }
   const d = (typeof vallasDispo !== 'undefined' && vallasDispo[codigo]) || {};
   const estado = d.estado || 'Disponible';
-  return { estado, cliente: estado === 'Ocupada' ? d.ocupadaPor || '' : '', clienteId: '', hasta: estado === 'Ocupada' ? d.hasta || '' : '' };
+  return { estado, cliente: estado === 'Ocupada' ? d.ocupadaPor || '' : '', clienteId: '', hasta: estado === 'Ocupada' ? d.hasta || '' : '',
+    led: esLed(codigo) ? { usados: 0, huecos: vallaHuecos(codigo), clientes: [] } : null };
 }
 
 function dispoBadge(codigo, cls) {
   const d = vallaDisponibilidad(codigo);
   const icon = { Disponible: '🟢', Ocupada: '🔴', Consultar: '🟡' }[d.estado] || '';
+  if (d.led) {
+    const txt = d.estado === 'Consultar' ? 'Consultar' : d.led.usados >= d.led.huecos ? 'Completa' : d.led.usados ? 'Con huecos' : 'Disponible';
+    return `<span class="badge dispo-${esc(d.estado)}${cls ? ' ' + cls : ''}" title="${esc(d.led.clientes.join(', '))}">${icon} 📺 ${txt} · ${d.led.usados}/${d.led.huecos} anuncios</span>`;
+  }
   const extra = d.estado === 'Ocupada'
     ? [d.cliente, d.hasta && `hasta ${fmtDate(d.hasta)}`].filter(Boolean).join(' · ') : '';
   return `<span class="badge dispo-${esc(d.estado)}${cls ? ' ' + cls : ''}">${icon} ${esc(d.estado)}${extra ? ' · ' + esc(extra) : ''}</span>`;
@@ -437,6 +490,7 @@ function openContrato(codes, id) {
   $('#ct-vallas').textContent = ctCtx.codes.map(code => {
     const d = vallaDisponibilidad(code);
     const otro = d.estado === 'Ocupada' && d.clienteId !== cliEditing;
+    if (d.led) return `${code} (pantalla LED: ${d.led.usados} de ${d.led.huecos} anuncios${d.led.usados >= d.led.huecos ? ', ⚠ completa' : ''})`;
     return code + (otro ? ` (⚠ ocupada${d.cliente ? ' por ' + d.cliente : ''})` : '');
   }).join(', ');
   $('#ct-pvs').innerHTML = ctCtx.codes.map((code, i) => `<label class="ct-pvs-item">${ctCtx.codes.length > 1 ? esc(code) : 'PVS'}
@@ -484,7 +538,7 @@ function contratar() {
 
 /** Crea el contrato desde la ficha de una valla (Ocupada por un cliente de la lista). */
 function contratoDesdeValla(codigo, clienteId, hasta) {
-  if (contratoActivo(codigo)) return;
+  if (!vallaAdmiteContrato(codigo, clienteId)) return;
   contratos.push({ id: uid(), clienteId, codigo, desde: todayISO(), hasta: hasta || '', precioMes: '', campana: '',
     notas: 'Creado desde la ficha de la valla', creado: new Date().toISOString() });
   saveContratos();
