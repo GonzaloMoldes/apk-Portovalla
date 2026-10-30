@@ -529,6 +529,31 @@
     </div>
 
     <div class="card">
+      <h2>Estructura a instalar</h2>
+      <div class="chips" data-nf="estructura" data-sin-desplegable>
+        <button type="button" class="chip" data-value="Pies de caballo">Pies de caballo</button>
+        <button type="button" class="chip" data-value="Pies de escalera">Pies de escalera</button>
+        <button type="button" class="chip" data-value="Viga">Viga</button>
+        <button type="button" class="chip" data-value="Monoposte">Monoposte</button>
+        <button type="button" class="chip" data-value="Anclada a fachada">Anclada a fachada</button>
+        <button type="button" class="chip" data-value="Otra">Otra</button>
+      </div>
+      <p class="hint" id="nf-estructura-info">Elige cómo va montada la valla.</p>
+      <div class="grid">
+        <label>Altura de la estructura (m)<input type="text" name="alturaEstructura" inputmode="decimal"></label>
+        <div>
+          <label>Cimentación / anclaje<input type="text" name="cimentacion"></label>
+          <div class="chips small" data-nf-fill="cimentacion">
+            <button type="button" class="chip" data-value="Zapatas de hormigón">Zapatas de hormigón</button>
+            <button type="button" class="chip" data-value="Anclaje a muro">Anclaje a muro</button>
+            <button type="button" class="chip" data-value="Sobre estructura existente">Sobre estructura existente</button>
+          </div>
+        </div>
+      </div>
+      <label>Instrucciones de montaje (accesos, grúa, permisos, distancia a la carretera…)<textarea name="notasMontaje" rows="3"></textarea></label>
+    </div>
+
+    <div class="card">
       <h2>Visibilidad y tráfico</h2>
       <div class="scan-row">
         <button type="button" class="btn scan" data-p="nf-count">⏱ Contar tráfico durante 1 minuto</button>
@@ -627,6 +652,14 @@
         <button type="button" class="btn wa" data-oferta="wa">Enviar por WhatsApp</button>
       </div>
       <p class="hint" id="nf-ofertas"></p>
+    </div>
+
+    <div class="card">
+      <h2>Dossier de montaje</h2>
+      <p class="hint">PDF con todo lo que se va a hacer: el titular, lo ofrecido y acordado, dónde se instala, qué estructura y cuántas vallas, el tráfico y la visibilidad, las fotos y el trabajo de montaje.</p>
+      <div class="scan-row">
+        <button type="button" class="btn primary" data-dossier="neg">📘 Dossier completo (PDF)</button>
+      </div>
     </div>
 
     <div class="card">
@@ -1071,6 +1104,12 @@
       <div id="tf-revisiones"></div>
       <button type="button" class="btn primary" id="tf-rev-nueva">🔎 Añadir revisión</button>
       <p class="hint" id="tf-rev-hint">Guarda el trabajo para poder revisarlo.</p>
+    </div>
+
+    <div class="card" id="tf-dossier" hidden>
+      <h2>Dossier de montaje</h2>
+      <p class="hint" id="tf-dossier-info"></p>
+      <button type="button" class="btn primary" data-dossier="trabajo">📘 Dossier completo (PDF)</button>
     </div>
 
     <div class="card">
@@ -1668,6 +1707,7 @@
 <script src="oferta.js"></script>
 <script src="firma.js"></script>
 <script src="trfiltros.js"></script>
+<script src="dossier.js"></script>
 <script src="agenda.js"></script>
 <script src="desplegables.js"></script>
 </body>

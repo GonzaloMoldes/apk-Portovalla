@@ -274,6 +274,13 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   artículo vendido, fecha (hoy, esta semana, este mes, atrasados o entre dos fechas; la prevista
   o la de realizado si está hecho), cliente y firmados / sin firmar. Se combinan con el estado,
   la clase, la revisión, la persona y la búsqueda.
+- **Estructura a instalar** en Patrimonio: pies de caballo (una valla encima de la otra), pies de
+  escalera (una valla en el lado contrario de la otra), viga (una sola cara), monoposte o anclada a
+  fachada, con altura, cimentación e instrucciones de montaje. Pasa al trabajo de montaje (que queda
+  unido a la negociación), a la oferta y al Excel.
+- **Dossier de montaje (PDF)** desde la negociación o desde su trabajo de montaje: titular, lo ofrecido
+  y acordado, dónde se instala, qué estructura y cuántas vallas, tráfico y visibilidad, trabajo de
+  montaje, documentos, notas y fotos. Se guarda en los documentos de los dos.
 - **Iconos** de la cabecera de Visitas: *tabla* = abrir el Excel, *compartir* = enviarlo
   por correo, Drive, WhatsApp…
 - **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos

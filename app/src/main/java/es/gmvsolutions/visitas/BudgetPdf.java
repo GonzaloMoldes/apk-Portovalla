@@ -181,6 +181,15 @@ final class BudgetPdf {
             y = boxTop + boxH + 18;
         }
 
+        // Secciones de detalle: [{titulo, filas: [[etiqueta, valor], …]}]
+        JSONArray secciones = doc.optJSONArray("secciones");
+        if (secciones != null) {
+            for (int i = 0; i < secciones.length(); i++) {
+                JSONObject sec = secciones.optJSONObject(i);
+                if (sec != null) drawSeccion(sec);
+            }
+        }
+
         // Fichas de vallas
         JSONArray vallas = doc.optJSONArray("vallas");
         if (vallas != null && vallas.length() > 0) {
@@ -208,6 +217,33 @@ final class BudgetPdf {
         // Firma de conformidad
         JSONObject firma = doc.optJSONObject("firma");
         if (firma != null) drawFirma(firma);
+    }
+
+    /** Sección con título y filas «etiqueta: valor» (el valor ocupa varias líneas si hace falta). */
+    private void drawSeccion(JSONObject sec) {
+        JSONArray filas = sec.optJSONArray("filas");
+        if (filas == null || filas.length() == 0) return;
+        final float labelW = 150, valX = M + 10 + labelW, valW = W - M - 10 - valX;
+        ensure(60);
+        y += 4;
+        c.drawText(sec.optString("titulo"), M, y + 4, h2);
+        fill.setColor(GOLD);
+        c.drawRect(M, y + 10, M + 40, y + 12, fill);
+        y += 24;
+        for (int i = 0; i < filas.length(); i++) {
+            JSONArray f = filas.optJSONArray(i);
+            if (f == null) continue;
+            String v = f.optString(1);
+            if (v.isEmpty()) continue;
+            float lh = Math.max(measureWrapped(f.optString(0), labelW - 8, label, 12), measureWrapped(v, valW, value, 13));
+            ensure(lh + 8);
+            drawWrapped(f.optString(0), M + 10, y + 10, labelW - 8, label, 12);
+            drawWrapped(v, valX, y + 10, valW, value, 13);
+            y += lh + 6;
+            c.drawLine(M + 10, y, W - M - 10, y, stroke);
+            y += 4;
+        }
+        y += 10;
     }
 
     /** Recuadro de conformidad: texto, firma manuscrita, nombre, DNI y fecha. */

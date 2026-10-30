@@ -31,6 +31,7 @@ let trCodes = [];          // vallas del trabajo en edición
 let trSnap = {};           // datos guardados de esas vallas (por si ya no están en el catálogo)
 let tfState = {};          // selección única: prioridad, material, estado
 let trLeadId = '';         // visita de la que viene el trabajo (instalación de un presupuesto)
+let trNegId = '';          // negociación de patrimonio de la que viene (montaje de un emplazamiento nuevo)
 let txEstado = 'abiertos';
 let catDispo = '';
 let catTrafico = '';
@@ -575,6 +576,8 @@ function openTrabajoForm(id, preset) {
   renderAnexos('trabajo', id || '');   // anexos.js
   firmaLoad(t);                       // firma.js
   trLeadId = t.leadId || '';
+  trNegId = t.negId || '';
+  if (typeof renderTfDossier === 'function') renderTfDossier();   // dossier.js
   trCodes = t.vallas.map(v => v.codigo);
   trSnap = {};
   t.vallas.forEach(v => { trSnap[v.codigo] = v; });
@@ -613,6 +616,7 @@ function saveTrabajo() {
     material: tfState.material || '',
     estado: tfState.estado || 'Pendiente',
     leadId: trLeadId,
+    negId: trNegId,
     firma: tfFirma ? Object.assign({}, tfFirma) : null,   // firma.js
   };
   if (!data.firma) delete data.firma;

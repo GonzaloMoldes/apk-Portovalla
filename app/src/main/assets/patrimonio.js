@@ -9,10 +9,11 @@
 
 const NEG_ESTADOS = ['Contacto inicial', 'En negociación', 'Oferta enviada', 'Ganada', 'Perdida'];
 const NEG_CERRADAS = ['Ganada', 'Perdida'];
-const NF_CHOICES = ['soporte', 'nVallas', 'caras', 'iluminacion', 'sentido', 'duracion', 'pago', 'estado'];
+const NF_CHOICES = ['soporte', 'nVallas', 'caras', 'iluminacion', 'sentido', 'duracion', 'pago', 'estado', 'estructura'];
 const NF_FIELDS = ['propietario', 'contacto', 'telefono', 'correo', 'direccion', 'municipio', 'provincia', 'zona',
   'medida', 'vehiculosMin', 'personasMin', 'tiempoVision', 'distancia', 'precioPedido', 'precioOfrecido',
-  'precioAcordado', 'proximo', 'notas', 'conteoFecha', 'conteoHora'];
+  'precioAcordado', 'proximo', 'notas', 'conteoFecha', 'conteoHora',
+  'alturaEstructura', 'cimentacion', 'notasMontaje'];
 const LOC_NEG = { form: '#neg-form', btn: '#nf-location', hint: '#nf-coords-hint' };
 // Estimación de impactos: ocupantes por vehículo y horas de tráfico al día
 const OCUPACION = 1.3;
@@ -154,6 +155,7 @@ function renderNf() {
     ? `Total contrato: ${fmtMoney(t)} (${fmtMoney(precioBase(n))} × ${Number(n.nVallas) || 1} valla${Number(n.nVallas) > 1 ? 's' : ''} × ${Number(n.duracion) || 1} año${Number(n.duracion) > 1 ? 's' : ''})`
     : '';
   $('#nf-win').hidden = nfState.estado !== 'Ganada';
+  if (typeof estructuraTexto === 'function') $('#nf-estructura-info').textContent = estructuraTexto(nfState.estructura) || 'Elige cómo va montada la valla.';
 }
 
 function readNf() {
@@ -301,12 +303,16 @@ function winNeg() {
 
   const contacto = [n.contacto, n.telefono].filter(Boolean).join(', ');
   openTrabajoForm(null, {
+    negId: n.id,
     tipos: ['Montaje de valla'],
     vallas: codes.map(c => VALLAS_DB.find(v => v.codigo === c)).filter(Boolean),
     campana: `Nuevo emplazamiento · ${n.propietario}`,
     fechaPrevista: isoPlus(7),
     descripcion: [
       `Montar ${codes.length} × ${(n.soporte || 'valla').toLowerCase()}${n.medida ? ` de ${n.medida}` : ''}${n.caras ? ` (${n.caras.toLowerCase()})` : ''} en ${n.direccion}${n.municipio ? `, ${n.municipio}` : ''}.`,
+      n.estructura ? `Estructura: ${n.estructura.toLowerCase()}${estructuraTexto(n.estructura) ? ` (${estructuraTexto(n.estructura)})` : ''}${n.alturaEstructura ? `, ${n.alturaEstructura} m de altura` : ''}.` : '',
+      n.cimentacion ? `Cimentación: ${n.cimentacion}.` : '',
+      n.notasMontaje ? n.notasMontaje : '',
       `Propietario: ${n.propietario}${contacto ? ` (${contacto})` : ''}.`,
       n.iluminacion === 'Sí' ? 'Con iluminación.' : '',
     ].filter(Boolean).join(' '),
@@ -384,6 +390,9 @@ const NEG_COLS = [
   ['PROVINCIA', 'provincia', 'text', 11], ['ZONA', 'zona', 'text', 14], ['LATITUD', 'lat', 'coord', 12], ['LONGITUD', 'lng', 'coord', 12],
   ['MAPA', 'mapa', 'link', 11], ['SOPORTE', 'soporte', 'text', 14], ['Nº VALLAS', 'nVallas', 'number', 8],
   ['MEDIDA', 'medida', 'text', 11], ['CARAS', 'caras', 'text', 10], ['ILUMINACIÓN', 'iluminacion', 'text', 10],
+  ['ESTRUCTURA', 'estructura', 'text', 15, 'Pies de caballo,Pies de escalera,Viga,Monoposte,Anclada a fachada,Otra'],
+  ['ALTURA ESTRUCTURA (m)', 'alturaEstructura', 'number', 10], ['CIMENTACIÓN', 'cimentacion', 'text', 18],
+  ['INSTRUCCIONES DE MONTAJE', 'notasMontaje', 'wrap', 30],
   ['VEHÍCULOS / MIN', 'vehiculosMin', 'number', 10], ['PERSONAS / MIN', 'personasMin', 'number', 10],
   ['TIEMPO DE VISIÓN (s)', 'tiempoVision', 'number', 10], ['DISTANCIA VISIBLE (m)', 'distancia', 'number', 10],
   ['SENTIDO', 'sentido', 'text', 13], ['IMPACTOS / DÍA (estim.)', 'impactos', 'number', 12],
@@ -402,7 +411,8 @@ function negRows(list) {
     municipio: n.municipio || '', provincia: n.provincia || '',
     lat: n.lat === '' || n.lat == null ? '' : String(n.lat), lng: n.lng === '' || n.lng == null ? '' : String(n.lng),
     soporte: n.soporte || '', nVallas: n.nVallas || '', medida: n.medida || '', caras: n.caras || '',
-    iluminacion: n.iluminacion || '', vehiculosMin: n.vehiculosMin || '', personasMin: n.personasMin || '',
+    iluminacion: n.iluminacion || '', estructura: n.estructura || '', alturaEstructura: n.alturaEstructura || '',
+    cimentacion: n.cimentacion || '', notasMontaje: n.notasMontaje || '', vehiculosMin: n.vehiculosMin || '', personasMin: n.personasMin || '',
     tiempoVision: n.tiempoVision || '', distancia: n.distancia || '', sentido: n.sentido || '',
     impactos: impactosDia(n) ? String(impactosDia(n)) : '',
     precioPedido: n.precioPedido || '', precioOfrecido: n.precioOfrecido || '', precioAcordado: n.precioAcordado || '',

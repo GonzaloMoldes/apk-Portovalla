@@ -17,6 +17,7 @@ function ofertaDoc(n) {
   const lineas = [
     [n.municipio, n.provincia].filter(Boolean).join(', '),
     [n.soporte, `${nV} valla${nV > 1 ? 's' : ''}`, n.medida, n.caras, n.iluminacion && `iluminación: ${n.iluminacion.toLowerCase()}`].filter(Boolean).join(' · '),
+    n.estructura ? `Estructura: ${n.estructura.toLowerCase()}${n.alturaEstructura ? `, ${String(n.alturaEstructura).replace('.', ',')} m de altura` : ''}` : '',
     (num(n.vehiculosMin) || num(n.personasMin)) ? `Tráfico: ${fmtInt(num(n.vehiculosMin))} vehículos y ${fmtInt(num(n.personasMin))} personas por minuto${conteo}` : '',
     imp ? `Impactos estimados: ${fmtInt(imp)} al día${sp && sp.total ? ` (${fmtInt(sp.veh)} en vehículos, ${fmtInt(sp.pie)} a pie)` : ''}` : '',
     [n.tiempoVision && `Tiempo de visión: ${String(n.tiempoVision).replace('.', ',')} s`, n.distancia && `se ve desde ${n.distancia} m`, n.sentido && `sentido: ${n.sentido.toLowerCase()}`].filter(Boolean).join(' · '),
