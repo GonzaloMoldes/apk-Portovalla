@@ -208,7 +208,7 @@ final class BudgetPdf {
 
         // Fotos sueltas en cuadrícula (2 por fila): [{foto, pie}]
         JSONArray fotos = doc.optJSONArray("fotos");
-        if (fotos != null && fotos.length() > 0) drawFotos(doc.optString("tituloFotos", "Fotos"), fotos);
+        if (fotos != null && fotos.length() > 0) drawFotos(doc.optString("tituloFotos", "Fotos"), fotos, (float) doc.optDouble("fotosProporcion", 0.75));
 
         // Nota final
         String nota = doc.optString("nota", "");
@@ -224,8 +224,9 @@ final class BudgetPdf {
     }
 
     /** Cuadrícula de fotos, dos por fila, cada una con su pie. Las que no se pueden leer se saltan. */
-    private void drawFotos(String titulo, JSONArray fotos) {
-        final float gap = 14, cellW = (W - 2 * M - gap) / 2f, imgH = cellW * 0.75f, cellH = imgH + 22;
+    private void drawFotos(String titulo, JSONArray fotos, float proporcion) {
+        final float gap = 14, cellW = (W - 2 * M - gap) / 2f;
+        final float imgH = Math.min(cellW * proporcion, H - 140), cellH = imgH + 22;
         ensure(30 + cellH);
         y += 6;
         c.drawText(titulo, M, y + 4, h2);

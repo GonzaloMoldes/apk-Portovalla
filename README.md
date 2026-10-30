@@ -279,9 +279,15 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   escalera (una valla en el lado contrario de la otra), viga (una sola cara), monoposte o anclada a
   fachada, con altura, cimentación e instrucciones de montaje. Pasa al trabajo de montaje (que queda
   unido a la negociación), a la oferta y al Excel.
+- **Formalización del contrato** (estado nuevo de la negociación, entre *Oferta enviada* y *Ganada*):
+  NIF del titular, IBAN (con comprobación), referencias catastrales y los documentos del titular,
+  varios de cada tipo, con foto o archivo: fotocopia del DNI, fichas de catastro, recibos del IBI y
+  certificado de la cuenta bancaria. Indica lo que falta y avisa al marcar *Ganada* si falta algo.
 - **Dossier de montaje (PDF)** desde la negociación o desde su trabajo de montaje: titular, lo ofrecido
   y acordado, dónde se instala, qué estructura y cuántas vallas, tráfico y visibilidad, trabajo de
-  montaje, documentos, notas y fotos. Se guarda en los documentos de los dos.
+  montaje, documentos, notas y fotos. Incluye la documentación para el contrato (datos del titular y
+  las imágenes del DNI, catastro, IBI y cuenta; de los PDF, hasta 3 páginas de cada uno). Se guarda en
+  los documentos de los dos.
 - **Iconos** de la cabecera de Visitas: *tabla* = abrir el Excel, *compartir* = enviarlo
   por correo, Drive, WhatsApp…
 - **Ajustes**: tu nombre, empresa, teléfono y correo, textos de los 3 modelos

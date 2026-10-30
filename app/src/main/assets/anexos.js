@@ -19,7 +19,8 @@ function negDeValla(code) {
 function docsDe(kind, id) {
   if (!id) return [];
   const campo = ANEXO_CTX[kind].campo;
-  let list = documentos.filter(d => d[campo] === id);
+  // Los documentos de la formalización (DNI, catastro…) tienen su propia tarjeta en la negociación
+  let list = documentos.filter(d => d[campo] === id && !(kind === 'neg' && d.formal));
   if (kind === 'valla') {
     const n = negDeValla(id);
     if (n) list = list.concat(documentos.filter(d => d.negId === n.id && !list.includes(d)));
@@ -64,7 +65,8 @@ function anexarA(kind) {
 /** Respuesta de Android para neg:/valla:/trabajo: (la llama onAttachResult de clientes.js). */
 function anexoGenerico(r) {
   const [kind, ...rest] = String(r.tag).split(':');
-  const id = rest.join(':');
+  const [id, cat] = rest.join(':').split('|');
+  if (kind === 'neg' && cat && typeof anexoFormal === 'function') { anexoFormal(r, id, cat); return; }
   const ctx = ANEXO_CTX[kind];
   if (!ctx) return;
   const base = String(r.name || 'Documento').replace(/\.[a-z0-9]{2,4}$/i, '');
@@ -79,7 +81,7 @@ function anexoGenerico(r) {
 /** Vuelve a pintar la lista de documentos de la pantalla abierta. */
 function refrescarDocs() {
   const v = currentView();
-  if (v === 'neg-form') renderAnexos('neg', negEditing);
+  if (v === 'neg-form') { renderAnexos('neg', negEditing); if (typeof renderFormal === 'function') renderFormal(); }
   else if (v === 'valla-form') renderAnexos('valla', vallaEditing);
   else if (v === 'trabajo-form') renderAnexos('trabajo', trEditing);
   else if (v === 'form' && typeof renderLeadDocs === 'function') renderLeadDocs();

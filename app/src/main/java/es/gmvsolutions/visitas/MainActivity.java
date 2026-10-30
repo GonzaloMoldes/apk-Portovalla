@@ -975,10 +975,43 @@ public class MainActivity extends Activity {
         if (!name.endsWith(".pdf")) name += ".pdf";
         String sub = doc.optString("carpeta", "Presupuestos").replaceAll("[^A-Za-z0-9_ -]", "");
         return saveToDownloads(FOLDER + "/" + (sub.isEmpty() ? "Presupuestos" : sub), name, "application/pdf",
-                out -> BudgetPdf.write(doc, path -> {
-                    byte[] b = loadAsset(path);
-                    return b == null ? null : BitmapFactory.decodeByteArray(b, 0, b.length);
-                }, out));
+                out -> BudgetPdf.write(doc, this::loadPdfImage, out));
+    }
+
+    /**
+     * Imagen para el PDF: de la app (assets, file://, data:), un documento de Descargas
+     * (content://, reducido) o una página de un PDF ("pdfpage:N:content://…", N desde 0).
+     */
+    private Bitmap loadPdfImage(String path) {
+        try {
+            if (path.startsWith("pdfpage:")) {
+                int c2 = path.indexOf(':', "pdfpage:".length());
+                int page = Integer.parseInt(path.substring("pdfpage:".length(), c2));
+                return renderPdfPage(Uri.parse(path.substring(c2 + 1)), page, 1240);
+            }
+            if (path.startsWith("content://")) return loadScaledBitmap(Uri.parse(path), 1600);
+        } catch (Exception | OutOfMemoryError e) {
+            return null;
+        }
+        byte[] b = loadAsset(path);
+        return b == null ? null : BitmapFactory.decodeByteArray(b, 0, b.length);
+    }
+
+    /** Dibuja una página de un PDF en un bitmap blanco de `width` píxeles de ancho. */
+    private Bitmap renderPdfPage(Uri uri, int page, int width) throws IOException {
+        try (ParcelFileDescriptor fd = getContentResolver().openFileDescriptor(uri, "r")) {
+            if (fd == null) return null;
+            try (android.graphics.pdf.PdfRenderer r = new android.graphics.pdf.PdfRenderer(fd)) {
+                if (page < 0 || page >= r.getPageCount()) return null;
+                try (android.graphics.pdf.PdfRenderer.Page pg = r.openPage(page)) {
+                    int h = Math.max(1, Math.round((float) width * pg.getHeight() / pg.getWidth()));
+                    Bitmap bmp = Bitmap.createBitmap(width, h, Bitmap.Config.ARGB_8888);
+                    bmp.eraseColor(android.graphics.Color.WHITE);
+                    pg.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_PRINT);
+                    return bmp;
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- puente JS
@@ -1253,6 +1286,49 @@ public class MainActivity extends Activity {
                     out.write(b);
                 }
                 return "file://" + f.getAbsolutePath();
+            } catch (Exception e) {
+                return "";
+            }
+        }
+
+        /** Número de páginas de un PDF (content://…); 0 si no se puede leer. */
+        @JavascriptInterface
+        public int pdfPages(String uri) {
+            try (ParcelFileDescriptor fd = getContentResolver().openFileDescriptor(Uri.parse(uri), "r")) {
+                if (fd == null) return 0;
+                try (android.graphics.pdf.PdfRenderer r = new android.graphics.pdf.PdfRenderer(fd)) {
+                    return r.getPageCount();
+                }
+            } catch (Exception e) {
+                return 0;
+            }
+        }
+
+        /**
+         * Copia una foto hecha con la app (file://…) a Descargas/PortoValla/&lt;folder&gt; como
+         * documento. Devuelve {uri, fichero, size} o "" si no se pudo.
+         */
+        @JavascriptInterface
+        public String photoToDownloads(String fileUrl, String folder, String name) {
+            try {
+                if (fileUrl == null || !fileUrl.startsWith("file://")) return "";
+                File f = new File(fileUrl.substring("file://".length()));
+                if (!f.getCanonicalPath().startsWith(getFilesDir().getCanonicalPath())) return "";
+                String sub = (folder == null ? "" : folder).replaceAll("[^A-Za-z0-9_ -]", "");
+                String fichero = (name == null || name.isEmpty() ? "documento" : name).replaceAll("[\\\\/:*?\"<>|]", "_");
+                if (!fichero.toLowerCase().endsWith(".jpg")) fichero += ".jpg";
+                Uri saved = saveToDownloads(FOLDER + "/" + (sub.isEmpty() ? "Documentos" : sub), fichero, "image/jpeg", out -> {
+                    try (InputStream in = new FileInputStream(f)) {
+                        byte[] b = new byte[16384];
+                        int n;
+                        while ((n = in.read(b)) > 0) out.write(b, 0, n);
+                    }
+                });
+                JSONObject r = new JSONObject();
+                r.put("uri", saved.toString());
+                r.put("fichero", fichero);
+                r.put("size", f.length());
+                return r.toString();
             } catch (Exception e) {
                 return "";
             }

@@ -7,13 +7,13 @@
  * Usa app.js (store, utilidades) y gestion.js (catálogo y trabajos).
  * ========================================================================= */
 
-const NEG_ESTADOS = ['Contacto inicial', 'En negociación', 'Oferta enviada', 'Ganada', 'Perdida'];
+const NEG_ESTADOS = ['Contacto inicial', 'En negociación', 'Oferta enviada', 'Formalización contrato', 'Ganada', 'Perdida'];
 const NEG_CERRADAS = ['Ganada', 'Perdida'];
 const NF_CHOICES = ['soporte', 'nVallas', 'caras', 'iluminacion', 'sentido', 'duracion', 'pago', 'estado', 'estructura'];
 const NF_FIELDS = ['propietario', 'contacto', 'telefono', 'correo', 'direccion', 'municipio', 'provincia', 'zona',
   'medida', 'vehiculosMin', 'personasMin', 'tiempoVision', 'distancia', 'precioPedido', 'precioOfrecido',
   'precioAcordado', 'proximo', 'notas', 'conteoFecha', 'conteoHora',
-  'alturaEstructura', 'cimentacion', 'notasMontaje'];
+  'alturaEstructura', 'cimentacion', 'notasMontaje', 'nifTitular', 'iban', 'refCatastral'];
 const LOC_NEG = { form: '#neg-form', btn: '#nf-location', hint: '#nf-coords-hint' };
 // Estimación de impactos: ocupantes por vehículo y horas de tráfico al día
 const OCUPACION = 1.3;
@@ -155,6 +155,7 @@ function renderNf() {
     ? `Total contrato: ${fmtMoney(t)} (${fmtMoney(precioBase(n))} × ${Number(n.nVallas) || 1} valla${Number(n.nVallas) > 1 ? 's' : ''} × ${Number(n.duracion) || 1} año${Number(n.duracion) > 1 ? 's' : ''})`
     : '';
   $('#nf-win').hidden = nfState.estado !== 'Ganada';
+  if (typeof renderFormal === 'function') renderFormal();   // formalizacion.js
   if (typeof estructuraTexto === 'function') $('#nf-estructura-info').textContent = estructuraTexto(nfState.estructura) || 'Elige cómo va montada la valla.';
 }
 
@@ -218,6 +219,9 @@ function saveNeg(silent) {
   d.direccion = d.direccion.toUpperCase();
   d.zona = d.zona.toUpperCase();
   d.correo = d.correo.toLowerCase();
+  d.nifTitular = d.nifTitular.toUpperCase().replace(/[\s.-]/g, '');
+  d.iban = d.iban ? fmtIban(d.iban) : '';
+  d.refCatastral = d.refCatastral.toUpperCase();
   d.lat = coords ? coords.lat : '';
   d.lng = coords ? coords.lng : '';
   d.fotos = negFotos.slice();
@@ -266,6 +270,8 @@ function winNeg() {
   if (nfState.estado !== 'Ganada') return;
   const n = saveNeg(true);
   if (!n) return;
+  const faltan = typeof formalFaltan === 'function' ? formalFaltan(n) : [];
+  if (faltan.length && !confirm(`Falta documentación del propietario: ${faltan.map(c => c.corto).join(', ')}.\n¿Seguir igualmente?`)) return;
   const cuantas = Number(n.nVallas) || 1;
 
   let codes = (n.vallasCreadas || []).filter(c => VALLAS_DB.some(v => v.codigo === c));
@@ -384,7 +390,7 @@ function countToNeg(veh, per) {
 
 const NEG_COLS = [
   ['Nº', 'num', 'text', 6], ['FECHA ALTA', 'fecha', 'date', 12],
-  ['ESTADO', 'estado', 'text', 15, 'Contacto inicial,En negociación,Oferta enviada,Ganada,Perdida'],
+  ['ESTADO', 'estado', 'text', 15, 'Contacto inicial,En negociación,Oferta enviada,Formalización contrato,Ganada,Perdida'],
   ['PROPIETARIO', 'propietario', 'text', 24], ['PERSONA CONTACTO', 'contacto', 'text', 18], ['TELÉFONO', 'telefono', 'text', 13],
   ['CORREO', 'correo', 'text', 22], ['DIRECCIÓN / FINCA', 'direccion', 'wrap', 30], ['MUNICIPIO', 'municipio', 'text', 14],
   ['PROVINCIA', 'provincia', 'text', 11], ['ZONA', 'zona', 'text', 14], ['LATITUD', 'lat', 'coord', 12], ['LONGITUD', 'lng', 'coord', 12],
@@ -393,6 +399,8 @@ const NEG_COLS = [
   ['ESTRUCTURA', 'estructura', 'text', 15, 'Pies de caballo,Pies de escalera,Viga,Monoposte,Anclada a fachada,Otra'],
   ['ALTURA ESTRUCTURA (m)', 'alturaEstructura', 'number', 10], ['CIMENTACIÓN', 'cimentacion', 'text', 18],
   ['INSTRUCCIONES DE MONTAJE', 'notasMontaje', 'wrap', 30],
+  ['NIF TITULAR', 'nifTitular', 'text', 12], ['IBAN', 'iban', 'text', 28], ['REF. CATASTRALES', 'refCatastral', 'wrap', 24],
+  ['DOCUMENTACIÓN', 'documentacion', 'wrap', 30],
   ['VEHÍCULOS / MIN', 'vehiculosMin', 'number', 10], ['PERSONAS / MIN', 'personasMin', 'number', 10],
   ['TIEMPO DE VISIÓN (s)', 'tiempoVision', 'number', 10], ['DISTANCIA VISIBLE (m)', 'distancia', 'number', 10],
   ['SENTIDO', 'sentido', 'text', 13], ['IMPACTOS / DÍA (estim.)', 'impactos', 'number', 12],
@@ -412,7 +420,10 @@ function negRows(list) {
     lat: n.lat === '' || n.lat == null ? '' : String(n.lat), lng: n.lng === '' || n.lng == null ? '' : String(n.lng),
     soporte: n.soporte || '', nVallas: n.nVallas || '', medida: n.medida || '', caras: n.caras || '',
     iluminacion: n.iluminacion || '', estructura: n.estructura || '', alturaEstructura: n.alturaEstructura || '',
-    cimentacion: n.cimentacion || '', notasMontaje: n.notasMontaje || '', vehiculosMin: n.vehiculosMin || '', personasMin: n.personasMin || '',
+    cimentacion: n.cimentacion || '', notasMontaje: n.notasMontaje || '',
+    nifTitular: n.nifTitular || '', iban: n.iban || '', refCatastral: n.refCatastral || '',
+    documentacion: typeof formalFaltan === 'function' ? (formalFaltan(n).length ? 'Falta: ' + formalFaltan(n).map(c => c.corto).join(', ') : 'Completa') : '',
+    vehiculosMin: n.vehiculosMin || '', personasMin: n.personasMin || '',
     tiempoVision: n.tiempoVision || '', distancia: n.distancia || '', sentido: n.sentido || '',
     impactos: impactosDia(n) ? String(impactosDia(n)) : '',
     precioPedido: n.precioPedido || '', precioOfrecido: n.precioOfrecido || '', precioAcordado: n.precioAcordado || '',

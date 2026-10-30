@@ -38,7 +38,7 @@ function dossierDoc(n, t) {
   const hayCoords = n.lat !== '' && n.lat != null;
   const mapa = hayCoords ? `https://maps.google.com/?q=${n.lat},${n.lng}` : '';
   const euros = v => num(v) ? `${fmtMoney(num(v))} por valla y año` : '';
-  const docs = documentos.filter(d => d.negId === n.id || (t && d.trabajoId === t.id));
+  const docs = documentos.filter(d => (d.negId === n.id && !d.formal) || (t && d.trabajoId === t.id));
   const fotos = (n.fotos || []).filter(Boolean);
   return {
     fichero: `Dossier_${safe(n.propietario) || 'emplazamiento'}_${hoy}.pdf`,
@@ -92,6 +92,7 @@ function dossierDoc(n, t) {
         ['Tiempo de visión', n.tiempoVision ? `${String(n.tiempoVision).replace('.', ',')} s` : ''],
         ['Distancia desde la que se ve', n.distancia ? `${n.distancia} m` : ''],
       ] },
+      { titulo: 'Documentación para el contrato', filas: typeof formalFilas === 'function' ? formalFilas(n) : [] },
       ...(t ? [{ titulo: 'Trabajo de montaje', filas: [
         ['Trabajo', `nº ${t.num} · ${(t.tipos || []).join(' + ')}`],
         ['Estado', t.estado || ''],
@@ -105,6 +106,9 @@ function dossierDoc(n, t) {
       { titulo: 'Documentos', filas: docs.map(d => [d.tipo === 'Anexo' ? 'Anexo' : d.tipo || 'Documento', `${d.titulo || d.fichero} (${fmtDate((d.fecha || '').slice(0, 10))})`]) },
       { titulo: 'Notas de la negociación', filas: [['Notas', n.notas || '']] },
     ],
+    tituloFotos: 'Documentación del propietario',
+    fotosProporcion: 1.35,   // páginas de PDF (DNI, catastro, IBI…) en vertical
+    fotos: typeof formalFotos === 'function' ? formalFotos(n) : [],
     tituloVallas: 'Fotos del emplazamiento',
     vallas: fotos.length ? fotos.slice(0, 6).map((f, i) => ({
       codigo: i ? `Foto ${i + 1}` : 'Emplazamiento', direccion: i ? '' : n.direccion || '',

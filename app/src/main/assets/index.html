@@ -623,10 +623,11 @@
 
     <div class="card">
       <h2>Estado de la negociación</h2>
-      <div class="chips" data-nf="estado">
+      <div class="chips" data-nf="estado" data-sin-desplegable>
         <button type="button" class="chip" data-value="Contacto inicial">Contacto inicial</button>
         <button type="button" class="chip" data-value="En negociación">En negociación</button>
         <button type="button" class="chip" data-value="Oferta enviada">Oferta enviada</button>
+        <button type="button" class="chip" data-value="Formalización contrato">✍ Formalización contrato</button>
         <button type="button" class="chip" data-value="Ganada">🏆 Ganada</button>
         <button type="button" class="chip" data-value="Perdida">Perdida</button>
       </div>
@@ -652,6 +653,18 @@
         <button type="button" class="btn wa" data-oferta="wa">Enviar por WhatsApp</button>
       </div>
       <p class="hint" id="nf-ofertas"></p>
+    </div>
+
+    <div class="card" id="nf-formal" hidden>
+      <h2>Formalización del contrato</h2>
+      <p class="hint">Datos y documentos del titular para firmar el contrato. De cada tipo se pueden añadir varios (por ejemplo, una ficha de catastro y un recibo del IBI por cada parcela).</p>
+      <div class="grid">
+        <label>NIF / DNI del titular<input type="text" name="nifTitular" autocapitalize="characters" autocomplete="off"></label>
+        <label>Cuenta bancaria (IBAN)<input type="text" name="iban" autocapitalize="characters" autocomplete="off" placeholder="ES00 0000 0000 0000 0000 0000"></label>
+      </div>
+      <label>Referencias catastrales (una por línea)<textarea name="refCatastral" rows="2" autocapitalize="characters"></textarea></label>
+      <div id="nf-formal-docs"></div>
+      <p id="nf-formal-estado"></p>
     </div>
 
     <div class="card">
@@ -1707,6 +1720,7 @@
 <script src="oferta.js"></script>
 <script src="firma.js"></script>
 <script src="trfiltros.js"></script>
+<script src="formalizacion.js"></script>
 <script src="dossier.js"></script>
 <script src="agenda.js"></script>
 <script src="desplegables.js"></script>
