@@ -567,3 +567,7 @@ code { background: #eef2f6; padding: 1px 4px; border-radius: 4px; font-size: 12p
 .vf-led-uso { margin-bottom: 6px; }
 .vf-ct { padding: 4px 0; border-top: 1px solid var(--border); }
 .vf-ct:first-of-type { border-top: 0; }
+
+/* ---- pedido de contrato ---- */
+.pc-mensaje { white-space: pre-wrap; background: #f3f7fb; border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; font: 14px/1.45 system-ui, sans-serif; margin: 4px 0 8px; }

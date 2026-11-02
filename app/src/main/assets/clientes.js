@@ -340,6 +340,7 @@ function openClienteForm(id, preset) {
   renderCfFotos();
   renderFichaContacto('#cli-form', '#cf-contacto');
   renderCf();
+  if (typeof pedidoCargar === 'function') pedidoCargar('#cli-form', c.pedido);   // pedido.js
   show('cliente-form');
 }
 
@@ -438,6 +439,7 @@ function readCf() {
   d.cif = d.cif.toUpperCase();
   d.correo = d.correo.toLowerCase();
   d.fotos = cfFotos.slice();
+  if (typeof pedidoGuardar === 'function') d.pedido = pedidoGuardar('#cli-form', cliEditing ? (clienteById(cliEditing) || {}).pedido : null);   // pedido.js
   return d;
 }
 
@@ -613,6 +615,14 @@ function syncClienteDesdeLead(lead) {
     periodo: periodoText(p), desde: p.desde || '', hasta: p.hasta || '', material: p.material || '',
     leadId: lead.id, fecha: lead.fecha || '',
   })));
+  // Pedido de contrato: lo escrito en la visita y, lo que falte, de su presupuesto (pedido.js)
+  if (typeof pedidoDePresupuesto === 'function' && (lead.pedido || p)) {
+    const escrito = (lead.pedido && lead.pedido.datos) || {};
+    const datos = Object.assign({ direccion: [lead.poblacion, lead.provincia].filter(Boolean).join(', ') }, pedidoDePresupuesto(p));
+    for (const [k, v] of Object.entries(escrito)) if (v) datos[k] = v;
+    c.pedido = { datos, enviado: (lead.pedido && lead.pedido.enviado) || '' };
+    if (!c.direccion && escrito.direccion) c.direccion = escrito.direccion;
+  }
   // Artículos de interés
   c.articulosInteres = (c.articulosInteres || []).filter(a => a.leadId !== lead.id).concat((p && p.lineas || []).map(l =>
     Object.assign({}, l, { leadId: lead.id, fecha: lead.fecha || '' })));

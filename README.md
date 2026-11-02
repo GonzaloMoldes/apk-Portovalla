@@ -275,6 +275,11 @@ App sencilla para registrar las visitas comerciales desde la tablet, guardar tod
   artículo vendido, fecha (hoy, esta semana, este mes, atrasados o entre dos fechas; la prevista
   o la de realizado si está hecho), cliente y firmados / sin firmar. Se combinan con el estado,
   la clase, la revisión, la persona y la búsqueda.
+- **Pedido de contrato** en Visitas y Clientes: dirección, valla contratada, periodo, inicio de
+  campaña, precio de alquiler mensual, producción de la lona, forma de pago, renovación (tácita / no
+  tácita) y observaciones. Lo que no se escribe sale del presupuesto de la visita (en gris). Muestra el
+  mensaje para la central y lo envía por WhatsApp eligiendo el grupo; apunta la fecha del envío. Al
+  pasar la visita a cliente, el pedido pasa a su ficha ya relleno.
 - **Tipo de valla** en cada valla: valla, monoposte, fachada / medianera, pantalla LED o mupi / otro
   (se deduce de la medida si no se ha elegido; filtro por tipo en el catálogo y columna TIPO en el
   Excel). Una **pantalla LED** admite varios clientes con contrato en vigor a la vez (10 anuncios

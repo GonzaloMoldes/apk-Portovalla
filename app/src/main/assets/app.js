@@ -582,6 +582,7 @@ function openForm(id) {
   if (typeof renderLeadDocs === 'function') renderLeadDocs();   // clientes.js
   syncFillChips();
   loadBudget(lead.presupuesto);
+  if (typeof pedidoCargar === 'function') pedidoCargar('#lead-form', lead.pedido);   // pedido.js
 
   $('#form-title').textContent = id ? 'Editar visita' : 'Nueva visita';
   $('#btn-delete').hidden = !id;
@@ -600,6 +601,10 @@ function readForm() {
   data.presupuesto = budgetForSave();
   const total = budgetTotal();
   if (data.presupuesto && total > 0) data.pvpTotal = String(total).replace('.', ',');
+  if (typeof pedidoGuardar === 'function') {   // pedido.js
+    const prev = editingId ? (leads.find(l => l.id === editingId) || {}).pedido : null;
+    data.pedido = pedidoGuardar('#lead-form', prev);
+  }
   return data;
 }
 
@@ -970,6 +975,7 @@ function budgetVisible() {
 }
 
 function renderBudget() {
+  if (typeof pedidoRender === 'function' && $('#lead-pc').innerHTML) setTimeout(() => pedidoRender('#lead-form'), 0);   // pedido.js
   const card = $('#presupuesto-card');
   card.hidden = !budgetVisible();
   if (card.hidden || !budget) return;

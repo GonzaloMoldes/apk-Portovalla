@@ -1124,6 +1124,36 @@ public class MainActivity extends Activity {
             launch(new Intent(Intent.ACTION_VIEW, uri), "No se pudo abrir WhatsApp");
         }
 
+        /**
+         * Comparte un texto con WhatsApp sin destinatario: WhatsApp abre su lista de chats para
+         * elegir el grupo (o contacto). Si no está WhatsApp (ni Business), el selector de apps.
+         */
+        @JavascriptInterface
+        public void shareWhatsAppText(String text) {
+            runOnUiThread(() -> {
+                for (String pkg : new String[]{"com.whatsapp", "com.whatsapp.w4b"}) {
+                    Intent i = new Intent(Intent.ACTION_SEND);
+                    i.setType("text/plain");
+                    i.putExtra(Intent.EXTRA_TEXT, text);
+                    i.setPackage(pkg);
+                    try {
+                        startActivity(i);
+                        return;
+                    } catch (ActivityNotFoundException ignored) {
+                        // probar el siguiente
+                    }
+                }
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType("text/plain");
+                i.putExtra(Intent.EXTRA_TEXT, text);
+                try {
+                    startActivity(Intent.createChooser(i, "Enviar pedido de contrato"));
+                } catch (ActivityNotFoundException e) {
+                    Toast.makeText(MainActivity.this, "No hay ninguna app para compartir el texto", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+
         @JavascriptInterface
         public void call(String phone) {
             launch(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone))),
